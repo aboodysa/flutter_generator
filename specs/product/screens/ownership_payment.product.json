@@ -1,0 +1,28 @@
+{
+  "id": "ownership_payment",
+  "name": "Ownership Payment",
+  "route": "/ownership-payment",
+  "role": "customer",
+  "purpose": "Display ownership transfer summary with owner phone, discount code, and payment method selection.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "ownerPhone", "type": "phone", "label": "رقم صاحب السيارة" },
+    { "id": "discountCode", "type": "text", "label": "كود الخصم" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Discount code must be validated before applying"
+  ],
+  "actions": [
+    { "id": "confirmPayment", "label": "تأكيد", "type": "navigation", "target": "order_details", "requiresValidForm": true },
+    { "id": "applyDiscount", "label": "تفعيل", "type": "action" }
+  ],
+  "states": ["initial", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [
+    { "action": "confirmPayment", "targetScreenId": "order_details" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Ownership payment",
+    "section": "User Mobile App | Ownership Transfer"
+  }
+}

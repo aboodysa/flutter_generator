@@ -1,0 +1,68 @@
+{
+  "app": "FAHS",
+  "appAr": "فحص",
+  "direction": "rtl",
+  "initialRoute": "/splash",
+  "screens": [
+    {
+      "screenId": "splash",
+      "name": "SplashScreen",
+      "route": "/splash",
+      "role": "customer",
+      "generatedClass": "SplashScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Splash",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/splash.product.json",
+        "ui": "specs/ui/screens/splash.ui.json"
+      }
+    },
+    {
+      "screenId": "phone_input",
+      "name": "PhoneInputScreen",
+      "route": "/auth/phone",
+      "role": "customer",
+      "generatedClass": "PhoneInputScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Phone valid state",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/phone_input.product.json",
+        "ui": "specs/ui/screens/phone_input.ui.json"
+      }
+    },
+    {
+      "screenId": "home",
+      "name": "HomeScreen",
+      "route": "/home",
+      "role": "customer",
+      "generatedClass": "HomeScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Home",
+        "section": "User Mobile App | Vehicle Inspection"
+      },
+      "specs": {
+        "product": "specs/product/screens/home.product.json",
+        "ui": "specs/ui/screens/home.ui.json"
+      }
+    },
+    {
+      "screenId": "payment",
+      "name": "PaymentScreen",
+      "route": "/payment",
+      "role": "customer",
+      "generatedClass": "PaymentScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Payment",
+        "section": "User Mobile App | Search, Listing, Payment, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/payment.product.json",
+        "ui": "specs/ui/screens/payment.ui.json"
+      }
+    }
+  ]
+}

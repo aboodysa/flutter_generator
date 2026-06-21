@@ -1,0 +1,489 @@
+{
+  "app": "FAHS",
+  "appAr": "فحص",
+  "direction": "rtl",
+  "initialRoute": "/splash",
+  "screens": [
+    {
+      "screenId": "splash",
+      "name": "SplashScreen",
+      "route": "/splash",
+      "role": "customer",
+      "generatedClass": "SplashScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Splash",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/splash.product.json",
+        "ui": "specs/ui/screens/splash.ui.json"
+      }
+    },
+    {
+      "screenId": "country_select",
+      "name": "CountrySelectScreen",
+      "route": "/country-select",
+      "role": "customer",
+      "generatedClass": "CountrySelectScreen",
+      "sourceEvidence": {
+        "htmlCaption": "اختيار الدولة ونوع الحساب",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/country_select.product.json",
+        "ui": "specs/ui/screens/country_select.ui.json"
+      }
+    },
+    {
+      "screenId": "phone_input",
+      "name": "PhoneInputScreen",
+      "route": "/auth/phone",
+      "role": "customer",
+      "generatedClass": "PhoneInputScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Phone valid state",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/phone_input.product.json",
+        "ui": "specs/ui/screens/phone_input.ui.json"
+      }
+    },
+    {
+      "screenId": "otp_verification",
+      "name": "OtpVerificationScreen",
+      "route": "/auth/otp",
+      "role": "customer",
+      "generatedClass": "OtpVerificationScreen",
+      "sourceEvidence": {
+        "htmlCaption": "OTP verification",
+        "section": "User Mobile App | Auth + Home"
+      },
+      "specs": {
+        "product": "specs/product/screens/otp_verification.product.json",
+        "ui": "specs/ui/screens/otp_verification.ui.json"
+      }
+    },
+    {
+      "screenId": "home",
+      "name": "HomeScreen",
+      "route": "/home",
+      "role": "customer",
+      "generatedClass": "HomeScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Home",
+        "section": "User Mobile App | Vehicle Inspection"
+      },
+      "specs": {
+        "product": "specs/product/screens/home.product.json",
+        "ui": "specs/ui/screens/home.ui.json"
+      }
+    },
+    {
+      "screenId": "inspection",
+      "name": "InspectionScreen",
+      "route": "/inspection",
+      "role": "customer",
+      "generatedClass": "InspectionScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Inspection step 1 empty",
+        "section": "User Mobile App | Vehicle Inspection"
+      },
+      "specs": {
+        "product": "specs/product/screens/inspection.product.json",
+        "ui": "specs/ui/screens/inspection.ui.json"
+      }
+    },
+    {
+      "screenId": "inspection_saved",
+      "name": "InspectionSavedScreen",
+      "route": "/inspection-saved",
+      "role": "customer",
+      "generatedClass": "InspectionSavedScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Inspection with saved vehicle",
+        "section": "User Mobile App | Vehicle Inspection"
+      },
+      "specs": {
+        "product": "specs/product/screens/inspection_saved.product.json",
+        "ui": "specs/ui/screens/inspection_saved.ui.json"
+      }
+    },
+    {
+      "screenId": "service_centers",
+      "name": "ServiceCentersScreen",
+      "route": "/service-centers",
+      "role": "customer",
+      "generatedClass": "ServiceCentersScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Service centers",
+        "section": "User Mobile App | Vehicle Inspection"
+      },
+      "specs": {
+        "product": "specs/product/screens/service_centers.product.json",
+        "ui": "specs/ui/screens/service_centers.ui.json"
+      }
+    },
+    {
+      "screenId": "brand_search",
+      "name": "BrandSearchScreen",
+      "route": "/brand-search",
+      "role": "customer",
+      "generatedClass": "BrandSearchScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Brand search accordion",
+        "section": "User Mobile App | Search, Listing, Payment, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/brand_search.product.json",
+        "ui": "specs/ui/screens/brand_search.ui.json"
+      }
+    },
+    {
+      "screenId": "inspected_vehicles",
+      "name": "InspectedVehiclesScreen",
+      "route": "/inspected-vehicles",
+      "role": "customer",
+      "generatedClass": "InspectedVehiclesScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Inspected vehicles listing",
+        "section": "User Mobile App | Search, Listing, Payment, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/inspected_vehicles.product.json",
+        "ui": "specs/ui/screens/inspected_vehicles.ui.json"
+      }
+    },
+    {
+      "screenId": "vehicle_detail",
+      "name": "VehicleDetailScreen",
+      "route": "/vehicle-detail",
+      "role": "customer",
+      "generatedClass": "VehicleDetailScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Vehicle detail + contact sheet",
+        "section": "User Mobile App | Search, Listing, Payment, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/vehicle_detail.product.json",
+        "ui": "specs/ui/screens/vehicle_detail.ui.json"
+      }
+    },
+    {
+      "screenId": "payment",
+      "name": "PaymentScreen",
+      "route": "/payment",
+      "role": "customer",
+      "generatedClass": "PaymentScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Payment",
+        "section": "User Mobile App | Search, Listing, Payment, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/payment.product.json",
+        "ui": "specs/ui/screens/payment.ui.json"
+      }
+    },
+    {
+      "screenId": "order_details",
+      "name": "OrderDetailsScreen",
+      "route": "/order-details",
+      "role": "customer",
+      "generatedClass": "OrderDetailsScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Order submitted/details",
+        "section": "User Mobile App | Order, Tracking, Photos, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/order_details.product.json",
+        "ui": "specs/ui/screens/order_details.ui.json"
+      }
+    },
+    {
+      "screenId": "track_inspection",
+      "name": "TrackInspectionScreen",
+      "route": "/track-inspection",
+      "role": "customer",
+      "generatedClass": "TrackInspectionScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Track inspection",
+        "section": "User Mobile App | Order, Tracking, Photos, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/track_inspection.product.json",
+        "ui": "specs/ui/screens/track_inspection.ui.json"
+      }
+    },
+    {
+      "screenId": "vehicle_photos",
+      "name": "VehiclePhotosScreen",
+      "route": "/vehicle-photos",
+      "role": "customer",
+      "generatedClass": "VehiclePhotosScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Vehicle photos grid",
+        "section": "User Mobile App | Order, Tracking, Photos, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/vehicle_photos.product.json",
+        "ui": "specs/ui/screens/vehicle_photos.ui.json"
+      }
+    },
+    {
+      "screenId": "final_report",
+      "name": "FinalReportScreen",
+      "route": "/final-report",
+      "role": "customer",
+      "generatedClass": "FinalReportScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Final report",
+        "section": "User Mobile App | Order, Tracking, Photos, Report"
+      },
+      "specs": {
+        "product": "specs/product/screens/final_report.product.json",
+        "ui": "specs/ui/screens/final_report.ui.json"
+      }
+    },
+    {
+      "screenId": "ownership_transfer",
+      "name": "OwnershipTransferScreen",
+      "route": "/ownership-transfer",
+      "role": "customer",
+      "generatedClass": "OwnershipTransferScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Ownership transfer step 1",
+        "section": "User Mobile App | Ownership Transfer + Wallet + Profile"
+      },
+      "specs": {
+        "product": "specs/product/screens/ownership_transfer.product.json",
+        "ui": "specs/ui/screens/ownership_transfer.ui.json"
+      }
+    },
+    {
+      "screenId": "select_dealer",
+      "name": "SelectDealerScreen",
+      "route": "/select-dealer",
+      "role": "customer",
+      "generatedClass": "SelectDealerScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Select dealer",
+        "section": "User Mobile App | Ownership Transfer + Wallet + Profile"
+      },
+      "specs": {
+        "product": "specs/product/screens/select_dealer.product.json",
+        "ui": "specs/ui/screens/select_dealer.ui.json"
+      }
+    },
+    {
+      "screenId": "ownership_payment",
+      "name": "OwnershipPaymentScreen",
+      "route": "/ownership-payment",
+      "role": "customer",
+      "generatedClass": "OwnershipPaymentScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Ownership payment",
+        "section": "User Mobile App | Ownership Transfer + Wallet + Profile"
+      },
+      "specs": {
+        "product": "specs/product/screens/ownership_payment.product.json",
+        "ui": "specs/ui/screens/ownership_payment.ui.json"
+      }
+    },
+    {
+      "screenId": "my_fahs",
+      "name": "MyFahsScreen",
+      "route": "/my-fahs",
+      "role": "customer",
+      "generatedClass": "MyFahsScreen",
+      "sourceEvidence": {
+        "htmlCaption": "My FAHS dashboard",
+        "section": "User Mobile App | Ownership Transfer + Wallet + Profile"
+      },
+      "specs": {
+        "product": "specs/product/screens/my_fahs.product.json",
+        "ui": "specs/ui/screens/my_fahs.ui.json"
+      }
+    },
+    {
+      "screenId": "my_orders",
+      "name": "MyOrdersScreen",
+      "route": "/my-orders",
+      "role": "customer",
+      "generatedClass": "MyOrdersScreen",
+      "sourceEvidence": {
+        "htmlCaption": "My orders",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/my_orders.product.json",
+        "ui": "specs/ui/screens/my_orders.ui.json"
+      }
+    },
+    {
+      "screenId": "wallet",
+      "name": "WalletScreen",
+      "route": "/wallet",
+      "role": "customer",
+      "generatedClass": "WalletScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Wallet",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/wallet.product.json",
+        "ui": "specs/ui/screens/wallet.ui.json"
+      }
+    },
+    {
+      "screenId": "add_balance",
+      "name": "AddBalanceScreen",
+      "route": "/add-balance",
+      "role": "customer",
+      "generatedClass": "AddBalanceScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Add balance",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/add_balance.product.json",
+        "ui": "specs/ui/screens/add_balance.ui.json"
+      }
+    },
+    {
+      "screenId": "withdraw_balance",
+      "name": "WithdrawBalanceScreen",
+      "route": "/withdraw-balance",
+      "role": "customer",
+      "generatedClass": "WithdrawBalanceScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Withdraw balance",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/withdraw_balance.product.json",
+        "ui": "specs/ui/screens/withdraw_balance.ui.json"
+      }
+    },
+    {
+      "screenId": "my_vehicles",
+      "name": "MyVehiclesScreen",
+      "route": "/my-vehicles",
+      "role": "customer",
+      "generatedClass": "MyVehiclesScreen",
+      "sourceEvidence": {
+        "htmlCaption": "My vehicles",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/my_vehicles.product.json",
+        "ui": "specs/ui/screens/my_vehicles.ui.json"
+      }
+    },
+    {
+      "screenId": "add_vehicle",
+      "name": "AddVehicleScreen",
+      "route": "/add-vehicle",
+      "role": "customer",
+      "generatedClass": "AddVehicleScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Add/Edit vehicle",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/add_vehicle.product.json",
+        "ui": "specs/ui/screens/add_vehicle.ui.json"
+      }
+    },
+    {
+      "screenId": "my_ads",
+      "name": "MyAdsScreen",
+      "route": "/my-ads",
+      "role": "customer",
+      "generatedClass": "MyAdsScreen",
+      "sourceEvidence": {
+        "htmlCaption": "My ads",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/my_ads.product.json",
+        "ui": "specs/ui/screens/my_ads.ui.json"
+      }
+    },
+    {
+      "screenId": "edit_ad",
+      "name": "EditAdScreen",
+      "route": "/edit-ad",
+      "role": "customer",
+      "generatedClass": "EditAdScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Create/Edit ad",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/edit_ad.product.json",
+        "ui": "specs/ui/screens/edit_ad.ui.json"
+      }
+    },
+    {
+      "screenId": "profile",
+      "name": "ProfileScreen",
+      "route": "/profile",
+      "role": "customer",
+      "generatedClass": "ProfileScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Profile",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/profile.product.json",
+        "ui": "specs/ui/screens/profile.ui.json"
+      }
+    },
+    {
+      "screenId": "personal_data",
+      "name": "PersonalDataScreen",
+      "route": "/personal-data",
+      "role": "customer",
+      "generatedClass": "PersonalDataScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Personal data",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/personal_data.product.json",
+        "ui": "specs/ui/screens/personal_data.ui.json"
+      }
+    },
+    {
+      "screenId": "support",
+      "name": "SupportScreen",
+      "route": "/support",
+      "role": "customer",
+      "generatedClass": "SupportScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Support + FAQ",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/support.product.json",
+        "ui": "specs/ui/screens/support.ui.json"
+      }
+    },
+    {
+      "screenId": "language_sheet",
+      "name": "LanguageSheetScreen",
+      "route": "/language-sheet",
+      "role": "customer",
+      "inferenceLevel": "visual-only",
+      "generatedClass": "LanguageSheetScreen",
+      "sourceEvidence": {
+        "htmlCaption": "Language bottom sheet",
+        "section": "User Mobile App | Vehicles, Ads, Profile, Support"
+      },
+      "specs": {
+        "product": "specs/product/screens/language_sheet.product.json",
+        "ui": "specs/ui/screens/language_sheet.ui.json"
+      }
+    }
+  ]
+}

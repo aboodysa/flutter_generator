@@ -1,0 +1,24 @@
+{
+  "id": "splash",
+  "name": "Splash",
+  "route": "/splash",
+  "role": "customer",
+  "purpose": "Display splash screen with logo and car icon before navigating to phone input.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Auto-navigate to phone input after splash delay"
+  ],
+  "actions": [
+    { "id": "navigateToPhoneInput", "label": "", "type": "navigation", "target": "phone_input" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "navigateToPhoneInput", "targetScreenId": "phone_input" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Splash",
+    "section": "User Mobile App | Auth + Home"
+  }
+}

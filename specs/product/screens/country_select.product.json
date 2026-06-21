@@ -1,0 +1,26 @@
+{
+  "id": "country_select",
+  "name": "Country Select",
+  "route": "/country-select",
+  "role": "customer",
+  "purpose": "Allow customer to select their country from a dropdown list before phone authentication.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [
+    { "id": "selectedCountry", "type": "text", "destination": "phone_input" }
+  ],
+  "businessRules": [],
+  "actions": [
+    { "id": "registerCustomer", "label": "تسجيل عملاء التطبيق", "type": "navigation", "target": "phone_input" },
+    { "id": "registerProvider", "label": "تسجيل مقدمي الخدمات", "type": "navigation", "target": "phone_input" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "registerCustomer", "targetScreenId": "phone_input" },
+    { "action": "registerProvider", "targetScreenId": "phone_input" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Country select",
+    "section": "User Mobile App | Auth + Home"
+  }
+}

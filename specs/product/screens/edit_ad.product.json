@@ -1,0 +1,27 @@
+{
+  "id": "edit_ad",
+  "name": "Edit Ad",
+  "route": "/edit-ad",
+  "role": "customer",
+  "purpose": "Allow customer to edit their vehicle ad including car image, price, description, and publish toggle.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "price", "type": "amount", "label": "السعر" },
+    { "id": "description", "type": "text", "label": "الوصف" },
+    { "id": "isPublished", "type": "boolean", "label": "منشور" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Price must be a valid positive number",
+    "Changing publish status affects ad visibility"
+  ],
+  "actions": [
+    { "id": "saveAd", "label": "حفظ", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "editing", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Edit ad",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

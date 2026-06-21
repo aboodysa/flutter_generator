@@ -1,0 +1,26 @@
+{
+  "id": "select_dealer",
+  "name": "Select Dealer",
+  "route": "/select-dealer",
+  "role": "customer",
+  "purpose": "Display a list of available dealers for the customer to select for ownership transfer.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [
+    { "id": "selectedDealer", "type": "object", "destination": "ownership_payment" }
+  ],
+  "businessRules": [
+    "Customer must select a dealer to proceed with ownership transfer"
+  ],
+  "actions": [
+    { "id": "selectDealer", "label": "اختيار التاجر", "type": "navigation", "target": "ownership_payment" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "selectDealer", "targetScreenId": "ownership_payment" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Select dealer",
+    "section": "User Mobile App | Ownership Transfer"
+  }
+}

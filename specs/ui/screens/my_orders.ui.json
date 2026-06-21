@@ -1,0 +1,47 @@
+{
+  "screenId": "my_orders",
+  "usesProductSpec": "specs/product/screens/my_orders.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "طلباتي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.segmentedControl",
+            "props": {
+              "tabs": [
+                { "id": "current", "label": "الحالية", "action": "filterCurrent" },
+                { "id": "completed", "label": "السابقة", "action": "filterCompleted" },
+                { "id": "cancelled", "label": "ملغية", "action": "filterCancelled" }
+              ]
+            }
+          },
+          {
+            "type": "component.orderCard",
+            "bindsTo": "orders",
+            "repeat": true,
+            "action": "viewOrderDetail",
+            "props": {
+              "title": "فحص شامل - تويوتا كورولا",
+              "date": "١٥ يونيو ٢٠٢٦",
+              "status": "جاري",
+              "price": "٥٠ ريال"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

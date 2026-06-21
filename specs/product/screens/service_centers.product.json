@@ -1,0 +1,27 @@
+{
+  "id": "service_centers",
+  "name": "Service Centers",
+  "route": "/service-centers",
+  "role": "customer",
+  "purpose": "Display list of available service centers for the customer to choose from for their inspection.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [
+    { "id": "selectedCenter", "type": "object", "destination": "payment" }
+  ],
+  "businessRules": [
+    "Only centers with available slots are shown",
+    "Center selection is required before proceeding to payment"
+  ],
+  "actions": [
+    { "id": "selectCenter", "label": "اختيار", "type": "navigation", "target": "payment" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "selectCenter", "targetScreenId": "payment" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Service centers",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

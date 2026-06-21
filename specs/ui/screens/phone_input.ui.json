@@ -1,0 +1,54 @@
+{
+  "screenId": "phone_input",
+  "usesProductSpec": "specs/product/screens/phone_input.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": false,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "lg",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.appHeader",
+            "props": {
+              "variant": "title-only",
+              "title": "رقم الهاتف"
+            }
+          },
+          {
+            "type": "component.appHeader",
+            "props": {
+              "variant": "subtitle",
+              "title": "سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد"
+            }
+          },
+          {
+            "type": "field.phone",
+            "bindsTo": "phoneNumber",
+            "props": {
+              "countryCode": "+966",
+              "countryFlag": "🇸🇦",
+              "placeholder": "051234321"
+            }
+          },
+          {
+            "type": "action.primary",
+            "action": "continue",
+            "props": {
+              "label": "متابعة"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

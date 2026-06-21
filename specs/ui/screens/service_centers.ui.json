@@ -1,0 +1,38 @@
+{
+  "screenId": "service_centers",
+  "usesProductSpec": "specs/product/screens/service_centers.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "مراكز الخدمة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.serviceCard",
+            "bindsTo": "centers",
+            "repeat": true,
+            "action": "selectCenter",
+            "props": {
+              "title": "مركز الفاحص بالقادسية",
+              "subtitle": "الرياض - حي القادسية",
+              "price": "٥٠ ريال",
+              "distance": "٢٫٣ كم",
+              "rating": "٤٫٨"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

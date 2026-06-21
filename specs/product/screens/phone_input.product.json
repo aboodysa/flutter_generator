@@ -1,0 +1,31 @@
+{
+  "id": "phone_input",
+  "name": "Phone Input",
+  "route": "/auth/phone",
+  "role": "customer",
+  "purpose": "Allow customer to enter their phone number for authentication via OTP.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "phoneNumber", "type": "phone", "label": "رقم الهاتف" }
+  ],
+  "outputs": [
+    { "id": "phoneNumber", "type": "phone", "destination": "otpVerification" }
+  ],
+  "businessRules": [
+    "Phone number must be a valid Saudi mobile number",
+    "OTP is sent to the provided phone number"
+  ],
+  "actions": [
+    { "id": "continue", "label": "متابعة", "type": "navigation", "target": "otp_verification", "requiresValidForm": true },
+    { "id": "selectCountry", "label": "اختر الدولة", "type": "navigation", "target": "country_select" }
+  ],
+  "states": ["initial", "valid", "invalid", "loading", "error"],
+  "navigation": [
+    { "action": "continue", "targetScreenId": "otp_verification" },
+    { "action": "selectCountry", "targetScreenId": "country_select" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Phone valid state",
+    "section": "User Mobile App | Auth + Home"
+  }
+}

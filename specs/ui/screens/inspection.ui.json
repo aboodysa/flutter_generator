@@ -1,0 +1,84 @@
+{
+  "screenId": "inspection",
+  "usesProductSpec": "specs/product/screens/inspection.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "فحص المركبة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.chipGroup",
+            "bindsTo": "vehicleType",
+            "props": {
+              "label": "نوع المركبة",
+              "chips": [
+                { "id": "sedan", "label": "سيارة" },
+                { "id": "motorcycle", "label": "دراجة نارية" },
+                { "id": "truck", "label": "شاحنة" },
+                { "id": "heavy", "label": "معدات ثقيلة" }
+              ]
+            }
+          },
+          {
+            "type": "component.chipGroup",
+            "bindsTo": "inspectionType",
+            "props": {
+              "label": "نوع الفحص",
+              "chips": [
+                { "id": "comprehensive", "label": "فحص شامل" },
+                { "id": "basic", "label": "فحص أساسي" }
+              ]
+            }
+          },
+          {
+            "type": "layout.grid",
+            "columns": 2,
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleBrand",
+                "props": {
+                  "label": "الماركة"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleModel",
+                "props": {
+                  "label": "الموديل"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleYear",
+                "props": {
+                  "label": "السنة"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "next",
+        "props": {
+          "buttonLabel": "التالي"
+        }
+      }
+    }
+  }
+}

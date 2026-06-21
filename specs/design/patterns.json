@@ -1,0 +1,21 @@
+{
+  "patterns": {
+    "page": {
+      "description": "Standard page layout: header + scrollable body + optional fixed footer",
+      "regions": ["header", "body", "footer"],
+      "rtl": true
+    },
+    "authFlow": {
+      "description": "Authentication flow screens (country select → phone → OTP)",
+      "screens": ["country_select", "phone_input", "otp_verification"]
+    },
+    "orderFlow": {
+      "description": "Order placement flow (inspection/ownership → payment → confirmation)",
+      "screens": ["inspection", "service_centers", "payment", "order_details"]
+    },
+    "bottomNavShell": {
+      "description": "Screen with bottom navigation bar (home, my fahs, chat, profile)",
+      "screens": ["home", "my_fahs", "profile", "support"]
+    }
+  }
+}

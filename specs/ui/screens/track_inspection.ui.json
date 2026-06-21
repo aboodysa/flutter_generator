@@ -1,0 +1,44 @@
+{
+  "screenId": "track_inspection",
+  "usesProductSpec": "specs/product/screens/track_inspection.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "تتبع الفحص",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.timeline",
+            "props": {
+              "steps": [
+                { "id": "received", "label": "تم استلام الطلب", "completed": true },
+                { "id": "inProgress", "label": "جاري الفحص", "completed": true },
+                { "id": "photos", "label": "رفع الصور", "completed": false },
+                { "id": "report", "label": "التقرير النهائي", "completed": false }
+              ]
+            }
+          },
+          {
+            "type": "component.photoGrid",
+            "bindsTo": "photos",
+            "action": "viewPhotos",
+            "props": {
+              "label": "صور الفحص"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "final_report",
+  "name": "Final Report",
+  "route": "/final-report",
+  "role": "customer",
+  "purpose": "Display a PDF preview of the final inspection report with options to view or download.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Report is available in PDF format only",
+    "Download saves the report to device storage"
+  ],
+  "actions": [
+    { "id": "viewReport", "label": "مشاهدة", "type": "action" },
+    { "id": "downloadReport", "label": "تحميل", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Final report",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

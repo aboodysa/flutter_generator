@@ -1,0 +1,22 @@
+{
+  "id": "language_sheet",
+  "name": "Language Sheet",
+  "route": "/language-sheet",
+  "role": "customer",
+  "purpose": "Display a bottom sheet for language selection (English/Arabic) with radio options and a save button.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "selectedLanguage", "type": "text", "label": "اللغة" }
+  ],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "saveLanguage", "label": "حفظ", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "selected"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Language sheet",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

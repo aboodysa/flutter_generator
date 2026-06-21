@@ -1,0 +1,26 @@
+{
+  "id": "personal_data",
+  "name": "Personal Data",
+  "route": "/personal-data",
+  "role": "customer",
+  "purpose": "Allow customer to view and edit their personal information including name, phone, and email.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "fullName", "type": "text", "label": "الاسم الكامل" },
+    { "id": "phoneNumber", "type": "phone", "label": "رقم الهاتف" },
+    { "id": "email", "type": "text", "label": "البريد الإلكتروني" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Phone number cannot be changed without OTP verification"
+  ],
+  "actions": [
+    { "id": "saveData", "label": "حفظ", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "editing", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Personal data",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

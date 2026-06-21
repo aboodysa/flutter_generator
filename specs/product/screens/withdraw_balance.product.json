@@ -1,0 +1,29 @@
+{
+  "id": "withdraw_balance",
+  "name": "Withdraw Balance",
+  "route": "/withdraw-balance",
+  "role": "customer",
+  "purpose": "Allow customer to withdraw wallet balance by entering bank account details and amount.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "bankName", "type": "text", "label": "اسم البنك" },
+    { "id": "accountNumber", "type": "text", "label": "رقم الحساب" },
+    { "id": "iban", "type": "text", "label": "رقم الآيبان" },
+    { "id": "accountHolder", "type": "text", "label": "اسم صاحب الحساب" },
+    { "id": "amount", "type": "amount", "label": "المبلغ" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Cannot withdraw more than current wallet balance",
+    "Minimum withdrawal amount is 20 SAR"
+  ],
+  "actions": [
+    { "id": "withdraw", "label": "سحب", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Withdraw balance",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

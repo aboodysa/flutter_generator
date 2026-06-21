@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Flutter Binding Schema",
+  "type": "object",
+  "required": ["target", "componentMap"],
+  "properties": {
+    "target": { "type": "string", "enum": ["flutter"] },
+    "componentMap": { "type": "object" },
+    "styleMap": { "type": "object" }
+  },
+  "additionalProperties": false
+}

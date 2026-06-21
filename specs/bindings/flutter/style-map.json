@@ -1,0 +1,64 @@
+{
+  "target": "flutter",
+  "styleMap": {
+    "colors": {
+      "brand.primary": "AppColors.primary",
+      "brand.primaryDark": "AppColors.primaryDark",
+      "brand.lavender": "AppColors.lavender",
+      "brand.lavenderLight": "AppColors.lavenderLight",
+      "brand.peach": "AppColors.peach",
+      "surface.background": "AppColors.background",
+      "surface.cultured": "AppColors.cultured",
+      "surface.default": "AppColors.surface",
+      "surface.line": "AppColors.line",
+      "text.primary": "AppColors.textPrimary",
+      "text.muted": "AppColors.textMuted",
+      "text.placeholder": "AppColors.textPlaceholder",
+      "text.onPrimary": "AppColors.textOnPrimary",
+      "status.success": "AppColors.success",
+      "status.error": "AppColors.error",
+      "status.warning": "AppColors.warning",
+      "status.warningText": "AppColors.warningText",
+      "status.info": "AppColors.info",
+      "status.infoText": "AppColors.infoText",
+      "status.successBg": "AppColors.successBg",
+      "status.successText": "AppColors.successText",
+      "status.errorBg": "AppColors.errorBg",
+      "status.neutral": "AppColors.neutral",
+      "extras.blue": "AppColors.blue",
+      "extras.teal": "AppColors.teal",
+      "extras.orange": "AppColors.orange",
+      "extras.whatsapp": "AppColors.whatsapp",
+      "extras.stcPay": "AppColors.stcPay"
+    },
+    "radius": {
+      "radius.xs": "AppRadius.xs",
+      "radius.sm": "AppRadius.sm",
+      "radius.md": "AppRadius.md",
+      "radius.lg": "AppRadius.lg",
+      "radius.xl": "AppRadius.xl",
+      "radius.full": "AppRadius.full"
+    },
+    "spacing": {
+      "spacing.xs": "AppSpacing.xs",
+      "spacing.sm": "AppSpacing.sm",
+      "spacing.md": "AppSpacing.md",
+      "spacing.lg": "AppSpacing.lg",
+      "spacing.xl": "AppSpacing.xl",
+      "spacing.xxl": "AppSpacing.xxl",
+      "spacing.section": "AppSpacing.section"
+    },
+    "typography": {
+      "fontFamily": "AppTextStyles.fontFamily",
+      "weights": {
+        "regular": "FontWeight.w400",
+        "medium": "FontWeight.w500",
+        "bold": "FontWeight.w700",
+        "extraBold": "FontWeight.w800"
+      }
+    },
+    "surfaces": {
+      "bottomNav.height": "56.0"
+    }
+  }
+}

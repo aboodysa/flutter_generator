@@ -1,0 +1,71 @@
+{
+  "screenId": "order_details",
+  "usesProductSpec": "specs/product/screens/order_details.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "تفاصيل الطلب",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "success",
+            "props": {
+              "icon": "check",
+              "title": "تم تأكيد الطلب بنجاح",
+              "subtitle": "تم إرسال طلب الفحص إلى مركز الخدمة"
+            }
+          },
+          {
+            "type": "component.card",
+            "variant": "info",
+            "props": {
+              "title": "رقم الطلب: #٢٠٢٤٠٦١٥",
+              "subtitle": "فحص شامل - تويوتا كورولا ٢٠٢٤"
+            }
+          },
+          {
+            "type": "component.card",
+            "variant": "default",
+            "props": {
+              "title": "مركز الفاحص بالقادسية",
+              "subtitle": "الرياض - حي القادسية",
+              "price": "٥٠ ريال"
+            }
+          },
+          {
+            "type": "layout.horizontal",
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "action.primary",
+                "action": "trackInspection",
+                "props": {
+                  "label": "تتبع الفحص"
+                }
+              },
+              {
+                "type": "action.secondary",
+                "action": "cancelOrder",
+                "props": {
+                  "label": "إلغاء الطلب"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

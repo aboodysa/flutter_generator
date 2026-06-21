@@ -1,0 +1,62 @@
+{
+  "screenId": "country_select",
+  "usesProductSpec": "specs/product/screens/country_select.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "اختر الدولة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "field.select",
+            "bindsTo": "selectedCountry",
+            "props": {
+              "label": "اختر الدولة",
+              "placeholder": "المملكة العربية السعودية",
+              "options": [
+                { "value": "SA", "label": "المملكة العربية السعودية", "code": "+966" },
+                { "value": "AE", "label": "الإمارات العربية المتحدة", "code": "+971" },
+                { "value": "KW", "label": "الكويت", "code": "+965" },
+                { "value": "BH", "label": "البحرين", "code": "+973" },
+                { "value": "QA", "label": "قطر", "code": "+974" },
+                { "value": "OM", "label": "عمان", "code": "+968" }
+              ]
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "layout.vertical",
+        "spacing": "sm",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "action.primary",
+            "action": "registerCustomer",
+            "props": {
+              "label": "تسجيل عملاء التطبيق"
+            }
+          },
+          {
+            "type": "action.secondary",
+            "action": "registerProvider",
+            "props": {
+              "label": "تسجيل مقدمي الخدمات"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

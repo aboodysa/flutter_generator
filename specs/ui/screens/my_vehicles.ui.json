@@ -1,0 +1,45 @@
+{
+  "screenId": "my_vehicles",
+  "usesProductSpec": "specs/product/screens/my_vehicles.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "مركباتي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.vehicleCard",
+            "bindsTo": "vehicles",
+            "repeat": true,
+            "props": {
+              "title": "تويوتا كورولا ٢٠٢٤",
+              "plate": "ABC 1234",
+              "actions": [
+                { "label": "تعديل", "action": "editVehicle", "variant": "ghost" },
+                { "label": "حذف", "action": "deleteVehicle", "variant": "ghost" }
+              ]
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "addVehicle",
+        "props": {
+          "buttonLabel": "إضافة مركبة"
+        }
+      }
+    }
+  }
+}

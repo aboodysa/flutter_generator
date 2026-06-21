@@ -1,0 +1,84 @@
+{
+  "screenId": "profile",
+  "usesProductSpec": "specs/product/screens/profile.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "الملف الشخصي"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "user",
+            "props": {
+              "name": "أحمد محمد",
+              "phone": "+966 59 877 7733",
+              "avatar": "avatar.jpg"
+            }
+          },
+          {
+            "type": "component.profileMenu",
+            "props": {
+              "title": "الحساب",
+              "items": [
+                { "label": "البيانات الشخصية", "icon": "person", "action": "navigateToPersonalData" },
+                { "label": "طلباتي", "icon": "orders", "action": "navigateToMyOrders" },
+                { "label": "مركباتي", "icon": "car", "action": "navigateToMyVehicles" },
+                { "label": "المحفظة", "icon": "wallet", "action": "navigateToWallet" },
+                { "label": "إعلاناتي", "icon": "ads", "action": "navigateToMyAds" }
+              ]
+            }
+          },
+          {
+            "type": "component.profileMenu",
+            "props": {
+              "title": "الأمان",
+              "items": [
+                { "label": "تغيير كلمة المرور", "icon": "lock", "action": "" }
+              ]
+            }
+          },
+          {
+            "type": "component.profileMenu",
+            "props": {
+              "title": "الإعدادات",
+              "items": [
+                { "label": "اللغة", "icon": "language", "action": "showLanguageSheet" },
+                { "label": "الدعم", "icon": "support", "action": "navigateToSupport" }
+              ]
+            }
+          },
+          {
+            "type": "action.ghost",
+            "action": "logout",
+            "props": {
+              "label": "تسجيل خروج"
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.bottomNav",
+        "props": {
+          "activeIndex": 3,
+          "items": [
+            { "label": "الرئيسية", "icon": "home", "route": "/home" },
+            { "label": "My FAHS", "icon": "settings", "route": "/my-fahs" },
+            { "label": "الشات", "icon": "chat", "route": "/chat" },
+            { "label": "حسابي", "icon": "profile", "route": "/profile" }
+          ]
+        }
+      }
+    }
+  }
+}

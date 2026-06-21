@@ -1,0 +1,37 @@
+{
+  "screenId": "inspected_vehicles",
+  "usesProductSpec": "specs/product/screens/inspected_vehicles.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "آخر مركبات تم فحصها",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.vehicleCard",
+            "bindsTo": "vehicles",
+            "repeat": true,
+            "action": "viewVehicleDetail",
+            "props": {
+              "title": "تويوتا كورولا ٢٠٢٤",
+              "plate": "ABC 1234",
+              "date": "١٥ يونيو ٢٠٢٦",
+              "status": "مكتمل"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

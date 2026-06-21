@@ -1,0 +1,41 @@
+{
+  "screenId": "vehicle_photos",
+  "usesProductSpec": "specs/product/screens/vehicle_photos.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "صور السيارة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.photoGrid",
+            "bindsTo": "photos",
+            "repeat": true,
+            "props": {
+              "columns": 3
+            }
+          },
+          {
+            "type": "component.banner",
+            "variant": "warning",
+            "props": {
+              "title": "تنبيه",
+              "subtitle": "سيتم حذف الفيديو بعد ٧ أيام من تاريخ الفحص"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

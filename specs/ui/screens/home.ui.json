@@ -1,0 +1,101 @@
+{
+  "screenId": "home",
+  "usesProductSpec": "specs/product/screens/home.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.logoHeader",
+        "props": {
+          "logo": "فحص FAHS",
+          "notifications": true
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "children": [
+          {
+            "type": "layout.horizontal",
+            "spacing": "sm",
+            "scroll": "horizontal",
+            "children": [
+              {
+                "type": "component.banner",
+                "variant": "peach",
+                "props": {
+                  "title": "نقل ملكية مركبة",
+                  "subtitle": "قدم طلب نقل ملكية لمركبتك الآن",
+                  "icon": "car"
+                }
+              },
+              {
+                "type": "component.banner",
+                "variant": "default",
+                "props": {
+                  "title": "حجز فحص المركبة",
+                  "subtitle": "احجز موعد الفحص الآن",
+                  "icon": "car"
+                }
+              }
+            ]
+          },
+          {
+            "type": "layout.horizontal",
+            "props": {
+              "title": "الطلبات"
+            },
+            "children": [
+              {
+                "type": "component.orderCard",
+                "bindsTo": "orders",
+                "repeat": true,
+                "props": {}
+              }
+            ]
+          },
+          {
+            "type": "layout.horizontal",
+            "props": {
+              "title": "الخدمات"
+            },
+            "children": [
+              {
+                "type": "component.card",
+                "variant": "peach",
+                "action": "startOwnershipTransfer",
+                "props": {
+                  "icon": "transfer",
+                  "label": "نقل الملكية"
+                }
+              },
+              {
+                "type": "component.card",
+                "variant": "lavender",
+                "action": "startInspection",
+                "props": {
+                  "icon": "inspection",
+                  "label": "فحص السيارة"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.bottomNav",
+        "props": {
+          "activeIndex": 0,
+          "items": [
+            { "label": "الرئيسية", "icon": "home", "route": "/home" },
+            { "label": "My FAHS", "icon": "settings", "route": "/my-fahs" },
+            { "label": "الشات", "icon": "chat", "route": "/chat" },
+            { "label": "حسابي", "icon": "profile", "route": "/profile" }
+          ]
+        }
+      }
+    }
+  }
+}

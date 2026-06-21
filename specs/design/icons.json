@@ -1,0 +1,26 @@
+{
+  "iconFamily": "unicode-system",
+  "notes": "Icons are represented as Unicode/system symbols in the HTML prototype. Flutter should use custom FAHS icon set or Material Icons.",
+  "mapping": {
+    "home": "⌂",
+    "settings": "⚙",
+    "chat": "☵",
+    "profile": "☻",
+    "back": "→",
+    "close": "×",
+    "search": "⌕",
+    "bell": "🔔",
+    "car": "🚗",
+    "star": "★",
+    "phone": "📞",
+    "whatsapp": "☘",
+    "wallet": "▭",
+    "transfer": "⇄",
+    "inspection": "🛠",
+    "photo": "🚙",
+    "download": "↓",
+    "location": "⌖",
+    "calendar": "📅",
+    "clock": "◷"
+  }
+}

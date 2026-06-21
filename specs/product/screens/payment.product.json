@@ -1,0 +1,30 @@
+{
+  "id": "payment",
+  "name": "Payment",
+  "route": "/payment",
+  "role": "customer",
+  "purpose": "Allow customer to review order summary, enter discount code, select payment method, and confirm order.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "ownerPhone", "type": "phone", "label": "رقم صاحب السيارة" },
+    { "id": "discountCode", "type": "text", "label": "كود الخصم" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Order cannot be cancelled once service has started",
+    "Discount code must be validated before applying"
+  ],
+  "actions": [
+    { "id": "confirmOrder", "label": "تأكيد الطلب", "type": "navigation", "target": "order_details", "requiresValidForm": true },
+    { "id": "applyDiscount", "label": "تفعيل", "type": "action" },
+    { "id": "selectPaymentMethod", "label": "اختيار طريقة دفع", "type": "action" }
+  ],
+  "states": ["initial", "selected", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [
+    { "action": "confirmOrder", "targetScreenId": "order_details" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Payment",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

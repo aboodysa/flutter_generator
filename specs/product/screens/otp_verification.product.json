@@ -1,0 +1,28 @@
+{
+  "id": "otp_verification",
+  "name": "OTP Verification",
+  "route": "/auth/otp",
+  "role": "customer",
+  "purpose": "Verify customer phone number using a 4-digit OTP sent via SMS.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "otpCode", "type": "otp", "label": "رمز التحقق" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "OTP expires after a defined time period",
+    "Maximum resend attempts allowed"
+  ],
+  "actions": [
+    { "id": "verifyOtp", "label": "تأكيد", "type": "navigation", "target": "home", "requiresValidForm": true },
+    { "id": "resendOtp", "label": "إعادة إرسال", "type": "action" }
+  ],
+  "states": ["initial", "validating", "valid", "invalid", "loading", "error"],
+  "navigation": [
+    { "action": "verifyOtp", "targetScreenId": "home" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Verify OTP",
+    "section": "User Mobile App | Auth + Home"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "screenId": "wallet",
+  "usesProductSpec": "specs/product/screens/wallet.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "محفظتي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.walletCard",
+            "props": {
+              "balance": "١٢٥ ريال",
+              "label": "الرصيد الحالي"
+            }
+          },
+          {
+            "type": "layout.horizontal",
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "component.card",
+                "action": "addBalance",
+                "props": {
+                  "icon": "add",
+                  "label": "إضافة رصيد"
+                }
+              },
+              {
+                "type": "component.card",
+                "action": "withdrawBalance",
+                "props": {
+                  "icon": "remove",
+                  "label": "سحب رصيد"
+                }
+              }
+            ]
+          },
+          {
+            "type": "layout.vertical",
+            "props": {
+              "title": "آخر المعاملات"
+            },
+            "children": [
+              {
+                "type": "component.card",
+                "variant": "transaction",
+                "repeat": true,
+                "bindsTo": "transactions",
+                "props": {
+                  "label": "إضافة رصيد",
+                  "amount": "+١٠٠ ريال",
+                  "date": "١٥ يونيو ٢٠٢٦",
+                  "type": "credit"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

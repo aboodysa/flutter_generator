@@ -1,0 +1,86 @@
+{
+  "screenId": "support",
+  "usesProductSpec": "specs/product/screens/support.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "الدعم",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "layout.horizontal",
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "component.card",
+                "action": "callSupport",
+                "props": {
+                  "icon": "phone",
+                  "label": "اتصال"
+                }
+              },
+              {
+                "type": "component.card",
+                "action": "emailSupport",
+                "props": {
+                  "icon": "email",
+                  "label": "إيميل"
+                }
+              },
+              {
+                "type": "component.card",
+                "action": "chatSupport",
+                "props": {
+                  "icon": "chat",
+                  "label": "محادثة"
+                }
+              }
+            ]
+          },
+          {
+            "type": "layout.list",
+            "variant": "accordion",
+            "props": {
+              "title": "الأسئلة الشائعة"
+            },
+            "children": [
+              {
+                "type": "component.card",
+                "variant": "faq",
+                "repeat": true,
+                "bindsTo": "faqs",
+                "props": {
+                  "question": "كيف يمكنني فحص مركبتي؟",
+                  "answer": "يمكنك حجز موعد فحص من خلال الصفحة الرئيسية"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.bottomNav",
+        "props": {
+          "activeIndex": 2,
+          "items": [
+            { "label": "الرئيسية", "icon": "home", "route": "/home" },
+            { "label": "My FAHS", "icon": "settings", "route": "/my-fahs" },
+            { "label": "الشات", "icon": "chat", "route": "/chat" },
+            { "label": "حسابي", "icon": "profile", "route": "/profile" }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "screenId": "select_dealer",
+  "usesProductSpec": "specs/product/screens/select_dealer.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "نقل ملكية مركبة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "bindsTo": "dealers",
+            "repeat": true,
+            "action": "selectDealer",
+            "props": {
+              "icon": "dealer",
+              "title": "معرض الخليج للسيارات",
+              "subtitle": "الرياض - حي العزيزية",
+              "rating": "٤٫٥"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

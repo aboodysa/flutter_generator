@@ -1,0 +1,28 @@
+{
+  "id": "add_vehicle",
+  "name": "Add Vehicle",
+  "route": "/add-vehicle",
+  "role": "customer",
+  "purpose": "Allow customer to add a new vehicle by entering vehicle data, plate input, and viewing plate preview.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "vehicleBrand", "type": "text", "label": "الماركة" },
+    { "id": "vehicleModel", "type": "text", "label": "الموديل" },
+    { "id": "vehicleYear", "type": "text", "label": "السنة" },
+    { "id": "plateNumber", "type": "text", "label": "رقم اللوحة" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Plate number must be a valid format",
+    "Duplicate vehicle check on save"
+  ],
+  "actions": [
+    { "id": "saveVehicle", "label": "حفظ", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "filled", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Add vehicle",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

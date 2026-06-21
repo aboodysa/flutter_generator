@@ -1,0 +1,23 @@
+{
+  "id": "my_ads",
+  "name": "My Ads",
+  "route": "/my-ads",
+  "role": "customer",
+  "purpose": "Display a list of the customer's vehicle ads with options to edit or delete.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "editAd", "label": "تعديل الإعلان", "type": "navigation", "target": "edit_ad" },
+    { "id": "deleteAd", "label": "حذف الإعلان", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "empty", "error"],
+  "navigation": [
+    { "action": "editAd", "targetScreenId": "edit_ad" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "My ads",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

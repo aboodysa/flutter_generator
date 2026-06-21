@@ -1,0 +1,26 @@
+{
+  "id": "wallet",
+  "name": "Wallet",
+  "route": "/wallet",
+  "role": "customer",
+  "purpose": "Display wallet balance, quick actions for adding or withdrawing balance, and transaction history.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Cannot withdraw more than current wallet balance"
+  ],
+  "actions": [
+    { "id": "addBalance", "label": "إضافة رصيد", "type": "navigation", "target": "add_balance" },
+    { "id": "withdrawBalance", "label": "سحب رصيد", "type": "navigation", "target": "withdraw_balance" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "addBalance", "targetScreenId": "add_balance" },
+    { "action": "withdrawBalance", "targetScreenId": "withdraw_balance" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Wallet",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "screenId": "language_sheet",
+  "usesProductSpec": "specs/product/screens/language_sheet.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": false,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "الملف الشخصي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "component.bottomSheet",
+        "props": {
+          "title": "اختر اللغة"
+        },
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "radio",
+            "bindsTo": "selectedLanguage",
+            "props": {
+              "value": "ar",
+              "label": "العربية"
+            }
+          },
+          {
+            "type": "component.card",
+            "variant": "radio",
+            "bindsTo": "selectedLanguage",
+            "props": {
+              "value": "en",
+              "label": "English"
+            }
+          },
+          {
+            "type": "action.primary",
+            "action": "saveLanguage",
+            "props": {
+              "label": "حفظ"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

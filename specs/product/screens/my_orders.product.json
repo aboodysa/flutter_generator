@@ -1,0 +1,27 @@
+{
+  "id": "my_orders",
+  "name": "My Orders",
+  "route": "/my-orders",
+  "role": "customer",
+  "purpose": "Display a list of the customer's orders with filter tabs for different statuses.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Orders are filtered by status: current, completed, cancelled"
+  ],
+  "actions": [
+    { "id": "viewOrderDetail", "label": "عرض التفاصيل", "type": "navigation", "target": "order_details" },
+    { "id": "filterCurrent", "label": "الحالية", "type": "action" },
+    { "id": "filterCompleted", "label": "السابقة", "type": "action" },
+    { "id": "filterCancelled", "label": "ملغية", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "empty", "error"],
+  "navigation": [
+    { "action": "viewOrderDetail", "targetScreenId": "order_details" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "My orders",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

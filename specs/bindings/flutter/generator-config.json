@@ -1,0 +1,11 @@
+{
+  "target": "flutter",
+  "version": "1.0.0",
+  "strictMode": true,
+  "outputDir": "lib/generated/screens",
+  "defaultImports": [
+    "package:flutter/material.dart",
+    "package:go_router/go_router.dart",
+    "package:fahs_design_system/design_system.dart"
+  ]
+}

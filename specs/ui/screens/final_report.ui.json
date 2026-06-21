@@ -1,0 +1,55 @@
+{
+  "screenId": "final_report",
+  "usesProductSpec": "specs/product/screens/final_report.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": false,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "التقرير النهائي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "pdf",
+            "props": {
+              "title": "تقرير فحص المركبة",
+              "subtitle": "تويوتا كورولا ٢٠٢٤",
+              "fileUrl": "report.pdf"
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "layout.horizontal",
+        "spacing": "sm",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "action.primary",
+            "action": "viewReport",
+            "props": {
+              "label": "مشاهدة"
+            }
+          },
+          {
+            "type": "action.secondary",
+            "action": "downloadReport",
+            "props": {
+              "label": "تحميل"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

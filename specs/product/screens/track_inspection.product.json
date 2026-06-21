@@ -1,0 +1,27 @@
+{
+  "id": "track_inspection",
+  "name": "Track Inspection",
+  "route": "/track-inspection",
+  "role": "customer",
+  "purpose": "Display a timeline showing the inspection progress and a photo section.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Timeline progresses automatically based on inspection status",
+    "Photos are added as inspection progresses"
+  ],
+  "actions": [
+    { "id": "viewPhotos", "label": "مشاهدة الصور", "type": "navigation", "target": "vehicle_photos" },
+    { "id": "viewReport", "label": "عرض التقرير", "type": "navigation", "target": "final_report" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "viewPhotos", "targetScreenId": "vehicle_photos" },
+    { "action": "viewReport", "targetScreenId": "final_report" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Track inspection",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

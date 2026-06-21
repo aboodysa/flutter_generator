@@ -1,0 +1,25 @@
+{
+  "id": "vehicle_detail",
+  "name": "Vehicle Detail",
+  "route": "/vehicle-detail",
+  "role": "customer",
+  "purpose": "Display detailed vehicle information including image, info tiles, and a contact sheet for the inspected vehicle.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Contact sheet information is provided by the inspection center"
+  ],
+  "actions": [
+    { "id": "viewReport", "label": "عرض التقرير", "type": "navigation", "target": "final_report" },
+    { "id": "shareVehicle", "label": "مشاركة", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "viewReport", "targetScreenId": "final_report" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Vehicle detail",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

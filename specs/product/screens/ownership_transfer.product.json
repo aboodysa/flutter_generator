@@ -1,0 +1,32 @@
+{
+  "id": "ownership_transfer",
+  "name": "Ownership Transfer",
+  "route": "/ownership-transfer",
+  "role": "customer",
+  "purpose": "Allow customer to initiate a vehicle ownership transfer by selecting vehicle type and entering vehicle data and plate details.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "vehicleType", "type": "text", "label": "نوع المركبة" },
+    { "id": "vehicleBrand", "type": "text", "label": "الماركة" },
+    { "id": "vehicleModel", "type": "text", "label": "الموديل" },
+    { "id": "vehicleYear", "type": "text", "label": "السنة" },
+    { "id": "plateNumber", "type": "text", "label": "رقم اللوحة" }
+  ],
+  "outputs": [
+    { "id": "transferData", "type": "object", "destination": "select_dealer" }
+  ],
+  "businessRules": [
+    "Vehicle plate must be a valid Saudi plate format"
+  ],
+  "actions": [
+    { "id": "next", "label": "التالي", "type": "navigation", "target": "select_dealer", "requiresValidForm": true }
+  ],
+  "states": ["initial", "filled", "valid", "invalid", "loading", "error"],
+  "navigation": [
+    { "action": "next", "targetScreenId": "select_dealer" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Ownership transfer",
+    "section": "User Mobile App | Ownership Transfer"
+  }
+}

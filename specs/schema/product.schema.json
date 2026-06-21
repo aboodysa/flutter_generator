@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Product Spec Schema",
+  "type": "object",
+  "required": ["id", "name", "route", "role", "purpose"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z_]+$" },
+    "name": { "type": "string" },
+    "route": { "type": "string", "pattern": "^/[a-z0-9-/]+$" },
+    "role": { "type": "string", "enum": ["customer", "provider"] },
+    "purpose": { "type": "string" },
+    "actors": { "type": "array", "items": { "type": "string" } },
+    "inputs": { "type": "array", "items": { "type": "object" } },
+    "outputs": { "type": "array", "items": { "type": "object" } },
+    "businessRules": { "type": "array", "items": { "type": "string" } },
+    "actions": { "type": "array", "items": { "type": "string" } },
+    "states": { "type": "array", "items": { "type": "string" } },
+    "navigation": { "type": "array", "items": { "type": "object" } },
+    "sourceEvidence": { "type": "object" }
+  },
+  "additionalProperties": false
+}

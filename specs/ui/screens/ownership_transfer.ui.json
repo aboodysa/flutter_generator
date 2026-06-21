@@ -1,0 +1,89 @@
+{
+  "screenId": "ownership_transfer",
+  "usesProductSpec": "specs/product/screens/ownership_transfer.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "نقل ملكية مركبة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.banner",
+            "variant": "info",
+            "props": {
+              "title": "نقل ملكية مركبة",
+              "subtitle": "قم بإدخال بيانات المركبة لنقل الملكية"
+            }
+          },
+          {
+            "type": "component.chipGroup",
+            "bindsTo": "vehicleType",
+            "props": {
+              "label": "نوع المركبة",
+              "chips": [
+                { "id": "private", "label": "خصوصي" },
+                { "id": "motorcycle", "label": "دراجة نارية" },
+                { "id": "truck", "label": "شاحنة" },
+                { "id": "heavy", "label": "معدات ثقيلة" }
+              ]
+            }
+          },
+          {
+            "type": "layout.grid",
+            "columns": 2,
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleBrand",
+                "props": {
+                  "label": "الماركة"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleModel",
+                "props": {
+                  "label": "الموديل"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleYear",
+                "props": {
+                  "label": "السنة"
+                }
+              }
+            ]
+          },
+          {
+            "type": "component.plate",
+            "bindsTo": "plateNumber",
+            "props": {
+              "label": "رقم اللوحة",
+              "placeholder": "أدخل رقم اللوحة"
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "next",
+        "props": {
+          "buttonLabel": "التالي"
+        }
+      }
+    }
+  }
+}

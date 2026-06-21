@@ -1,0 +1,69 @@
+{
+  "screenId": "add_vehicle",
+  "usesProductSpec": "specs/product/screens/add_vehicle.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "مركباتي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "layout.grid",
+            "columns": 2,
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleBrand",
+                "props": {
+                  "label": "الماركة"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleModel",
+                "props": {
+                  "label": "الموديل"
+                }
+              },
+              {
+                "type": "field.text",
+                "bindsTo": "vehicleYear",
+                "props": {
+                  "label": "السنة"
+                }
+              }
+            ]
+          },
+          {
+            "type": "component.plate",
+            "bindsTo": "plateNumber",
+            "props": {
+              "label": "رقم اللوحة",
+              "placeholder": "أدخل رقم اللوحة",
+              "preview": true
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "saveVehicle",
+        "props": {
+          "buttonLabel": "حفظ"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UI Composition Spec Schema",
+  "type": "object",
+  "required": ["screenId", "usesProductSpec", "layout"],
+  "properties": {
+    "screenId": { "type": "string" },
+    "usesProductSpec": { "type": "string" },
+    "layout": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["screen"] },
+        "safeArea": { "type": "boolean" },
+        "scroll": { "type": "boolean" },
+        "regions": { "type": "object" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

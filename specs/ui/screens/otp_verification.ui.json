@@ -1,0 +1,48 @@
+{
+  "screenId": "otp_verification",
+  "usesProductSpec": "specs/product/screens/otp_verification.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": false,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "التحقق من رقم هاتفك",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "lg",
+        "padding": "lg",
+        "alignment": "center",
+        "children": [
+          {
+            "type": "component.appHeader",
+            "props": {
+              "variant": "subtitle",
+              "title": "أدخل رمز التحقق الذي تم إرساله إلى هاتفك"
+            }
+          },
+          {
+            "type": "field.otp",
+            "bindsTo": "otpCode",
+            "props": {
+              "length": 4,
+              "boxStyle": "outlined"
+            }
+          },
+          {
+            "type": "action.ghost",
+            "action": "resendOtp",
+            "props": {
+              "label": "إعادة إرسال الرمز"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

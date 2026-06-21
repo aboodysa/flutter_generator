@@ -1,0 +1,390 @@
+[
+  {
+    "id": "component.appHeader",
+    "purpose": "Top bar with title, optional back/close navigation.",
+    "variants": ["default", "title-only", "subtitle"],
+    "states": ["default"],
+    "tokens": {
+      "height": "surfaces.appBar.height",
+      "background": "colors.surface.default",
+      "textStyle": "typography.bold"
+    },
+    "accessibility": {
+      "backAction": "label for back navigation"
+    },
+    "rtl": {
+      "mirrorIcon": true,
+      "leadingOnRight": true
+    }
+  },
+  {
+    "id": "component.logoHeader",
+    "purpose": "Header with FAHS logo and optional notification bell.",
+    "variants": ["default"],
+    "states": ["default"],
+    "tokens": {
+      "background": "colors.surface.default"
+    },
+    "accessibility": {},
+    "rtl": {
+      "mirrors": false
+    }
+  },
+  {
+    "id": "component.banner",
+    "purpose": "Horizontal banner promoting a service or action.",
+    "variants": ["default", "peach", "lavender"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.md",
+      "padding": "spacing.md"
+    },
+    "rtl": {
+      "mirrorIcon": true
+    }
+  },
+  {
+    "id": "component.summaryBanner",
+    "purpose": "Banner showing order summary with title, subtitle, and price.",
+    "variants": ["default", "lavender"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.sm",
+      "background": "colors.surface.cultured"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.card",
+    "purpose": "Generic card container for various content.",
+    "variants": ["default", "peach", "lavender", "elevated"],
+    "states": ["default", "pressed"],
+    "tokens": {
+      "radius": "radius.md",
+      "background": "colors.surface.default",
+      "border": "1px solid surface.line",
+      "padding": "spacing.md"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.orderCard",
+    "purpose": "Order list item with status badge, vehicle name, date.",
+    "variants": ["waiting", "inProgress", "completed", "cancelled"],
+    "states": ["default", "pressed"],
+    "tokens": {
+      "radius": "radius.md",
+      "background": "colors.surface.default"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.serviceCard",
+    "purpose": "Service center or dealer card with image, name, rating, price.",
+    "variants": ["default", "compact"],
+    "states": ["default", "pressed"],
+    "tokens": {
+      "radius": "radius.md",
+      "background": "colors.surface.default"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.vehicleCard",
+    "purpose": "Vehicle listing card with image, badge, name, and details.",
+    "variants": ["default", "compact"],
+    "states": ["default", "pressed"],
+    "tokens": {
+      "radius": "radius.md",
+      "background": "colors.surface.default"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.walletCard",
+    "purpose": "Wallet balance card with brand logo and current balance.",
+    "variants": ["default"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.md",
+      "background": "colors.brand.primary"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.statusBadge",
+    "purpose": "Compact status indicator for orders and processes.",
+    "variants": ["waiting", "inProgress", "completed", "cancelled", "purple", "gray"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.xs",
+      "fontSize": "12px",
+      "fontWeight": "bold"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.bottomNav",
+    "purpose": "Bottom navigation bar with 4 tabs.",
+    "variants": ["customer"],
+    "states": ["default"],
+    "tokens": {
+      "height": "surfaces.bottomNav.height",
+      "background": "colors.surface.default"
+    },
+    "accessibility": {
+      "labels": "each tab has Arabic label"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.bottomSheet",
+    "purpose": "Bottom sheet for quick actions, language selection, contact options.",
+    "variants": ["default", "contact", "language"],
+    "states": ["open", "closed"],
+    "tokens": {
+      "radius": "radius.lg",
+      "background": "colors.surface.default"
+    },
+    "rtl": {
+      "animatesFromBottom": true
+    }
+  },
+  {
+    "id": "component.timeline",
+    "purpose": "Vertical timeline showing inspection order progress steps.",
+    "variants": ["default"],
+    "states": ["completed", "active", "pending"],
+    "tokens": {
+      "lineColor": "colors.surface.line"
+    },
+    "rtl": {
+      "mirrorOrder": true
+    }
+  },
+  {
+    "id": "component.photoGrid",
+    "purpose": "Grid of vehicle inspection photos.",
+    "variants": ["grid", "list"],
+    "states": ["default", "empty"],
+    "tokens": {
+      "radius": "radius.sm"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.paymentMethodList",
+    "purpose": "List of selectable payment methods with radio indicators.",
+    "variants": ["default"],
+    "states": ["default", "selected"],
+    "tokens": {},
+    "rtl": {}
+  },
+  {
+    "id": "component.profileMenu",
+    "purpose": "Profile menu section with icon, label, and trailing chevron.",
+    "variants": ["default", "withToggle"],
+    "states": ["default"],
+    "tokens": {},
+    "rtl": {
+      "trailingChevron": true
+    }
+  },
+  {
+    "id": "component.plate",
+    "purpose": "Saudi vehicle license plate display with Arabic and English text.",
+    "variants": ["default"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.sm",
+      "background": "colors.surface.cultured"
+    },
+    "rtl": {
+      "preserveArabicOrder": true,
+      "englishTextOnBottom": true
+    }
+  },
+  {
+    "id": "component.searchField",
+    "purpose": "Search input field with search icon.",
+    "variants": ["default"],
+    "states": ["default", "focused", "filled"],
+    "tokens": {
+      "height": "surfaces.input.height",
+      "radius": "surfaces.input.radius"
+    },
+    "rtl": {
+      "iconOnRight": true
+    }
+  },
+  {
+    "id": "component.segmentedControl",
+    "purpose": "Segmented control with two options.",
+    "variants": ["two-option"],
+    "states": ["default"],
+    "tokens": {
+      "radius": "radius.sm",
+      "background": "colors.surface.default"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.chipGroup",
+    "purpose": "Horizontal group of selectable chips.",
+    "variants": ["default", "lavender"],
+    "states": ["default", "active"],
+    "tokens": {
+      "height": "42px",
+      "radius": "radius.sm",
+      "background": "colors.surface.default",
+      "activeBackground": "colors.brand.primary"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "component.fixedActionBar",
+    "purpose": "Fixed bottom action bar with primary button.",
+    "variants": ["default", "dual"],
+    "states": ["default"],
+    "tokens": {
+      "background": "colors.surface.default",
+      "padding": "spacing.lg"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "field.text",
+    "purpose": "Single-line text input field.",
+    "variants": ["default", "withTrailing"],
+    "states": ["default", "focused", "filled", "error", "disabled"],
+    "tokens": {
+      "height": "surfaces.input.height",
+      "radius": "surfaces.input.radius",
+      "border": "surfaces.input.border",
+      "focusBorderColor": "surfaces.input.focusBorderColor"
+    },
+    "rtl": {
+      "textAlign": "right"
+    }
+  },
+  {
+    "id": "field.phone",
+    "purpose": "Phone number input with country code prefix.",
+    "variants": ["default"],
+    "states": ["default", "focused", "filled", "error"],
+    "tokens": {
+      "height": "surfaces.input.height",
+      "radius": "surfaces.input.radius"
+    },
+    "rtl": {
+      "textDirection": "ltr",
+      "countryCodeOnLeft": true
+    }
+  },
+  {
+    "id": "field.otp",
+    "purpose": "OTP code input with 4 digit boxes.",
+    "variants": ["4-digit"],
+    "states": ["default", "filled", "error"],
+    "tokens": {
+      "radius": "radius.sm"
+    },
+    "rtl": {
+      "textAlign": "center"
+    }
+  },
+  {
+    "id": "field.select",
+    "purpose": "Dropdown/select field with chevron indicator.",
+    "variants": ["default"],
+    "states": ["default", "open", "filled"],
+    "tokens": {
+      "height": "surfaces.input.height",
+      "radius": "surfaces.input.radius"
+    },
+    "rtl": {
+      "chevronOnLeft": true
+    }
+  },
+  {
+    "id": "field.amount",
+    "purpose": "Numeric amount input with currency suffix.",
+    "variants": ["default"],
+    "states": ["default", "focused", "filled"],
+    "tokens": {
+      "height": "surfaces.input.height",
+      "radius": "surfaces.input.radius"
+    },
+    "rtl": {
+      "currencyOnRight": true
+    }
+  },
+  {
+    "id": "action.primary",
+    "purpose": "Primary call-to-action button.",
+    "variants": ["default"],
+    "states": ["default", "pressed", "disabled", "loading"],
+    "tokens": {
+      "height": "surfaces.button.primary.height",
+      "radius": "surfaces.button.primary.radius",
+      "background": "surfaces.button.primary.background",
+      "textColor": "surfaces.button.primary.textColor"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "action.secondary",
+    "purpose": "Secondary outline button.",
+    "variants": ["default"],
+    "states": ["default", "pressed", "disabled"],
+    "tokens": {
+      "height": "surfaces.button.outline.height",
+      "radius": "surfaces.button.outline.radius",
+      "border": "surfaces.button.outline.border"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "action.ghost",
+    "purpose": "Ghost/text button without background.",
+    "variants": ["default", "danger"],
+    "states": ["default", "pressed", "disabled"],
+    "tokens": {
+      "height": "surfaces.button.ghost.height",
+      "radius": "surfaces.button.ghost.radius"
+    },
+    "rtl": {}
+  },
+  {
+    "id": "layout.vertical",
+    "purpose": "Vertical column layout with configurable spacing.",
+    "variants": [],
+    "states": [],
+    "tokens": {},
+    "rtl": {}
+  },
+  {
+    "id": "layout.horizontal",
+    "purpose": "Horizontal row layout with configurable spacing.",
+    "variants": [],
+    "states": [],
+    "tokens": {},
+    "rtl": {}
+  },
+  {
+    "id": "layout.grid",
+    "purpose": "Grid layout with configurable columns.",
+    "variants": [],
+    "states": [],
+    "tokens": {},
+    "rtl": {}
+  },
+  {
+    "id": "layout.list",
+    "purpose": "Scrollable list layout.",
+    "variants": [],
+    "states": [],
+    "tokens": {},
+    "rtl": {}
+  }
+]

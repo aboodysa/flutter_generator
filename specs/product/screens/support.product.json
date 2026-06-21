@@ -1,0 +1,30 @@
+{
+  "id": "support",
+  "name": "Support",
+  "route": "/support",
+  "role": "customer",
+  "purpose": "Display support options including FAQ accordion, contact tiles, and bottom navigation.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "callSupport", "label": "اتصال", "type": "action" },
+    { "id": "emailSupport", "label": "إيميل", "type": "action" },
+    { "id": "chatSupport", "label": "محادثة", "type": "navigation", "target": "chat" },
+    { "id": "navigateToHome", "type": "navigation", "target": "home" },
+    { "id": "navigateToMyFahs", "type": "navigation", "target": "my_fahs" },
+    { "id": "navigateToProfile", "type": "navigation", "target": "profile" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "chatSupport", "targetScreenId": "chat" },
+    { "action": "navigateToHome", "targetScreenId": "home" },
+    { "action": "navigateToMyFahs", "targetScreenId": "my_fahs" },
+    { "action": "navigateToProfile", "targetScreenId": "profile" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Support",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "screenId": "splash",
+  "usesProductSpec": "specs/product/screens/splash.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": false,
+    "regions": {
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "lg",
+        "padding": "lg",
+        "alignment": "center",
+        "children": [
+          {
+            "type": "component.appHeader",
+            "props": {
+              "variant": "splash",
+              "logo": "فحص FAHS",
+              "icon": "car"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

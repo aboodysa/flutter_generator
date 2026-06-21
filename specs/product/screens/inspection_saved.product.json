@@ -1,0 +1,23 @@
+{
+  "id": "inspection_saved",
+  "name": "Inspection Saved",
+  "route": "/inspection-saved",
+  "role": "customer",
+  "purpose": "Display saved vehicle information with plate, chips, and editable fields for re-inspection.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "editVehicle", "label": "تعديل", "type": "action" },
+    { "id": "proceed", "label": "متابعة", "type": "navigation", "target": "service_centers" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "proceed", "targetScreenId": "service_centers" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Inspection saved",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

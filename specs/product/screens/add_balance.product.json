@@ -1,0 +1,26 @@
+{
+  "id": "add_balance",
+  "name": "Add Balance",
+  "route": "/add-balance",
+  "role": "customer",
+  "purpose": "Allow customer to add balance to their wallet by selecting a payment method.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "amount", "type": "amount", "label": "المبلغ" },
+    { "id": "paymentMethod", "type": "text", "label": "طريقة الدفع" }
+  ],
+  "outputs": [],
+  "businessRules": [
+    "Minimum add amount is 10 SAR",
+    "Maximum add amount is 5000 SAR"
+  ],
+  "actions": [
+    { "id": "addFunds", "label": "إضافة", "type": "action", "requiresValidForm": true }
+  ],
+  "states": ["initial", "valid", "invalid", "loading", "success", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Add balance",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

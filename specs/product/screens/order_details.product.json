@@ -1,0 +1,29 @@
+{
+  "id": "order_details",
+  "name": "Order Details",
+  "route": "/order-details",
+  "role": "customer",
+  "purpose": "Display order confirmation details, service center info, and actionable buttons for the customer.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Order can be cancelled within the cancellation window"
+  ],
+  "actions": [
+    { "id": "trackInspection", "label": "تتبع الفحص", "type": "navigation", "target": "track_inspection" },
+    { "id": "viewPhotos", "label": "مشاهدة الصور", "type": "navigation", "target": "vehicle_photos" },
+    { "id": "viewReport", "label": "عرض التقرير", "type": "navigation", "target": "final_report" },
+    { "id": "cancelOrder", "label": "إلغاء الطلب", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "trackInspection", "targetScreenId": "track_inspection" },
+    { "action": "viewPhotos", "targetScreenId": "vehicle_photos" },
+    { "action": "viewReport", "targetScreenId": "final_report" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Order details",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

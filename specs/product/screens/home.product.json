@@ -1,0 +1,35 @@
+{
+  "id": "home",
+  "name": "Home",
+  "route": "/home",
+  "role": "customer",
+  "purpose": "Display main dashboard with active orders, service quick actions, banners, and bottom navigation.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Only active orders shown in orders section",
+    "Home cards navigate to inspection or ownership transfer flows"
+  ],
+  "actions": [
+    { "id": "viewAllOrders", "label": "عرض الكل", "type": "navigation", "target": "my_orders" },
+    { "id": "startInspection", "label": "فحص السيارة", "type": "navigation", "target": "inspection" },
+    { "id": "startOwnershipTransfer", "label": "نقل الملكية", "type": "navigation", "target": "ownership_transfer" },
+    { "id": "navigateToMyFahs", "type": "navigation", "target": "my_fahs" },
+    { "id": "navigateToChat", "type": "navigation", "target": "chat" },
+    { "id": "navigateToProfile", "type": "navigation", "target": "profile" },
+    { "id": "viewOrderDetail", "type": "navigation", "target": "order_details" }
+  ],
+  "states": ["initial", "loading", "loaded", "error"],
+  "navigation": [
+    { "action": "startInspection", "targetScreenId": "inspection" },
+    { "action": "startOwnershipTransfer", "targetScreenId": "ownership_transfer" },
+    { "action": "viewAllOrders", "targetScreenId": "my_orders" },
+    { "action": "navigateToMyFahs", "targetScreenId": "my_fahs" },
+    { "action": "navigateToProfile", "targetScreenId": "profile" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Home",
+    "section": "User Mobile App | Vehicle Inspection"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "profile",
+  "name": "Profile",
+  "route": "/profile",
+  "role": "customer",
+  "purpose": "Display user profile with account info, security settings, app settings, and bottom navigation.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "navigateToPersonalData", "label": "البيانات الشخصية", "type": "navigation", "target": "personal_data" },
+    { "id": "navigateToMyOrders", "label": "طلباتي", "type": "navigation", "target": "my_orders" },
+    { "id": "navigateToMyVehicles", "label": "مركباتي", "type": "navigation", "target": "my_vehicles" },
+    { "id": "navigateToWallet", "label": "المحفظة", "type": "navigation", "target": "wallet" },
+    { "id": "navigateToMyAds", "label": "إعلاناتي", "type": "navigation", "target": "my_ads" },
+    { "id": "navigateToSupport", "label": "الدعم", "type": "navigation", "target": "support" },
+    { "id": "showLanguageSheet", "label": "اللغة", "type": "navigation", "target": "language_sheet" },
+    { "id": "logout", "label": "تسجيل خروج", "type": "action" },
+    { "id": "navigateToHome", "type": "navigation", "target": "home" },
+    { "id": "navigateToMyFahs", "type": "navigation", "target": "my_fahs" },
+    { "id": "navigateToChat", "type": "navigation", "target": "chat" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "navigateToPersonalData", "targetScreenId": "personal_data" },
+    { "action": "navigateToMyOrders", "targetScreenId": "my_orders" },
+    { "action": "navigateToMyVehicles", "targetScreenId": "my_vehicles" },
+    { "action": "navigateToWallet", "targetScreenId": "wallet" },
+    { "action": "navigateToMyAds", "targetScreenId": "my_ads" },
+    { "action": "navigateToSupport", "targetScreenId": "support" },
+    { "action": "showLanguageSheet", "targetScreenId": "language_sheet" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Profile",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

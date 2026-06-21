@@ -1,0 +1,20 @@
+{
+  "id": "vehicle_photos",
+  "name": "Vehicle Photos",
+  "route": "/vehicle-photos",
+  "role": "customer",
+  "purpose": "Display a grid of vehicle inspection photos with a warning about video deletion after 7 days.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [
+    "Videos are automatically deleted after 7 days"
+  ],
+  "actions": [],
+  "states": ["initial", "loading", "loaded", "empty", "error"],
+  "navigation": [],
+  "sourceEvidence": {
+    "htmlCaption": "Vehicle photos",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

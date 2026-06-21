@@ -1,0 +1,25 @@
+{
+  "id": "my_vehicles",
+  "name": "My Vehicles",
+  "route": "/my-vehicles",
+  "role": "customer",
+  "purpose": "Display a list of the customer's registered vehicles with edit and delete options.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "addVehicle", "label": "إضافة مركبة", "type": "navigation", "target": "add_vehicle" },
+    { "id": "editVehicle", "label": "تعديل", "type": "navigation", "target": "add_vehicle" },
+    { "id": "deleteVehicle", "label": "حذف", "type": "action" }
+  ],
+  "states": ["initial", "loading", "loaded", "empty", "error"],
+  "navigation": [
+    { "action": "addVehicle", "targetScreenId": "add_vehicle" },
+    { "action": "editVehicle", "targetScreenId": "add_vehicle" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "My vehicles",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

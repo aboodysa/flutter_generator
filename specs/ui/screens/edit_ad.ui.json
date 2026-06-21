@@ -1,0 +1,65 @@
+{
+  "screenId": "edit_ad",
+  "usesProductSpec": "specs/product/screens/edit_ad.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "تويوتا برادو تي اكس ٢٠٢٤",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "image",
+            "props": {
+              "imageUrl": "vehicle.jpg"
+            }
+          },
+          {
+            "type": "field.amount",
+            "bindsTo": "price",
+            "props": {
+              "label": "السعر",
+              "placeholder": "٨٥٠٠٠ ريال",
+              "currency": "ريال"
+            }
+          },
+          {
+            "type": "field.text",
+            "bindsTo": "description",
+            "props": {
+              "label": "الوصف",
+              "placeholder": "أدخل وصف السيارة",
+              "multiline": true
+            }
+          },
+          {
+            "type": "component.card",
+            "variant": "toggle",
+            "props": {
+              "label": "منشور",
+              "bindsTo": "isPublished"
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "saveAd",
+        "props": {
+          "buttonLabel": "حفظ"
+        }
+      }
+    }
+  }
+}

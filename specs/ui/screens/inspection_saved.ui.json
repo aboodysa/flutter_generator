@@ -1,0 +1,84 @@
+{
+  "screenId": "inspection_saved",
+  "usesProductSpec": "specs/product/screens/inspection_saved.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "فحص المركبة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "default",
+            "props": {
+              "icon": "car",
+              "title": "تويوتا كورولا ٢٠٢٤"
+            }
+          },
+          {
+            "type": "component.plate",
+            "props": {
+              "plateNumber": "ABC 1234",
+              "plateType": "saudi"
+            }
+          },
+          {
+            "type": "component.chipGroup",
+            "props": {
+              "label": "نوع الفحص",
+              "chips": [
+                { "id": "comprehensive", "label": "فحص شامل" }
+              ]
+            }
+          },
+          {
+            "type": "layout.grid",
+            "columns": 2,
+            "spacing": "sm",
+            "children": [
+              {
+                "type": "field.text",
+                "props": {
+                  "label": "الماركة",
+                  "value": "تويوتا"
+                }
+              },
+              {
+                "type": "field.text",
+                "props": {
+                  "label": "الموديل",
+                  "value": "كورولا"
+                }
+              },
+              {
+                "type": "field.text",
+                "props": {
+                  "label": "السنة",
+                  "value": "٢٠٢٤"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "proceed",
+        "props": {
+          "buttonLabel": "متابعة"
+        }
+      }
+    }
+  }
+}

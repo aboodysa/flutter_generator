@@ -1,0 +1,33 @@
+{
+  "id": "inspection",
+  "name": "Inspection",
+  "route": "/inspection",
+  "role": "customer",
+  "purpose": "Allow customer to select vehicle type, inspection type, and enter vehicle data to schedule an inspection.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "vehicleType", "type": "text", "label": "نوع المركبة" },
+    { "id": "inspectionType", "type": "text", "label": "نوع الفحص" },
+    { "id": "vehicleBrand", "type": "text", "label": "الماركة" },
+    { "id": "vehicleModel", "type": "text", "label": "الموديل" },
+    { "id": "vehicleYear", "type": "text", "label": "السنة" }
+  ],
+  "outputs": [
+    { "id": "vehicleData", "type": "object", "destination": "service_centers" }
+  ],
+  "businessRules": [
+    "Vehicle type must be selected before inspection type",
+    "Vehicle data must be valid to proceed"
+  ],
+  "actions": [
+    { "id": "next", "label": "التالي", "type": "navigation", "target": "service_centers", "requiresValidForm": true }
+  ],
+  "states": ["initial", "filled", "valid", "invalid", "loading", "error"],
+  "navigation": [
+    { "action": "next", "targetScreenId": "service_centers" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Inspection",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

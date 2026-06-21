@@ -1,0 +1,35 @@
+{
+  "id": "my_fahs",
+  "name": "My FAHS",
+  "route": "/my-fahs",
+  "role": "customer",
+  "purpose": "Display the main menu screen with quick actions, wallet card, orders card, vehicles card, and bottom navigation.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [],
+  "businessRules": [],
+  "actions": [
+    { "id": "navigateToWallet", "label": "المحفظة", "type": "navigation", "target": "wallet" },
+    { "id": "navigateToMyOrders", "label": "طلباتي", "type": "navigation", "target": "my_orders" },
+    { "id": "navigateToMyVehicles", "label": "مركباتي", "type": "navigation", "target": "my_vehicles" },
+    { "id": "navigateToMyAds", "label": "إعلاناتي", "type": "navigation", "target": "my_ads" },
+    { "id": "navigateToHome", "type": "navigation", "target": "home" },
+    { "id": "navigateToProfile", "type": "navigation", "target": "profile" },
+    { "id": "navigateToChat", "type": "navigation", "target": "chat" },
+    { "id": "startInspection", "label": "فحص السيارة", "type": "navigation", "target": "inspection" },
+    { "id": "startOwnershipTransfer", "label": "نقل الملكية", "type": "navigation", "target": "ownership_transfer" }
+  ],
+  "states": ["initial", "loaded"],
+  "navigation": [
+    { "action": "navigateToWallet", "targetScreenId": "wallet" },
+    { "action": "navigateToMyOrders", "targetScreenId": "my_orders" },
+    { "action": "navigateToMyVehicles", "targetScreenId": "my_vehicles" },
+    { "action": "navigateToMyAds", "targetScreenId": "my_ads" },
+    { "action": "navigateToHome", "targetScreenId": "home" },
+    { "action": "navigateToProfile", "targetScreenId": "profile" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "My FAHS",
+    "section": "User Mobile App | Orders, Wallet, Profile"
+  }
+}

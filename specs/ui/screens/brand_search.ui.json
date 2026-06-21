@@ -1,0 +1,46 @@
+{
+  "screenId": "brand_search",
+  "usesProductSpec": "specs/product/screens/brand_search.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "ابحث عن السيارات",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.searchField",
+            "bindsTo": "searchQuery",
+            "props": {
+              "placeholder": "ابحث عن الماركة"
+            }
+          },
+          {
+            "type": "layout.list",
+            "variant": "accordion",
+            "bindsTo": "brands",
+            "repeat": true,
+            "props": {
+              "title": "تويوتا",
+              "children": [
+                { "label": "كورولا", "action": "selectBrand" },
+                { "label": "كامري", "action": "selectBrand" },
+                { "label": "برادو", "action": "selectBrand" }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

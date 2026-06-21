@@ -1,0 +1,72 @@
+{
+  "screenId": "payment",
+  "usesProductSpec": "specs/product/screens/payment.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "فحص المركبة",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.summaryBanner",
+            "variant": "default",
+            "props": {
+              "title": "مركز الفاحص بالقادسية",
+              "subtitle": "تويوتا كورولا ٢٠٢٤، فحص شامل",
+              "price": "٥٠ ريال"
+            }
+          },
+          {
+            "type": "field.phone",
+            "bindsTo": "ownerPhone",
+            "props": {
+              "label": "رقم صاحب السيارة",
+              "placeholder": "+0598777733"
+            }
+          },
+          {
+            "type": "field.text",
+            "bindsTo": "discountCode",
+            "props": {
+              "label": "كود الخصم",
+              "placeholder": "ادخل كود الخصم",
+              "trailingAction": "applyDiscount",
+              "trailingLabel": "تفعيل"
+            }
+          },
+          {
+            "type": "component.paymentMethodList",
+            "bindsTo": "paymentMethods",
+            "props": {
+              "label": "طرق الدفع",
+              "methods": [
+                { "id": "card", "label": "دفع إلكتروني فيزا - ماستر", "icon": "card" },
+                { "id": "mada", "label": "مدى mada", "icon": "mada" },
+                { "id": "wallet", "label": "المحفظة", "balance": "١٢٥ ر.س" },
+                { "id": "tamara", "label": "قسمها على ٤ دفعات بـ ٣٣.٣ ر.س", "icon": "tamara" }
+              ]
+            }
+          }
+        ]
+      },
+      "footer": {
+        "type": "component.fixedActionBar",
+        "primaryAction": "confirmOrder",
+        "props": {
+          "buttonLabel": "تأكيد الطلب"
+        }
+      }
+    }
+  }
+}

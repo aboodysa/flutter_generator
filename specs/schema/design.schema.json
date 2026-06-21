@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Design Spec Schema",
+  "type": "object",
+  "required": ["colors", "typography", "direction"],
+  "properties": {
+    "colors": { "type": "object" },
+    "typography": { "type": "object" },
+    "spacing": { "type": "object" },
+    "radius": { "type": "object" },
+    "shadows": { "type": "object" },
+    "surfaces": { "type": "object" },
+    "direction": { "type": "string", "enum": ["rtl", "ltr"] },
+    "breakpoints": { "type": "object" }
+  },
+  "additionalProperties": false
+}

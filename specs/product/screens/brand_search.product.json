@@ -1,0 +1,29 @@
+{
+  "id": "brand_search",
+  "name": "Brand Search",
+  "route": "/brand-search",
+  "role": "customer",
+  "purpose": "Allow customer to search for vehicle brands using a search field and browse an accordion list of brands.",
+  "actors": ["customer"],
+  "inputs": [
+    { "id": "searchQuery", "type": "text", "label": "بحث" }
+  ],
+  "outputs": [
+    { "id": "selectedBrand", "type": "text", "destination": "inspected_vehicles" }
+  ],
+  "businessRules": [
+    "Brands filter in real-time as user types",
+    "Accordion expands to show models for each brand"
+  ],
+  "actions": [
+    { "id": "selectBrand", "label": "اختيار الماركة", "type": "navigation", "target": "inspected_vehicles" }
+  ],
+  "states": ["initial", "searching", "loaded", "error"],
+  "navigation": [
+    { "action": "selectBrand", "targetScreenId": "inspected_vehicles" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Brand search",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "inspected_vehicles",
+  "name": "Inspected Vehicles",
+  "route": "/inspected-vehicles",
+  "role": "customer",
+  "purpose": "Display a list of previously inspected vehicles for the customer to view details.",
+  "actors": ["customer"],
+  "inputs": [],
+  "outputs": [
+    { "id": "selectedVehicle", "type": "object", "destination": "vehicle_detail" }
+  ],
+  "businessRules": [
+    "Only vehicles inspected by the current customer are shown"
+  ],
+  "actions": [
+    { "id": "viewVehicleDetail", "label": "عرض التفاصيل", "type": "navigation", "target": "vehicle_detail" }
+  ],
+  "states": ["initial", "loading", "loaded", "empty", "error"],
+  "navigation": [
+    { "action": "viewVehicleDetail", "targetScreenId": "vehicle_detail" }
+  ],
+  "sourceEvidence": {
+    "htmlCaption": "Inspected vehicles",
+    "section": "User Mobile App | Search, Listing, Payment, Report"
+  }
+}

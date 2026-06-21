@@ -1,0 +1,40 @@
+{
+  "screenId": "my_ads",
+  "usesProductSpec": "specs/product/screens/my_ads.product.json",
+  "layout": {
+    "type": "screen",
+    "safeArea": true,
+    "scroll": true,
+    "regions": {
+      "header": {
+        "type": "component.appHeader",
+        "props": {
+          "title": "إعلاناتي",
+          "leading": "back"
+        }
+      },
+      "body": {
+        "type": "layout.vertical",
+        "spacing": "md",
+        "padding": "lg",
+        "children": [
+          {
+            "type": "component.card",
+            "variant": "ad",
+            "bindsTo": "ads",
+            "repeat": true,
+            "props": {
+              "title": "تويوتا كورولا ٢٠٢٤",
+              "price": "٨٥٠٠٠ ريال",
+              "status": "منشور",
+              "actions": [
+                { "label": "تعديل الإعلان", "action": "editAd", "variant": "ghost" },
+                { "label": "حذف الإعلان", "action": "deleteAd", "variant": "ghost" }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
