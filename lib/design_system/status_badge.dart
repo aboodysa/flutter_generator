@@ -58,7 +58,7 @@ class StatusBadge extends StatelessWidget {
       child: Center(
         child: Text(
           text,
-          style: TextStyle(
+          style: AppTextStyles.caption.copyWith(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: textColor,

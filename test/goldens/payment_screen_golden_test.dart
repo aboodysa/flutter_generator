@@ -127,13 +127,15 @@ class _StatusBar extends StatelessWidget {
                 color: Colors.black,
               ),
             ),
-            Text(
-              '▮▮ ᯤ ▭',
-              textDirection: TextDirection.ltr,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.black,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.signal_cellular_alt, size: 13, color: Colors.black),
+                SizedBox(width: 4),
+                Icon(Icons.wifi, size: 13, color: Colors.black),
+                SizedBox(width: 4),
+                Icon(Icons.battery_full, size: 14, color: Colors.black),
+              ],
             ),
           ],
         ),
