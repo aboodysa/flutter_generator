@@ -26,8 +26,6 @@ class SummaryBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          StatusBadge.purple(price),
-          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -38,6 +36,8 @@ class SummaryBanner extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
+          StatusBadge.purple(price),
         ],
       ),
     );
