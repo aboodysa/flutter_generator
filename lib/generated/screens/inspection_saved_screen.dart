@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class InspectionSavedScreen extends StatelessWidget {
@@ -20,7 +20,7 @@ class InspectionSavedScreen extends StatelessWidget {
           spacing: AppSpacing.md,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-                  AppCard(child: Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                  AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.title, textAlign: TextAlign.start))),
                   VehiclePlate(label: '', placeholder: '', value: ''),
                   AppChipGroup(items: ['فحص شامل'], activeIndex: 0),
                   GridView.count(
@@ -41,7 +41,12 @@ class InspectionSavedScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'متابعة',
-          onPressed: () => context.goNamed('service_centers'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'inspection_saved',
+    actionId: 'proceed',
+    fallbackRouteName: 'service_centers',
+  ),
         ),
       scroll: true,
     );

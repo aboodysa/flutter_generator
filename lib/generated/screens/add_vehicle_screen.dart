@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class AddVehicleScreen extends StatelessWidget {
@@ -38,7 +39,11 @@ class AddVehicleScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'حفظ',
-          onPressed: () {},
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'add_vehicle',
+    actionId: 'saveVehicle',
+  ),
         ),
       scroll: true,
     );

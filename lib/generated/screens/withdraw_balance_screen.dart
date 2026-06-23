@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class WithdrawBalanceScreen extends StatelessWidget {
@@ -30,7 +31,11 @@ class WithdrawBalanceScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'سحب',
-          onPressed: () {},
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'withdraw_balance',
+    actionId: 'withdraw',
+  ),
         ),
       scroll: true,
     );

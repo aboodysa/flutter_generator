@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class OwnershipTransferScreen extends StatelessWidget {
@@ -41,7 +41,12 @@ class OwnershipTransferScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'التالي',
-          onPressed: () => context.goNamed('select_dealer'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'ownership_transfer',
+    actionId: 'next',
+    fallbackRouteName: 'select_dealer',
+  ),
         ),
       scroll: true,
     );

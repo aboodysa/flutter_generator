@@ -21,11 +21,17 @@ class SelectDealerScreen extends StatelessWidget {
           children: [
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('معرض الخليج للسيارات', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('معرض الخليج للسيارات', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('الرياض - حي العزيزية', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('الرياض - حي العزيزية', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   )

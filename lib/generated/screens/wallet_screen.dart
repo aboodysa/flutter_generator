@@ -25,11 +25,11 @@ class WalletScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child:
-                        AppCard(child: Text('إضافة رصيد', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('إضافة رصيد', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       ),
                       Expanded(
                         child:
-                        AppCard(child: Text('سحب رصيد', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('سحب رصيد', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       )
                     ],
                   ),
@@ -37,7 +37,7 @@ class WalletScreen extends StatelessWidget {
                     spacing: AppSpacing.md,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                            AppCard(child: Text('إضافة رصيد', style: AppTextStyles.title, textAlign: TextAlign.right))
+                            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('إضافة رصيد', style: AppTextStyles.title, textAlign: TextAlign.start)))
                     ],
                   )
           ],

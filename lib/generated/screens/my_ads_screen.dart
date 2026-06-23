@@ -19,7 +19,7 @@ class MyAdsScreen extends StatelessWidget {
           spacing: AppSpacing.md,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-                  AppCard(child: Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.title, textAlign: TextAlign.right))
+                  AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.title, textAlign: TextAlign.start)))
           ],
         ),
       footer: null,

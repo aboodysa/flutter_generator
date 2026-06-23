@@ -73,10 +73,10 @@ describe('Generator Tests', () => {
     expect(content).toContain('AppBottomNav');
   });
 
-  test('generated screens use go_router navigation', () => {
+  test('generated screens use AppActionDispatcher navigation', () => {
     const path = resolve(generatedDir, 'home_screen.dart');
     const content = readFileSync(path, 'utf-8');
-    expect(content).toContain('package:go_router');
-    expect(content).toContain('context.goNamed');
+    expect(content).toContain('AppActionDispatcher.dispatch');
+    expect(content).not.toContain('context.goNamed');
   });
 });

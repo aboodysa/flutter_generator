@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -66,13 +66,23 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                             GestureDetector(
-                              onTap: () => context.goNamed('ownership_transfer'),
+                              onTap: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'home',
+    actionId: 'startOwnershipTransfer',
+    fallbackRouteName: 'ownership_transfer',
+  ),
                               child: AppCard.peach(
                                 child: Text('نقل الملكية', style: AppTextStyles.title),
                               ),
                             ),
                             GestureDetector(
-                              onTap: () => context.goNamed('inspection'),
+                              onTap: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'home',
+    actionId: 'startInspection',
+    fallbackRouteName: 'inspection',
+  ),
                               child: AppCard.lavender(
                                 child: Text('فحص السيارة', style: AppTextStyles.title),
                               ),

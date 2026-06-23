@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class MyVehiclesScreen extends StatelessWidget {
@@ -26,7 +26,12 @@ class MyVehiclesScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'إضافة مركبة',
-          onPressed: () => context.goNamed('add_vehicle'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'my_vehicles',
+    actionId: 'addVehicle',
+    fallbackRouteName: 'add_vehicle',
+  ),
         ),
       scroll: true,
     );

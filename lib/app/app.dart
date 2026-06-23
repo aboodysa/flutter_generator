@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'router.dart';
+export 'app_action_dispatcher.dart';
 
 class FahsApp extends StatelessWidget {
   const FahsApp({super.key});

@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class PersonalDataScreen extends StatelessWidget {
@@ -27,7 +28,11 @@ class PersonalDataScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'حفظ',
-          onPressed: () {},
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'personal_data',
+    actionId: 'saveData',
+  ),
         ),
       scroll: true,
     );

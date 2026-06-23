@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class FinalReportScreen extends StatelessWidget {
@@ -21,11 +22,17 @@ class FinalReportScreen extends StatelessWidget {
           children: [
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('تقرير فحص المركبة', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('تقرير فحص المركبة', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('تويوتا كورولا ٢٠٢٤', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   )
@@ -39,7 +46,11 @@ class FinalReportScreen extends StatelessWidget {
               child:
               AppButton.primary(
                 'مشاهدة',
-                onPressed: () {},
+                onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'final_report',
+    actionId: 'viewReport',
+  ),
               ),
             ),
             Expanded(

@@ -21,11 +21,17 @@ class ProfileScreen extends StatelessWidget {
           children: [
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('أحمد محمد', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('أحمد محمد', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('+966 59 877 7733', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('+966 59 877 7733', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   ),

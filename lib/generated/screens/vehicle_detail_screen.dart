@@ -24,7 +24,7 @@ class VehicleDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child:
-                        AppCard(child: Text('', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       )
                     ],
                   ),
@@ -36,10 +36,10 @@ class VehicleDetailScreen extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     childAspectRatio: 2.8,
                     children: [
-                            AppCard(child: Text('الماركة', style: AppTextStyles.title, textAlign: TextAlign.right)),
-                            AppCard(child: Text('الموديل', style: AppTextStyles.title, textAlign: TextAlign.right)),
-                            AppCard(child: Text('السنة', style: AppTextStyles.title, textAlign: TextAlign.right)),
-                            AppCard(child: Text('عداد المسافات', style: AppTextStyles.title, textAlign: TextAlign.right))
+                            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('الماركة', style: AppTextStyles.title, textAlign: TextAlign.start))),
+                            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('الموديل', style: AppTextStyles.title, textAlign: TextAlign.start))),
+                            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('السنة', style: AppTextStyles.title, textAlign: TextAlign.start))),
+                            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('عداد المسافات', style: AppTextStyles.title, textAlign: TextAlign.start)))
                     ],
                   ),
                   Column(
@@ -48,11 +48,17 @@ class VehicleDetailScreen extends StatelessWidget {
                     children: [
                             AppCard(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Text('مركز الفاحص بالقادسية', style: AppTextStyles.title, textAlign: TextAlign.right),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text('مركز الفاحص بالقادسية', style: AppTextStyles.title, textAlign: TextAlign.start),
+                                  ),
                                   const SizedBox(height: AppSpacing.xs),
-                                  Text('+966 59 877 7733', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text('+966 59 877 7733', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                                  ),
                                 ],
                               ),
                             )

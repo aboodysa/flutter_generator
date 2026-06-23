@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class InspectionScreen extends StatelessWidget {
@@ -40,7 +40,12 @@ class InspectionScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'التالي',
-          onPressed: () => context.goNamed('service_centers'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'inspection',
+    actionId: 'next',
+    fallbackRouteName: 'service_centers',
+  ),
         ),
       scroll: true,
     );

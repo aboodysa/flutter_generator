@@ -51,10 +51,11 @@ describe('Generated Flutter Snapshots', () => {
         /class PhoneInputScreen\b/,
         /return AppScaffold\(/,
         /AppTopBar\(title: '', showBack: true\)/,
-        /Text\('رقم الهاتف', style: AppTextStyles\.heading, textAlign: TextAlign\.right\)/,
-        /Text\('سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', style: AppTextStyles\.bodyRegular.*textAlign: TextAlign\.right\)/,
+        /Text\('رقم الهاتف', style: AppTextStyles\.heading, textAlign: TextAlign\.start\)/,
+        /Text\('سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', style: AppTextStyles\.bodyRegular.*textAlign: TextAlign\.start\)/,
         /AppPhoneField\(label: '', placeholder: '051234321'\)/,
         /AppButton\.primary\(/,
+        /AppActionDispatcher\.dispatch\(/,
       ],
     },
     {
@@ -93,6 +94,7 @@ describe('Generated Flutter Snapshots', () => {
         /PaymentMethodOption\(id: 'wallet', label: 'المحفظة', balance: '١٢٥ ر\.س'\)/,
         /PaymentMethodOption\(id: 'tamara', label: 'قسمها على ٤ دفعات بـ ٣٣\.٣ ر\.س', icon: 'tamara'\)/,
         /FixedActionBar\(/,
+        /AppActionDispatcher\.dispatch\(/,
       ],
     },
   ];

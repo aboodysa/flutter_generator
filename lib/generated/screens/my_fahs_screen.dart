@@ -24,18 +24,18 @@ class MyFahsScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child:
-                        AppCard(child: Text('فحص السيارة', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('فحص السيارة', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       ),
                       Expanded(
                         child:
-                        AppCard(child: Text('نقل الملكية', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('نقل الملكية', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       )
                     ],
                   ),
                   WalletCard(title: 'المحفظة', balance: '١٢٥ ريال'),
-                  AppCard(child: Text('طلباتي', style: AppTextStyles.title, textAlign: TextAlign.right)),
-                  AppCard(child: Text('مركباتي', style: AppTextStyles.title, textAlign: TextAlign.right)),
-                  AppCard(child: Text('إعلاناتي', style: AppTextStyles.title, textAlign: TextAlign.right))
+                  AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('طلباتي', style: AppTextStyles.title, textAlign: TextAlign.start))),
+                  AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('مركباتي', style: AppTextStyles.title, textAlign: TextAlign.start))),
+                  AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('إعلاناتي', style: AppTextStyles.title, textAlign: TextAlign.start)))
           ],
         ),
       footer:

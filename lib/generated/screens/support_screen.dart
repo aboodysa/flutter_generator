@@ -24,15 +24,15 @@ class SupportScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child:
-                        AppCard(child: Text('اتصال', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('اتصال', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       ),
                       Expanded(
                         child:
-                        AppCard(child: Text('إيميل', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('إيميل', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       ),
                       Expanded(
                         child:
-                        AppCard(child: Text('محادثة', style: AppTextStyles.title, textAlign: TextAlign.right)),
+                        AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('محادثة', style: AppTextStyles.title, textAlign: TextAlign.start))),
                       )
                     ],
                   ),

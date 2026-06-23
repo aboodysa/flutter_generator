@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class AddBalanceScreen extends StatelessWidget {
@@ -33,7 +34,11 @@ class AddBalanceScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'إضافة',
-          onPressed: () {},
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'add_balance',
+    actionId: 'addFunds',
+  ),
         ),
       scroll: true,
     );

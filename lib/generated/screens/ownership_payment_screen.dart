@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class OwnershipPaymentScreen extends StatelessWidget {
@@ -38,7 +38,12 @@ class OwnershipPaymentScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'تأكيد',
-          onPressed: () => context.goNamed('order_details'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'ownership_payment',
+    actionId: 'confirmPayment',
+    fallbackRouteName: 'order_details',
+  ),
         ),
       scroll: true,
     );

@@ -19,7 +19,7 @@ class OtpVerificationScreen extends StatelessWidget {
           spacing: AppSpacing.lg,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-                  Text('أدخل رمز التحقق الذي تم إرساله إلى هاتفك', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.right),
+                  Text('أدخل رمز التحقق الذي تم إرساله إلى هاتفك', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.start),
                   OtpInput(length: 4),
                   AppButton.ghost('إعادة إرسال الرمز')
           ],

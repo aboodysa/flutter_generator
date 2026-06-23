@@ -4,6 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class LanguageSheetScreen extends StatelessWidget {
@@ -17,11 +18,15 @@ class LanguageSheetScreen extends StatelessWidget {
       body:
         AppBottomSheet(
           children: [
-            AppCard(child: Text('العربية', style: AppTextStyles.title, textAlign: TextAlign.right)),
-            AppCard(child: Text('English', style: AppTextStyles.title, textAlign: TextAlign.right)),
+            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('العربية', style: AppTextStyles.title, textAlign: TextAlign.start))),
+            AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text('English', style: AppTextStyles.title, textAlign: TextAlign.start))),
             AppButton.primary(
               'حفظ',
-              onPressed: () {},
+              onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'language_sheet',
+    actionId: 'saveLanguage',
+  ),
             )
           ],
         ),

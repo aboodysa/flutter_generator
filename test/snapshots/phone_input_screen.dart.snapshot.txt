@@ -1,7 +1,8 @@
 class PhoneInputScreen
 return AppScaffold(
 AppTopBar(title: '', showBack: true)
-Text('رقم الهاتف', style: AppTextStyles.heading, textAlign: TextAlign.right)
-Text('سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.right)
+Text('رقم الهاتف', style: AppTextStyles.heading, textAlign: TextAlign.start)
+Text('سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.start)
 AppPhoneField(label: '', placeholder: '051234321')
 AppButton.primary(
+AppActionDispatcher.dispatch(

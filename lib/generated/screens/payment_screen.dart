@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class PaymentScreen extends StatelessWidget {
@@ -39,7 +39,12 @@ class PaymentScreen extends StatelessWidget {
       footer:
         FixedActionBar(
           buttonLabel: 'تأكيد الطلب',
-          onPressed: () => context.goNamed('order_details'),
+          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'payment',
+    actionId: 'confirmOrder',
+    fallbackRouteName: 'order_details',
+  ),
         ),
       scroll: true,
     );

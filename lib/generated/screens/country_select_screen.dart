@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class CountrySelectScreen extends StatelessWidget {
@@ -30,7 +30,12 @@ class CountrySelectScreen extends StatelessWidget {
           children: [
                   AppButton.primary(
                     'تسجيل عملاء التطبيق',
-                    onPressed: () => context.goNamed('phone_input'),
+                    onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'country_select',
+    actionId: 'registerCustomer',
+    fallbackRouteName: 'phone_input',
+  ),
                   ),
                   AppButton.outline('تسجيل مقدمي الخدمات')
           ],

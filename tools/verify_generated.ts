@@ -5,12 +5,18 @@ const repoRoot = process.cwd();
 const generatedDir = resolve(repoRoot, 'lib', 'generated', 'screens');
 
 export function listGeneratedFiles(): string[] {
-  return [
-    'splash_screen.dart',
-    'phone_input_screen.dart',
-    'home_screen.dart',
-    'payment_screen.dart',
-  ];
+  const manifestPath = resolve(repoRoot, 'specs', 'manifest.json');
+  if (!existsSync(manifestPath)) {
+    return [
+      'splash_screen.dart',
+      'phone_input_screen.dart',
+      'home_screen.dart',
+      'payment_screen.dart',
+    ];
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+  return (manifest.screens || []).map((screen: { screenId: string }) => `${screen.screenId}_screen.dart`);
 }
 
 function verifyImports(source: string, filePath: string): string[] {
@@ -54,6 +60,8 @@ export function verifyGeneratedFile(fileName: string): string[] {
     /\bundefined\b/,
     /\bScaffold\b/,
     /\bAppBar\b/,
+    /context\.goNamed/,
+    /package:go_router/,
     /generated\/generated/,
   ];
 

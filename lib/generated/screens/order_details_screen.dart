@@ -4,7 +4,7 @@
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../app/app_action_dispatcher.dart';
 import '../../design_system/design_system.dart';
 
 class OrderDetailsScreen extends StatelessWidget {
@@ -22,31 +22,49 @@ class OrderDetailsScreen extends StatelessWidget {
           children: [
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('تم تأكيد الطلب بنجاح', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('تم تأكيد الطلب بنجاح', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('تم إرسال طلب الفحص إلى مركز الخدمة', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('تم إرسال طلب الفحص إلى مركز الخدمة', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   ),
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('رقم الطلب: #٢٠٢٤٠٦١٥', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('رقم الطلب: #٢٠٢٤٠٦١٥', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('فحص شامل - تويوتا كورولا ٢٠٢٤', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('فحص شامل - تويوتا كورولا ٢٠٢٤', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   ),
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('مركز الفاحص بالقادسية', style: AppTextStyles.title, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('مركز الفاحص بالقادسية', style: AppTextStyles.title, textAlign: TextAlign.start),
+                        ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text('الرياض - حي القادسية', style: AppTextStyles.caption, textAlign: TextAlign.right),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('الرياض - حي القادسية', style: AppTextStyles.caption, textAlign: TextAlign.start),
+                        ),
                       ],
                     ),
                   ),
@@ -57,7 +75,12 @@ class OrderDetailsScreen extends StatelessWidget {
                         child:
                         AppButton.primary(
                           'تتبع الفحص',
-                          onPressed: () => context.goNamed('track_inspection'),
+                          onPressed: () => AppActionDispatcher.dispatch(
+    context,
+    screenId: 'order_details',
+    actionId: 'trackInspection',
+    fallbackRouteName: 'track_inspection',
+  ),
                         ),
                       ),
                       Expanded(

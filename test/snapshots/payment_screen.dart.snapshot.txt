@@ -12,3 +12,4 @@ PaymentMethodOption(id: 'mada', label: 'مدى mada', icon: 'mada')
 PaymentMethodOption(id: 'wallet', label: 'المحفظة', balance: '١٢٥ ر.س')
 PaymentMethodOption(id: 'tamara', label: 'قسمها على ٤ دفعات بـ ٣٣.٣ ر.س', icon: 'tamara')
 FixedActionBar(
+AppActionDispatcher.dispatch(

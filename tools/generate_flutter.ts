@@ -96,8 +96,7 @@ function mapComponentType(type: string): string {
   const mapped = componentMap[type];
   if (!mapped) {
     if (isStrict) {
-      logError(`Unsupported component type: "${type}". No binding found in component-map.json`);
-      return 'UnsupportedSpecWidget';
+      throw new Error(`Unsupported component type: "${type}". No binding found in component-map.json`);
     }
     return 'UnsupportedSpecWidget';
   }
@@ -124,6 +123,24 @@ function dartStringList(values: any[] = []): string {
   return `[${values.map(value => dartString(value)).join(', ')}]`;
 }
 
+function renderActionDispatch(
+  screenId: string,
+  actionId: string,
+  fallbackRouteName?: string | null,
+): string {
+  const lines = [
+    '() => AppActionDispatcher.dispatch(',
+    '    context,',
+    `    screenId: ${dartString(screenId)},`,
+    `    actionId: ${dartString(actionId)},`,
+  ];
+  if (fallbackRouteName && fallbackRouteName.trim().length > 0) {
+    lines.push(`    fallbackRouteName: ${dartString(fallbackRouteName)},`);
+  }
+  lines.push('  )');
+  return lines.join('\n');
+}
+
 function specMenuItems(items: any[] = [], indent: string): string {
   return items
     .map(item => {
@@ -135,7 +152,12 @@ function specMenuItems(items: any[] = [], indent: string): string {
     .join(',\n');
 }
 
-function generateComponent(comp: UiComponent, indent: string, actions: ActionDef[] = []): string {
+function generateComponent(
+  comp: UiComponent,
+  indent: string,
+  actions: ActionDef[] = [],
+  screenId = '',
+): string {
   const type = comp.type;
   const flutterWidget = mapComponentType(type);
   const props = comp.props || {};
@@ -145,17 +167,17 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
   // Layout components
   if (type === 'layout.vertical') {
     const spacing = resolveSpacing(comp.spacing);
-    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions)).join(',\n');
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions, screenId)).join(',\n');
     return `${indent}Column(\n${indent}  spacing: ${spacing},\n${indent}  crossAxisAlignment: CrossAxisAlignment.stretch,\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
   }
 
   if (type === 'layout.horizontal') {
     const spacing = resolveSpacing(comp.spacing);
     const isScroll = comp.scroll === 'horizontal';
-    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions)).join(',\n');
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions, screenId)).join(',\n');
     const expandedChildren = (comp.children || [])
       .map(c => {
-        const child = generateComponent(c, indent + '      ', actions);
+        const child = generateComponent(c, indent + '      ', actions, screenId);
         return `${indent}    Expanded(\n${indent}      child:\n${child},\n${indent}    )`;
       })
       .join(',\n');
@@ -180,7 +202,7 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
   if (type === 'layout.grid') {
     const spacing = resolveSpacing(comp.spacing);
     const columns = Number((comp as any).columns || props.columns || 2);
-    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions)).join(',\n');
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions, screenId)).join(',\n');
     return `${indent}GridView.count(\n${indent}  crossAxisCount: ${columns},\n${indent}  mainAxisSpacing: ${spacing},\n${indent}  crossAxisSpacing: ${spacing},\n${indent}  shrinkWrap: true,\n${indent}  physics: const NeverScrollableScrollPhysics(),\n${indent}  childAspectRatio: 2.8,\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
   }
 
@@ -196,10 +218,8 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     const actionId = comp.action || comp.primaryAction;
     const action = actions.find(a => a.id === actionId);
     const targetScreenId = action?.target;
-    const targetRoute = targetScreenId ? `'/${targetScreenId.replace(/_/g, '-')}'` : null;
-
-    const onPressed = targetRoute
-      ? `() => context.goNamed('${targetScreenId}')`
+    const onPressed = actionId
+      ? renderActionDispatch(screenId, actionId, targetScreenId)
       : '() {}';
 
     return `${indent}AppButton.primary(\n${indent}  '${label}',\n${indent}  onPressed: ${onPressed},\n${indent})`;
@@ -225,11 +245,11 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     }
 
     if (variant === 'title-only') {
-      return `${indent}Text('${title}', style: AppTextStyles.heading, textAlign: TextAlign.right)`;
+      return `${indent}Text('${title}', style: AppTextStyles.heading, textAlign: TextAlign.start)`;
     }
 
     if (variant === 'subtitle') {
-      return `${indent}Text('${title}', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.right)`;
+      return `${indent}Text('${title}', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.start)`;
     }
 
     return `${indent}AppTopBar(title: '${title}', showBack: ${props.leading === 'back' || props.leading === 'close'})`;
@@ -260,18 +280,26 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     const actionId = comp.action;
     const action = actions.find(a => a.id === actionId);
     const targetScreenId = action?.target;
-    const onTap = targetScreenId ? `onTap: () => context.goNamed('${targetScreenId}')` : '';
+    const onTap = actionId
+      ? `onTap: ${renderActionDispatch(screenId, actionId, targetScreenId)}`
+      : '';
 
     if (variant === 'peach') {
+      if (!actionId) {
+        return `${indent}AppCard.peach(\n${indent}  child: Text('${label}', style: AppTextStyles.title),\n${indent})`;
+      }
       return `${indent}GestureDetector(\n${indent}  ${onTap},\n${indent}  child: AppCard.peach(\n${indent}    child: Text('${label}', style: AppTextStyles.title),\n${indent}  ),\n${indent})`;
     }
     if (variant === 'lavender') {
+      if (!actionId) {
+        return `${indent}AppCard.lavender(\n${indent}  child: Text('${label}', style: AppTextStyles.title),\n${indent})`;
+      }
       return `${indent}GestureDetector(\n${indent}  ${onTap},\n${indent}  child: AppCard.lavender(\n${indent}    child: Text('${label}', style: AppTextStyles.title),\n${indent}  ),\n${indent})`;
     }
     if (subtitle) {
-      return `${indent}AppCard(\n${indent}  child: Column(\n${indent}    crossAxisAlignment: CrossAxisAlignment.end,\n${indent}    children: [\n${indent}      Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.right),\n${indent}      const SizedBox(height: AppSpacing.xs),\n${indent}      Text(${dartString(subtitle)}, style: AppTextStyles.caption, textAlign: TextAlign.right),\n${indent}    ],\n${indent}  ),\n${indent})`;
+      return `${indent}AppCard(\n${indent}  child: Column(\n${indent}    crossAxisAlignment: CrossAxisAlignment.stretch,\n${indent}    children: [\n${indent}      Align(\n${indent}        alignment: AlignmentDirectional.centerStart,\n${indent}        child: Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.start),\n${indent}      ),\n${indent}      const SizedBox(height: AppSpacing.xs),\n${indent}      Align(\n${indent}        alignment: AlignmentDirectional.centerStart,\n${indent}        child: Text(${dartString(subtitle)}, style: AppTextStyles.caption, textAlign: TextAlign.start),\n${indent}      ),\n${indent}    ],\n${indent}  ),\n${indent})`;
     }
-    return `${indent}AppCard(child: Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.right))`;
+    return `${indent}AppCard(child: Align(alignment: AlignmentDirectional.centerStart, child: Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.start)))`;
   }
 
   if (type === 'component.serviceCard') {
@@ -291,7 +319,7 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
   }
 
   if (type === 'component.bottomSheet') {
-    const children = (comp.children || []).map(c => generateComponent(c, indent + '    ', actions)).join(',\n');
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '    ', actions, screenId)).join(',\n');
     return `${indent}AppBottomSheet(\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
   }
 
@@ -355,8 +383,8 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     const actionId = comp.primaryAction;
     const action = actions.find(a => a.id === actionId);
     const targetScreenId = action?.target;
-    const onPressed = targetScreenId
-      ? `() => context.goNamed('${targetScreenId}')`
+    const onPressed = actionId
+      ? renderActionDispatch(screenId, actionId, targetScreenId)
       : '() {}';
     return `${indent}FixedActionBar(\n${indent}  buttonLabel: '${buttonLabel}',\n${indent}  onPressed: ${onPressed},\n${indent})`;
   }
@@ -425,15 +453,15 @@ function generateScreenFile(screen: ScreenManifest): string {
   const screenId = screen.screenId;
 
   // Generate header
-  const header = regions.header ? generateComponent(regions.header, '        ', actions) : '';
+  const header = regions.header ? generateComponent(regions.header, '        ', actions, screenId) : '';
 
   // Generate body
-  const body = regions.body ? generateComponent(regions.body, '        ', actions) : '';
+  const body = regions.body ? generateComponent(regions.body, '        ', actions, screenId) : '';
 
   // Generate footer
-  const footer = regions.footer ? generateComponent(regions.footer, '        ', actions) : '';
-  const usesGoRouter = [header, body, footer].some(part => part.includes('context.goNamed'));
-  const routerImport = usesGoRouter ? "import 'package:go_router/go_router.dart';\n" : '';
+  const footer = regions.footer ? generateComponent(regions.footer, '        ', actions, screenId) : '';
+  const usesActionDispatcher = [header, body, footer].some(part => part.includes('AppActionDispatcher.dispatch'));
+  const actionDispatcherImport = usesActionDispatcher ? "import '../../app/app_action_dispatcher.dart';\n" : '';
 
   const filePath = screen.specs.ui;
   const productPath = screen.specs.product;
@@ -446,7 +474,7 @@ function generateScreenFile(screen: ScreenManifest): string {
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-${routerImport}import '../../design_system/design_system.dart';
+${actionDispatcherImport}import '../../design_system/design_system.dart';
 
 class ${className} extends StatelessWidget {
   const ${className}({super.key});
