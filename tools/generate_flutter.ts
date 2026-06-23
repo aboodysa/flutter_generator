@@ -116,6 +116,25 @@ function resolveSpacing(spacing?: string): string {
   return spacing ? map[spacing] || 'AppSpacing.md' : 'AppSpacing.md';
 }
 
+function dartString(value: any): string {
+  return `'${String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
+}
+
+function dartStringList(values: any[] = []): string {
+  return `[${values.map(value => dartString(value)).join(', ')}]`;
+}
+
+function specMenuItems(items: any[] = [], indent: string): string {
+  return items
+    .map(item => {
+      const fields = [`label: ${dartString(item.label || item.title || '')}`];
+      if (item.icon) fields.push(`icon: ${dartString(item.icon)}`);
+      if (item.subtitle) fields.push(`subtitle: ${dartString(item.subtitle)}`);
+      return `${indent}SpecMenuItem(${fields.join(', ')})`;
+    })
+    .join(',\n');
+}
+
 function generateComponent(comp: UiComponent, indent: string, actions: ActionDef[] = []): string {
   const type = comp.type;
   const flutterWidget = mapComponentType(type);
@@ -134,10 +153,41 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     const spacing = resolveSpacing(comp.spacing);
     const isScroll = comp.scroll === 'horizontal';
     const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions)).join(',\n');
+    const expandedChildren = (comp.children || [])
+      .map(c => {
+        const child = generateComponent(c, indent + '      ', actions);
+        return `${indent}    Expanded(\n${indent}      child:\n${child},\n${indent}    )`;
+      })
+      .join(',\n');
+
+    if (props.title) {
+      const trailingLabel = props.trailingLabel ? `${indent}    Text('${props.trailingLabel}', style: AppTextStyles.caption),\n` : '';
+      const headerWithTrailing = `${indent}Row(\n${indent}  mainAxisAlignment: MainAxisAlignment.spaceBetween,\n${indent}  children: [\n${indent}    Text('${props.title}', style: AppTextStyles.title),\n${trailingLabel}${indent}  ],\n${indent})`;
+      const isList = props.display === 'list' || props.layout === 'list';
+      if (isList) {
+        return `${indent}Column(\n${indent}  crossAxisAlignment: CrossAxisAlignment.stretch,\n${indent}  children: [\n${headerWithTrailing},\n${children}\n${indent}  ],\n${indent})`;
+      }
+
+      return `${indent}Column(\n${indent}  crossAxisAlignment: CrossAxisAlignment.stretch,\n${indent}  children: [\n${headerWithTrailing},\n${indent}    Row(\n${indent}      spacing: ${spacing},\n${indent}      children: [\n${children}\n${indent}      ],\n${indent}    )\n${indent}  ],\n${indent})`;
+    }
+
     if (isScroll) {
       return `${indent}SingleChildScrollView(\n${indent}  scrollDirection: Axis.horizontal,\n${indent}  child: Row(\n${indent}    spacing: ${spacing},\n${indent}    children: [\n${children}\n${indent}    ],\n${indent}  ),\n${indent})`;
     }
-    return `${indent}Row(\n${indent}  spacing: ${spacing},\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
+    return `${indent}Row(\n${indent}  spacing: ${spacing},\n${indent}  children: [\n${expandedChildren}\n${indent}  ],\n${indent})`;
+  }
+
+  if (type === 'layout.grid') {
+    const spacing = resolveSpacing(comp.spacing);
+    const columns = Number((comp as any).columns || props.columns || 2);
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '          ', actions)).join(',\n');
+    return `${indent}GridView.count(\n${indent}  crossAxisCount: ${columns},\n${indent}  mainAxisSpacing: ${spacing},\n${indent}  crossAxisSpacing: ${spacing},\n${indent}  shrinkWrap: true,\n${indent}  physics: const NeverScrollableScrollPhysics(),\n${indent}  childAspectRatio: 2.8,\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
+  }
+
+  if (type === 'layout.list') {
+    const items = props.children || props.items || [];
+    const itemWidgets = specMenuItems(items, `${indent}    `);
+    return `${indent}SpecList(\n${indent}  title: ${dartString(props.title || '')},\n${indent}  items: [\n${itemWidgets}\n${indent}  ],\n${indent})`;
   }
 
   // Action buttons
@@ -167,7 +217,21 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
 
   // Component types
   if (type === 'component.appHeader') {
+    const variant = props.variant || comp.variant || 'default';
     const title = props.title || '';
+
+    if (variant === 'splash') {
+      return `${indent}const SplashHero()`;
+    }
+
+    if (variant === 'title-only') {
+      return `${indent}Text('${title}', style: AppTextStyles.heading, textAlign: TextAlign.right)`;
+    }
+
+    if (variant === 'subtitle') {
+      return `${indent}Text('${title}', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.right)`;
+    }
+
     return `${indent}AppTopBar(title: '${title}', showBack: ${props.leading === 'back' || props.leading === 'close'})`;
   }
 
@@ -190,7 +254,8 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
   }
 
   if (type === 'component.card') {
-    const label = props.label || '';
+    const label = props.label || props.title || props.name || '';
+    const subtitle = props.subtitle || props.phone || props.description || '';
     const variant = comp.variant || 'default';
     const actionId = comp.action;
     const action = actions.find(a => a.id === actionId);
@@ -203,11 +268,75 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
     if (variant === 'lavender') {
       return `${indent}GestureDetector(\n${indent}  ${onTap},\n${indent}  child: AppCard.lavender(\n${indent}    child: Text('${label}', style: AppTextStyles.title),\n${indent}  ),\n${indent})`;
     }
-    return `${indent}AppCard(child: Text('${label}', style: AppTextStyles.title))`;
+    if (subtitle) {
+      return `${indent}AppCard(\n${indent}  child: Column(\n${indent}    crossAxisAlignment: CrossAxisAlignment.end,\n${indent}    children: [\n${indent}      Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.right),\n${indent}      const SizedBox(height: AppSpacing.xs),\n${indent}      Text(${dartString(subtitle)}, style: AppTextStyles.caption, textAlign: TextAlign.right),\n${indent}    ],\n${indent}  ),\n${indent})`;
+    }
+    return `${indent}AppCard(child: Text(${dartString(label)}, style: AppTextStyles.title, textAlign: TextAlign.right))`;
+  }
+
+  if (type === 'component.serviceCard') {
+    return `${indent}ServiceCard(title: ${dartString(props.title || props.name || '')}, subtitle: ${dartString(props.subtitle || props.address || '')}, price: ${dartString(props.price || '')})`;
+  }
+
+  if (type === 'component.vehicleCard') {
+    return `${indent}VehicleCard(title: ${dartString(props.title || props.name || props.vehicleName || '')}, subtitle: ${dartString(props.subtitle || props.model || '')}, plate: ${dartString(props.plate || props.plateNumber || '')}, status: ${dartString(props.status || '')})`;
+  }
+
+  if (type === 'component.walletCard') {
+    return `${indent}WalletCard(title: ${dartString(props.title || 'المحفظة')}, balance: ${dartString(props.balance || props.amount || '0 ر.س')})`;
+  }
+
+  if (type === 'component.statusBadge') {
+    return `${indent}StatusBadge.purple(${dartString(props.label || props.status || '')})`;
+  }
+
+  if (type === 'component.bottomSheet') {
+    const children = (comp.children || []).map(c => generateComponent(c, indent + '    ', actions)).join(',\n');
+    return `${indent}AppBottomSheet(\n${indent}  children: [\n${children}\n${indent}  ],\n${indent})`;
+  }
+
+  if (type === 'component.timeline') {
+    const steps = (props.steps || [])
+      .map((step: any) => `${indent}    TimelineStepData(label: ${dartString(step.label || '')}, completed: ${step.completed === true})`)
+      .join(',\n');
+    return `${indent}InspectionTimeline(\n${indent}  steps: [\n${steps}\n${indent}  ],\n${indent})`;
+  }
+
+  if (type === 'component.photoGrid') {
+    return `${indent}PhotoGrid(label: ${dartString(props.label || '')}, count: ${Number(props.count || 4)})`;
+  }
+
+  if (type === 'component.profileMenu') {
+    const items = specMenuItems(props.items || [], `${indent}    `);
+    return `${indent}ProfileMenu(\n${indent}  title: ${dartString(props.title || '')},\n${indent}  items: [\n${items}\n${indent}  ],\n${indent})`;
+  }
+
+  if (type === 'component.plate') {
+    return `${indent}VehiclePlate(label: ${dartString(props.label || '')}, placeholder: ${dartString(props.placeholder || '')}, value: ${dartString(props.value || '')})`;
+  }
+
+  if (type === 'component.searchField') {
+    return `${indent}AppSearchField(placeholder: ${dartString(props.placeholder || '')})`;
+  }
+
+  if (type === 'component.segmentedControl') {
+    const items = props.items || props.segments || [];
+    return `${indent}AppSegmentedControl(items: ${dartStringList(items.map((item: any) => item.label || item))}, activeIndex: ${Number(props.activeIndex || 0)})`;
+  }
+
+  if (type === 'component.chipGroup') {
+    const items = props.items || props.chips || [];
+    return `${indent}AppChipGroup(items: ${dartStringList(items.map((item: any) => item.label || item))}, activeIndex: ${Number(props.activeIndex || 0)})`;
   }
 
   if (type === 'component.orderCard') {
-    return `${indent}OrderCard(\n${indent}  vehicleName: 'تويوتا كورولا ٢٠٢٤',\n${indent}  date: 'أرسل في 10 يونيو 2024',\n${indent})`;
+    const card = `${indent}OrderCard(\n${indent}  vehicleName: '${props.vehicleName || ''}',\n${indent}  date: '${props.date || ''}',\n${indent})`;
+    const repeatCount = typeof props.repeatCount === 'number' ? props.repeatCount : 1;
+    if (repeatCount > 1) {
+      const repeatedCards = Array.from({ length: repeatCount }).map(() => card).join(`,\n${indent}    const SizedBox(height: AppSpacing.sm),\n`);
+      return `${indent}Column(\n${indent}  crossAxisAlignment: CrossAxisAlignment.stretch,\n${indent}  children: [\n${repeatedCards}\n${indent}  ],\n${indent})`;
+    }
+    return card;
   }
 
   if (type === 'component.bottomNav') {
@@ -234,49 +363,46 @@ function generateComponent(comp: UiComponent, indent: string, actions: ActionDef
 
   if (type === 'component.paymentMethodList') {
     const methods = props.methods || [];
-    const methodsWidget = methods.map((m: any) => {
-      const isWallet = m.id === 'wallet';
-      const borderColor = isWallet ? 'AppColors.primary' : 'AppColors.line';
-      const iconWidget = isWallet ? 'const Center(child: Icon(Icons.circle, size: 12, color: AppColors.primary))' : 'null';
-      const label = m.label || '';
-      const hasBalance = !!m.balance;
-      const balance = m.balance || '';
-      const badgeLine = hasBalance
-        ? `\n                  const SizedBox(width: 8),\n                  StatusBadge.purple('${balance}'),`
-        : '';
-      return `${indent}        Container(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: AppColors.line),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20, height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: ${borderColor}, width: 2),
-                    ),
-                    child: ${iconWidget},
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('${label}', style: AppTextStyles.bodyRegular, textAlign: TextAlign.right)),
-                  ${badgeLine}
-                ],
-              ),
-            )`;
-    }).join(',\n');
-    return `${indent}Column(\n${indent}  crossAxisAlignment: CrossAxisAlignment.end,\n${indent}  children: [\n${indent}    Text('${props.label || ''}', style: AppTextStyles.label),\n${indent}    const SizedBox(height: 8),\n${methodsWidget},\n${indent}  ],\n${indent})`;
+    const methodsWidget = methods
+      .map((m: any) => {
+        const parts = [
+          `id: '${m.id || ''}'`,
+          `label: '${m.label || ''}'`,
+        ];
+        if (m.icon) parts.push(`icon: '${m.icon}'`);
+        if (m.balance) parts.push(`balance: '${m.balance}'`);
+        if (m.selected === true) parts.push('selected: true');
+        return `${indent}    PaymentMethodOption(${parts.join(', ')})`;
+      })
+      .join(',\n');
+    const selectedId = props.selectedId ? `,\n${indent}  selectedId: '${props.selectedId}'` : '';
+    return `${indent}PaymentMethodList(\n${indent}  label: '${props.label || ''}',\n${indent}  methods: [\n${methodsWidget}\n${indent}  ]${selectedId},\n${indent})`;
   }
 
   if (type === 'field.text') {
-    return `${indent}AppTextField(label: '${props.label || ''}', placeholder: '${props.placeholder || ''}')`;
+    const suffix = props.trailingLabel
+      ? `,\n${indent}  suffix: Text('${props.trailingLabel}', style: AppTextStyles.label.copyWith(color: AppColors.primary))`
+      : '';
+    const prefix = props.trailingLabel
+      ? `,\n${indent}  prefix: const Icon(Icons.local_offer_outlined, size: 16, color: AppColors.textMuted)`
+      : '';
+    return `${indent}AppTextField(label: ${dartString(props.label || '')}, placeholder: ${dartString(props.placeholder || '')}${prefix}${suffix})`;
   }
 
   if (type === 'field.phone') {
-    return `${indent}AppPhoneField(label: '${props.label || ''}', placeholder: '${props.placeholder || ''}')`;
+    return `${indent}AppPhoneField(label: ${dartString(props.label || '')}, placeholder: ${dartString(props.placeholder || '')})`;
+  }
+
+  if (type === 'field.otp') {
+    return `${indent}OtpInput(length: ${Number(props.length || 4)})`;
+  }
+
+  if (type === 'field.select') {
+    return `${indent}AppSelectField(label: ${dartString(props.label || '')}, placeholder: ${dartString(props.placeholder || '')}, options: ${dartStringList(props.options || [])})`;
+  }
+
+  if (type === 'field.amount') {
+    return `${indent}AmountField(label: ${dartString(props.label || '')}, placeholder: ${dartString(props.placeholder || '')}, currency: ${dartString(props.currency || 'ر.س')})`;
   }
 
   // Fallback
@@ -306,9 +432,13 @@ function generateScreenFile(screen: ScreenManifest): string {
 
   // Generate footer
   const footer = regions.footer ? generateComponent(regions.footer, '        ', actions) : '';
+  const usesGoRouter = [header, body, footer].some(part => part.includes('context.goNamed'));
+  const routerImport = usesGoRouter ? "import 'package:go_router/go_router.dart';\n" : '';
 
   const filePath = screen.specs.ui;
   const productPath = screen.specs.product;
+  const renderRegion = (name: string, rendered: string) =>
+    rendered ? `      ${name}:\n${rendered}` : `      ${name}: null`;
 
   return `// GENERATED CODE - DO NOT MODIFY BY HAND.
 // Generated from: ${filePath}
@@ -316,8 +446,7 @@ function generateScreenFile(screen: ScreenManifest): string {
 // Generator: tools/generate_flutter.ts
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../../design_system/design_system.dart';
+${routerImport}import '../../design_system/design_system.dart';
 
 class ${className} extends StatelessWidget {
   const ${className}({super.key});
@@ -325,9 +454,9 @@ class ${className} extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      header: ${header ? `\n        ${header}` : 'null'},
-      body: ${body ? `\n        ${body}` : 'null'},
-      footer: ${footer ? `\n        ${footer}` : 'null'},
+${renderRegion('header', header)},
+${renderRegion('body', body)},
+${renderRegion('footer', footer)},
       scroll: ${layout.scroll ?? true},
     );
   }

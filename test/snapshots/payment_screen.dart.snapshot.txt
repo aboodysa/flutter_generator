@@ -1,0 +1,14 @@
+class PaymentScreen
+return AppScaffold(
+AppTopBar(title: 'فحص المركبة', showBack: true)
+SummaryBanner(title: 'مركز الفاحص بالقادسية', subtitle: 'تويوتا كورولا ٢٠٢٤، فحص شامل', price: '٥٠ ريال')
+AppPhoneField(label: 'رقم صاحب السيارة', placeholder: '+0598777733')
+AppTextField(label: 'كود الخصم', placeholder: 'ادخل كود الخصم',
+prefix: const Icon(Icons.local_offer_outlined, size: 16, color: AppColors.textMuted)
+suffix: Text('تفعيل', style: AppTextStyles.label.copyWith(color: AppColors.primary)))
+PaymentMethodList(
+PaymentMethodOption(id: 'card', label: 'دفع إلكتروني فيزا - ماستر', icon: 'card')
+PaymentMethodOption(id: 'mada', label: 'مدى mada', icon: 'mada')
+PaymentMethodOption(id: 'wallet', label: 'المحفظة', balance: '١٢٥ ر.س')
+PaymentMethodOption(id: 'tamara', label: 'قسمها على ٤ دفعات بـ ٣٣.٣ ر.س', icon: 'tamara')
+FixedActionBar(

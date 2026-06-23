@@ -20,6 +20,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textDirection = Directionality.of(context);
+
     return Container(
       height: 54,
       decoration: const BoxDecoration(
@@ -29,22 +31,32 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       child: Row(
+        textDirection: textDirection,
         children: [
           if (leading != null)
             leading!
           else if (showBack)
             IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              // arrow_back mirrors to the physical right in RTL locales.
+              icon: const Icon(Icons.arrow_back, size: 20),
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
             )
           else
             const SizedBox(width: 16),
           if (title != null)
             Expanded(
-              child: Text(
-                title!,
-                style: AppTextStyles.title,
-                textAlign: TextAlign.right,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  title!,
+                  style: AppTextStyles.title,
+                  textAlign: TextAlign.start,
+                ),
               ),
             ),
           if (actions != null) ...actions!,

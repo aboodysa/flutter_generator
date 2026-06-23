@@ -1,9 +1,18 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+Future<void> _loadOptionalFont(String assetPath, String family) async {
+  try {
+    final bytes = await rootBundle.load(assetPath);
+    await (FontLoader(family)..addFont(Future<ByteData>.value(bytes))).load();
+  } on FlutterError {
+    // Optional font not present in this checkout; ignore.
+  }
+}
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +37,10 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     tajawalLoader.load(),
     materialIconsLoader.load(),
   ]);
+  await _loadOptionalFont(
+    'packages/cupertino_icons/assets/CupertinoIcons.ttf',
+    'CupertinoIcons',
+  );
 
   await testMain();
 }

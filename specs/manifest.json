@@ -10,10 +10,6 @@
       "route": "/splash",
       "role": "customer",
       "generatedClass": "SplashScreen",
-      "sourceEvidence": {
-        "htmlCaption": "Splash",
-        "section": "User Mobile App | Auth + Home"
-      },
       "specs": {
         "product": "specs/product/screens/splash.product.json",
         "ui": "specs/ui/screens/splash.ui.json"
@@ -25,10 +21,6 @@
       "route": "/auth/phone",
       "role": "customer",
       "generatedClass": "PhoneInputScreen",
-      "sourceEvidence": {
-        "htmlCaption": "Phone valid state",
-        "section": "User Mobile App | Auth + Home"
-      },
       "specs": {
         "product": "specs/product/screens/phone_input.product.json",
         "ui": "specs/ui/screens/phone_input.ui.json"
@@ -40,10 +32,6 @@
       "route": "/home",
       "role": "customer",
       "generatedClass": "HomeScreen",
-      "sourceEvidence": {
-        "htmlCaption": "Home",
-        "section": "User Mobile App | Vehicle Inspection"
-      },
       "specs": {
         "product": "specs/product/screens/home.product.json",
         "ui": "specs/ui/screens/home.ui.json"
@@ -55,13 +43,317 @@
       "route": "/payment",
       "role": "customer",
       "generatedClass": "PaymentScreen",
-      "sourceEvidence": {
-        "htmlCaption": "Payment",
-        "section": "User Mobile App | Search, Listing, Payment, Report"
-      },
       "specs": {
         "product": "specs/product/screens/payment.product.json",
         "ui": "specs/ui/screens/payment.ui.json"
+      }
+    },
+    {
+      "screenId": "add_balance",
+      "name": "AddBalanceScreen",
+      "route": "/add-balance",
+      "role": "customer",
+      "generatedClass": "AddBalanceScreen",
+      "specs": {
+        "product": "specs/product/screens/add_balance.product.json",
+        "ui": "specs/ui/screens/add_balance.ui.json"
+      }
+    },
+    {
+      "screenId": "add_vehicle",
+      "name": "AddVehicleScreen",
+      "route": "/add-vehicle",
+      "role": "customer",
+      "generatedClass": "AddVehicleScreen",
+      "specs": {
+        "product": "specs/product/screens/add_vehicle.product.json",
+        "ui": "specs/ui/screens/add_vehicle.ui.json"
+      }
+    },
+    {
+      "screenId": "brand_search",
+      "name": "BrandSearchScreen",
+      "route": "/brand-search",
+      "role": "customer",
+      "generatedClass": "BrandSearchScreen",
+      "specs": {
+        "product": "specs/product/screens/brand_search.product.json",
+        "ui": "specs/ui/screens/brand_search.ui.json"
+      }
+    },
+    {
+      "screenId": "country_select",
+      "name": "CountrySelectScreen",
+      "route": "/country-select",
+      "role": "customer",
+      "generatedClass": "CountrySelectScreen",
+      "specs": {
+        "product": "specs/product/screens/country_select.product.json",
+        "ui": "specs/ui/screens/country_select.ui.json"
+      }
+    },
+    {
+      "screenId": "edit_ad",
+      "name": "EditAdScreen",
+      "route": "/edit-ad",
+      "role": "customer",
+      "generatedClass": "EditAdScreen",
+      "specs": {
+        "product": "specs/product/screens/edit_ad.product.json",
+        "ui": "specs/ui/screens/edit_ad.ui.json"
+      }
+    },
+    {
+      "screenId": "final_report",
+      "name": "FinalReportScreen",
+      "route": "/final-report",
+      "role": "customer",
+      "generatedClass": "FinalReportScreen",
+      "specs": {
+        "product": "specs/product/screens/final_report.product.json",
+        "ui": "specs/ui/screens/final_report.ui.json"
+      }
+    },
+    {
+      "screenId": "inspected_vehicles",
+      "name": "InspectedVehiclesScreen",
+      "route": "/inspected-vehicles",
+      "role": "customer",
+      "generatedClass": "InspectedVehiclesScreen",
+      "specs": {
+        "product": "specs/product/screens/inspected_vehicles.product.json",
+        "ui": "specs/ui/screens/inspected_vehicles.ui.json"
+      }
+    },
+    {
+      "screenId": "inspection",
+      "name": "InspectionScreen",
+      "route": "/inspection",
+      "role": "customer",
+      "generatedClass": "InspectionScreen",
+      "specs": {
+        "product": "specs/product/screens/inspection.product.json",
+        "ui": "specs/ui/screens/inspection.ui.json"
+      }
+    },
+    {
+      "screenId": "inspection_saved",
+      "name": "InspectionSavedScreen",
+      "route": "/inspection-saved",
+      "role": "customer",
+      "generatedClass": "InspectionSavedScreen",
+      "specs": {
+        "product": "specs/product/screens/inspection_saved.product.json",
+        "ui": "specs/ui/screens/inspection_saved.ui.json"
+      }
+    },
+    {
+      "screenId": "language_sheet",
+      "name": "LanguageSheetScreen",
+      "route": "/language-sheet",
+      "role": "customer",
+      "generatedClass": "LanguageSheetScreen",
+      "specs": {
+        "product": "specs/product/screens/language_sheet.product.json",
+        "ui": "specs/ui/screens/language_sheet.ui.json"
+      }
+    },
+    {
+      "screenId": "my_ads",
+      "name": "MyAdsScreen",
+      "route": "/my-ads",
+      "role": "customer",
+      "generatedClass": "MyAdsScreen",
+      "specs": {
+        "product": "specs/product/screens/my_ads.product.json",
+        "ui": "specs/ui/screens/my_ads.ui.json"
+      }
+    },
+    {
+      "screenId": "my_fahs",
+      "name": "MyFahsScreen",
+      "route": "/my-fahs",
+      "role": "customer",
+      "generatedClass": "MyFahsScreen",
+      "specs": {
+        "product": "specs/product/screens/my_fahs.product.json",
+        "ui": "specs/ui/screens/my_fahs.ui.json"
+      }
+    },
+    {
+      "screenId": "my_orders",
+      "name": "MyOrdersScreen",
+      "route": "/my-orders",
+      "role": "customer",
+      "generatedClass": "MyOrdersScreen",
+      "specs": {
+        "product": "specs/product/screens/my_orders.product.json",
+        "ui": "specs/ui/screens/my_orders.ui.json"
+      }
+    },
+    {
+      "screenId": "my_vehicles",
+      "name": "MyVehiclesScreen",
+      "route": "/my-vehicles",
+      "role": "customer",
+      "generatedClass": "MyVehiclesScreen",
+      "specs": {
+        "product": "specs/product/screens/my_vehicles.product.json",
+        "ui": "specs/ui/screens/my_vehicles.ui.json"
+      }
+    },
+    {
+      "screenId": "order_details",
+      "name": "OrderDetailsScreen",
+      "route": "/order-details",
+      "role": "customer",
+      "generatedClass": "OrderDetailsScreen",
+      "specs": {
+        "product": "specs/product/screens/order_details.product.json",
+        "ui": "specs/ui/screens/order_details.ui.json"
+      }
+    },
+    {
+      "screenId": "otp_verification",
+      "name": "OtpVerificationScreen",
+      "route": "/otp-verification",
+      "role": "customer",
+      "generatedClass": "OtpVerificationScreen",
+      "specs": {
+        "product": "specs/product/screens/otp_verification.product.json",
+        "ui": "specs/ui/screens/otp_verification.ui.json"
+      }
+    },
+    {
+      "screenId": "ownership_payment",
+      "name": "OwnershipPaymentScreen",
+      "route": "/ownership-payment",
+      "role": "customer",
+      "generatedClass": "OwnershipPaymentScreen",
+      "specs": {
+        "product": "specs/product/screens/ownership_payment.product.json",
+        "ui": "specs/ui/screens/ownership_payment.ui.json"
+      }
+    },
+    {
+      "screenId": "ownership_transfer",
+      "name": "OwnershipTransferScreen",
+      "route": "/ownership-transfer",
+      "role": "customer",
+      "generatedClass": "OwnershipTransferScreen",
+      "specs": {
+        "product": "specs/product/screens/ownership_transfer.product.json",
+        "ui": "specs/ui/screens/ownership_transfer.ui.json"
+      }
+    },
+    {
+      "screenId": "personal_data",
+      "name": "PersonalDataScreen",
+      "route": "/personal-data",
+      "role": "customer",
+      "generatedClass": "PersonalDataScreen",
+      "specs": {
+        "product": "specs/product/screens/personal_data.product.json",
+        "ui": "specs/ui/screens/personal_data.ui.json"
+      }
+    },
+    {
+      "screenId": "profile",
+      "name": "ProfileScreen",
+      "route": "/profile",
+      "role": "customer",
+      "generatedClass": "ProfileScreen",
+      "specs": {
+        "product": "specs/product/screens/profile.product.json",
+        "ui": "specs/ui/screens/profile.ui.json"
+      }
+    },
+    {
+      "screenId": "select_dealer",
+      "name": "SelectDealerScreen",
+      "route": "/select-dealer",
+      "role": "customer",
+      "generatedClass": "SelectDealerScreen",
+      "specs": {
+        "product": "specs/product/screens/select_dealer.product.json",
+        "ui": "specs/ui/screens/select_dealer.ui.json"
+      }
+    },
+    {
+      "screenId": "service_centers",
+      "name": "ServiceCentersScreen",
+      "route": "/service-centers",
+      "role": "customer",
+      "generatedClass": "ServiceCentersScreen",
+      "specs": {
+        "product": "specs/product/screens/service_centers.product.json",
+        "ui": "specs/ui/screens/service_centers.ui.json"
+      }
+    },
+    {
+      "screenId": "support",
+      "name": "SupportScreen",
+      "route": "/support",
+      "role": "customer",
+      "generatedClass": "SupportScreen",
+      "specs": {
+        "product": "specs/product/screens/support.product.json",
+        "ui": "specs/ui/screens/support.ui.json"
+      }
+    },
+    {
+      "screenId": "track_inspection",
+      "name": "TrackInspectionScreen",
+      "route": "/track-inspection",
+      "role": "customer",
+      "generatedClass": "TrackInspectionScreen",
+      "specs": {
+        "product": "specs/product/screens/track_inspection.product.json",
+        "ui": "specs/ui/screens/track_inspection.ui.json"
+      }
+    },
+    {
+      "screenId": "vehicle_detail",
+      "name": "VehicleDetailScreen",
+      "route": "/vehicle-detail",
+      "role": "customer",
+      "generatedClass": "VehicleDetailScreen",
+      "specs": {
+        "product": "specs/product/screens/vehicle_detail.product.json",
+        "ui": "specs/ui/screens/vehicle_detail.ui.json"
+      }
+    },
+    {
+      "screenId": "vehicle_photos",
+      "name": "VehiclePhotosScreen",
+      "route": "/vehicle-photos",
+      "role": "customer",
+      "generatedClass": "VehiclePhotosScreen",
+      "specs": {
+        "product": "specs/product/screens/vehicle_photos.product.json",
+        "ui": "specs/ui/screens/vehicle_photos.ui.json"
+      }
+    },
+    {
+      "screenId": "wallet",
+      "name": "WalletScreen",
+      "route": "/wallet",
+      "role": "customer",
+      "generatedClass": "WalletScreen",
+      "specs": {
+        "product": "specs/product/screens/wallet.product.json",
+        "ui": "specs/ui/screens/wallet.ui.json"
+      }
+    },
+    {
+      "screenId": "withdraw_balance",
+      "name": "WithdrawBalanceScreen",
+      "route": "/withdraw-balance",
+      "role": "customer",
+      "generatedClass": "WithdrawBalanceScreen",
+      "specs": {
+        "product": "specs/product/screens/withdraw_balance.product.json",
+        "ui": "specs/ui/screens/withdraw_balance.ui.json"
       }
     }
   ]

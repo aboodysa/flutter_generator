@@ -36,12 +36,23 @@ class OrderCard extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  StatusBadge(text: statusText, variant: statusVariant),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: StatusBadge(text: statusText, variant: statusVariant),
+                  ),
                   const SizedBox(height: 4),
-                  Text(vehicleName, style: AppTextStyles.label),
-                  Text(date, style: AppTextStyles.caption),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(vehicleName,
+                        style: AppTextStyles.label, textAlign: TextAlign.start),
+                  ),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(date,
+                        style: AppTextStyles.caption, textAlign: TextAlign.start),
+                  ),
                 ],
               ),
             ),

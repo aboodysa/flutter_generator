@@ -13,10 +13,10 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      header: 
-                const LogoHeader(),
-      body: 
-                Column(
+      header:
+        const LogoHeader(),
+      body:
+        Column(
           spacing: AppSpacing.md,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -30,18 +30,41 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Row(
-                    spacing: AppSpacing.md,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('الطلبات', style: AppTextStyles.title),
+                      Text('عرض الكل', style: AppTextStyles.caption),
+                    ],
+                  ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                            OrderCard(
+                              vehicleName: 'تويوتا كورولا ٢٠٢٤',
+                              date: 'أرسل في 10 يونيو 2024',
+                            ),
+                                const SizedBox(height: AppSpacing.sm),
                             OrderCard(
                               vehicleName: 'تويوتا كورولا ٢٠٢٤',
                               date: 'أرسل في 10 يونيو 2024',
                             )
+                              ],
+                            )
                     ],
                   ),
-                  Row(
-                    spacing: AppSpacing.md,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('الخدمات', style: AppTextStyles.title),
+                    ],
+                  ),
                             GestureDetector(
                               onTap: () => context.goNamed('ownership_transfer'),
                               child: AppCard.peach(
@@ -58,8 +81,8 @@ class HomeScreen extends StatelessWidget {
                   )
           ],
         ),
-      footer: 
-                AppBottomNav(
+      footer:
+        AppBottomNav(
           activeIndex: 0,
           items: [
         BottomNavItem(icon: Icons.home_outlined, label: 'الرئيسية'),

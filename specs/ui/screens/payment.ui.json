@@ -51,10 +51,26 @@
             "props": {
               "label": "طرق الدفع",
               "methods": [
-                { "id": "card", "label": "دفع إلكتروني فيزا - ماستر", "icon": "card" },
-                { "id": "mada", "label": "مدى mada", "icon": "mada" },
-                { "id": "wallet", "label": "المحفظة", "balance": "١٢٥ ر.س" },
-                { "id": "tamara", "label": "قسمها على ٤ دفعات بـ ٣٣.٣ ر.س", "icon": "tamara" }
+                {
+                  "id": "card",
+                  "label": "دفع إلكتروني فيزا - ماستر",
+                  "icon": "card"
+                },
+                {
+                  "id": "mada",
+                  "label": "مدى mada",
+                  "icon": "mada"
+                },
+                {
+                  "id": "wallet",
+                  "label": "المحفظة",
+                  "balance": "١٢٥ ر.س"
+                },
+                {
+                  "id": "tamara",
+                  "label": "قسمها على ٤ دفعات بـ ٣٣.٣ ر.س",
+                  "icon": "tamara"
+                }
               ]
             }
           }
@@ -68,5 +84,66 @@
         }
       }
     }
+  },
+  "sourceEvidence": {
+    "htmlCaption": "Payment",
+    "screenId": "payment",
+    "anchors": [
+      ".banner-small",
+      ".payment",
+      ".fixed"
+    ]
+  },
+  "renderEvidence": {
+    "visibleText": [
+      "13:13 ▮▮ ᯤ ▭",
+      "→",
+      "فحص المركبة",
+      "مركز الفاحص بالقادسية",
+      "تويوتا كورولا ٢٠٢٤، فحص شامل",
+      "٥٠ ريال",
+      "رقم صاحب السيارة",
+      "+0598777733",
+      "كود الخصم",
+      "تفعيل ادخل كود الخصم 🏷",
+      "طرق الدفع",
+      "دفع إلكتروني فيزا - ماستر 💳",
+      "مدى mada mada",
+      "المحفظة ١٢٥ ر.س",
+      "قسمها على ٤ دفعات بـ ٣٣.٣ ر.س tamara",
+      "تأكيد الطلب"
+    ],
+    "selectorCounts": {
+      ".banner-small": 1,
+      ".payment": 4,
+      ".fixed": 1
+    },
+    "repeatedItemCounts": [
+      {
+        "className": "payment",
+        "count": 4,
+        "parentClassName": "list",
+        "sampleText": "دفع إلكتروني فيزا - ماستر 💳"
+      },
+      {
+        "className": "label",
+        "count": 3,
+        "parentClassName": "scroll",
+        "sampleText": "رقم صاحب السيارة"
+      },
+      {
+        "className": "field",
+        "count": 2,
+        "parentClassName": "scroll",
+        "sampleText": "+0598777733"
+      },
+      {
+        "className": "span",
+        "count": 2,
+        "parentClassName": "payment",
+        "sampleText": "دفع إلكتروني فيزا - ماستر"
+      }
+    ],
+    "sectionGroups": []
   }
 }

@@ -1,0 +1,45 @@
+{
+  "prototypeFile": "fahs_flutter_like_prototype_v2.html",
+  "screens": [
+    {
+      "caption": "Splash",
+      "screenId": "splash",
+      "kind": "passthrough",
+      "product": "specs/product/screens/splash.product.json",
+      "ui": "specs/ui/screens/splash.ui.json",
+      "extractionStrategy": "caption-block",
+      "allowedComponents": ["component.appHeader"],
+      "evidenceAnchors": [".splash-logo", ".splash-car"]
+    },
+    {
+      "caption": "Phone valid state",
+      "screenId": "phone_input",
+      "kind": "passthrough",
+      "product": "specs/product/screens/phone_input.product.json",
+      "ui": "specs/ui/screens/phone_input.ui.json",
+      "extractionStrategy": "caption-block",
+      "allowedComponents": ["component.appHeader", "field.phone", "action.primary"],
+      "evidenceAnchors": [".auth-title", ".helper", ".field", ".btn"]
+    },
+    {
+      "caption": "Home",
+      "screenId": "home",
+      "kind": "home",
+      "product": "specs/product/screens/home.product.json",
+      "ui": "specs/ui/screens/home.ui.json",
+      "extractionStrategy": "caption-block",
+      "allowedComponents": ["component.logoHeader", "component.banner", "component.orderCard", "component.card", "component.bottomNav"],
+      "evidenceAnchors": [".logo-head", ".banner-small", ".order", ".home-card", ".bottom-nav"]
+    },
+    {
+      "caption": "Payment",
+      "screenId": "payment",
+      "kind": "passthrough",
+      "product": "specs/product/screens/payment.product.json",
+      "ui": "specs/ui/screens/payment.ui.json",
+      "extractionStrategy": "caption-block",
+      "allowedComponents": ["component.appHeader", "component.summaryBanner", "field.phone", "field.text", "component.paymentMethodList", "component.fixedActionBar"],
+      "evidenceAnchors": [".banner-small", ".payment", ".fixed"]
+    }
+  ]
+}

@@ -32,36 +32,55 @@ class AppBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 300),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: color ?? AppColors.cultured,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bannerWidth =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 320.0;
+
+        return GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            width: bannerWidth,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: color ?? AppColors.cultured,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
                 children: [
-                  Text(title, style: AppTextStyles.label),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(subtitle!, style: AppTextStyles.caption),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(title,
+                              style: AppTextStyles.label,
+                              textAlign: TextAlign.start),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(subtitle!,
+                                style: AppTextStyles.caption,
+                                textAlign: TextAlign.start),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (icon != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    icon!,
                   ],
                 ],
               ),
             ),
-            if (icon != null) ...[
-              const SizedBox(width: AppSpacing.sm),
-              icon!,
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

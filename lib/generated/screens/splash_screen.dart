@@ -13,11 +13,14 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScaffold(
       header: null,
-      body: Column(
-        spacing: AppSpacing.lg,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [AppTopBar(title: '', showBack: false)],
-      ),
+      body:
+        Column(
+          spacing: AppSpacing.lg,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+                  const SplashHero()
+          ],
+        ),
       footer: null,
       scroll: false,
     );

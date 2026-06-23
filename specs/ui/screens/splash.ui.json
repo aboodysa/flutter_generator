@@ -23,5 +23,27 @@
         ]
       }
     }
+  },
+  "sourceEvidence": {
+    "htmlCaption": "Splash",
+    "screenId": "splash",
+    "anchors": [
+      ".splash-logo",
+      ".splash-car"
+    ]
+  },
+  "renderEvidence": {
+    "visibleText": [
+      "13:13 ▮▮ ᯤ ▭",
+      "فحص",
+      "FAHS",
+      "🚗"
+    ],
+    "selectorCounts": {
+      ".splash-logo": 1,
+      ".splash-car": 1
+    },
+    "repeatedItemCounts": [],
+    "sectionGroups": []
   }
 }

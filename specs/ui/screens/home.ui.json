@@ -45,21 +45,28 @@
           {
             "type": "layout.horizontal",
             "props": {
-              "title": "الطلبات"
+              "title": "الطلبات",
+              "trailingLabel": "عرض الكل",
+              "display": "list"
             },
             "children": [
               {
                 "type": "component.orderCard",
                 "bindsTo": "orders",
                 "repeat": true,
-                "props": {}
+                "props": {
+                  "repeatCount": 2,
+                  "vehicleName": "تويوتا كورولا ٢٠٢٤",
+                  "date": "أرسل في 10 يونيو 2024"
+                }
               }
             ]
           },
           {
             "type": "layout.horizontal",
             "props": {
-              "title": "الخدمات"
+              "title": "الخدمات",
+              "display": "list"
             },
             "children": [
               {
@@ -89,13 +96,120 @@
         "props": {
           "activeIndex": 0,
           "items": [
-            { "label": "الرئيسية", "icon": "home", "route": "/home" },
-            { "label": "My FAHS", "icon": "settings", "route": "/my-fahs" },
-            { "label": "الشات", "icon": "chat", "route": "/chat" },
-            { "label": "حسابي", "icon": "profile", "route": "/profile" }
+            {
+              "label": "الرئيسية",
+              "icon": "home",
+              "route": "/home"
+            },
+            {
+              "label": "My FAHS",
+              "icon": "settings",
+              "route": "/my-fahs"
+            },
+            {
+              "label": "الشات",
+              "icon": "chat",
+              "route": "/chat"
+            },
+            {
+              "label": "حسابي",
+              "icon": "profile",
+              "route": "/profile"
+            }
           ]
         }
       }
     }
+  },
+  "sourceEvidence": {
+    "htmlCaption": "Home",
+    "screenId": "home",
+    "anchors": [
+      ".logo-head",
+      ".banner-small",
+      ".order",
+      ".home-card",
+      ".bottom-nav"
+    ]
+  },
+  "renderEvidence": {
+    "visibleText": [
+      "13:13 ▮▮ ᯤ ▭",
+      "فحص FAHS",
+      "🔔",
+      "نقل ملكية مركبة",
+      "قدم طلب نقل ملكية لمركبتك الآن",
+      "🚗",
+      "حجز فحص المركبة",
+      "احجز موعد الفحص الآن",
+      "🚘",
+      "الطلبات",
+      "عرض الكل",
+      "قيد الانتظار",
+      "تويوتا كورولا ٢٠٢٤",
+      "أرسل في 10 يونيو 2024",
+      "🚗",
+      "مكتمل"
+    ],
+    "selectorCounts": {
+      ".logo-head": 1,
+      ".banner-small": 2,
+      ".order": 2,
+      ".home-card": 2,
+      ".bottom-nav": 1
+    },
+    "repeatedItemCounts": [
+      {
+        "className": "nav",
+        "count": 4,
+        "parentClassName": "bottom-nav",
+        "sampleText": "⌂ الرئيسية"
+      },
+      {
+        "className": "b",
+        "count": 2,
+        "parentClassName": "fahs-logo",
+        "sampleText": "فحص"
+      },
+      {
+        "className": "banner-small",
+        "count": 2,
+        "parentClassName": "row",
+        "sampleText": "نقل ملكية مركبة قدم طلب نقل ملكية لمركبتك الآن 🚗"
+      },
+      {
+        "className": "home-card",
+        "count": 2,
+        "parentClassName": "row",
+        "sampleText": "⇄ نقل الملكية"
+      },
+      {
+        "className": "order",
+        "count": 2,
+        "parentClassName": "list",
+        "sampleText": "قيد الانتظار تويوتا كورولا ٢٠٢٤ أرسل في 10 يونيو 2024 🚗"
+      },
+      {
+        "className": "row",
+        "count": 2,
+        "parentClassName": "scroll",
+        "sampleText": "نقل ملكية مركبة قدم طلب نقل ملكية لمركبتك الآن 🚗 حجز فحص المركبة"
+      },
+      {
+        "className": "section-row",
+        "count": 2,
+        "parentClassName": "scroll",
+        "sampleText": "الطلبات عرض الكل"
+      }
+    ],
+    "sectionGroups": [
+      {
+        "title": "الطلبات",
+        "trailingLabel": "عرض الكل"
+      },
+      {
+        "title": "الخدمات"
+      }
+    ]
   }
 }

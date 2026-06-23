@@ -51,14 +51,20 @@ describe('Generator Tests', () => {
     expect(content).toContain('AppCard');
   });
 
-  test('first-slice screens are generated', () => {
+  test('all manifest screens are generated', () => {
     const { readdirSync } = require('fs');
+    const manifest = JSON.parse(
+      readFileSync(resolve(__dirname, '..', 'specs', 'manifest.json'), 'utf-8'),
+    );
     const files = readdirSync(generatedDir);
     expect(files).toContain('home_screen.dart');
     expect(files).toContain('phone_input_screen.dart');
     expect(files).toContain('payment_screen.dart');
     expect(files).toContain('splash_screen.dart');
-    expect(files.length).toBe(4);
+    expect(files.length).toBe(manifest.screens.length);
+    for (const screen of manifest.screens) {
+      expect(files).toContain(`${screen.screenId}_screen.dart`);
+    }
   });
 
   test('generated screens use design system bottom nav', () => {

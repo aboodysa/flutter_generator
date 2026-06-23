@@ -17,13 +17,27 @@ class AppPhoneField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mixedScriptStyle = TextStyle(
+      fontFamily: 'Roboto',
+      fontFamilyFallback: const ['Tajawal'],
+      fontWeight: FontWeight.w700,
+      fontSize: 14,
+    );
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (label != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(label!, style: AppTextStyles.label),
+            padding: const EdgeInsetsDirectional.only(bottom: 8),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                label!,
+                style: AppTextStyles.label,
+                textAlign: TextAlign.start,
+              ),
+            ),
           ),
         Container(
           height: 50,
@@ -33,23 +47,30 @@ class AppPhoneField extends StatelessWidget {
             border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Row(
+            textDirection: Directionality.of(context),
             children: [
               const SizedBox(width: 12),
               const Text('🇸🇦', style: TextStyle(fontSize: 20)),
               const SizedBox(width: 6),
-              Text(countryCode,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(
+                countryCode,
+                textDirection: TextDirection.ltr,
+                style: mixedScriptStyle,
+              ),
               Container(
                 width: 1,
                 height: 26,
                 color: AppColors.line,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+                margin: const EdgeInsetsDirectional.symmetric(horizontal: 8),
               ),
               Expanded(
                 child: Text(
                   value ?? placeholder ?? '',
+                  textAlign: TextAlign.start,
+                  textDirection: Directionality.of(context),
                   style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontFamilyFallback: const ['Tajawal'],
                     fontSize: 14,
                     color: value != null
                         ? AppColors.textPrimary

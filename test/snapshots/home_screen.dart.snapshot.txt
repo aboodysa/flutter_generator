@@ -1,0 +1,17 @@
+class HomeScreen
+return AppScaffold(
+const LogoHeader()
+AppBanner.peach(title: 'نقل ملكية مركبة', subtitle: 'قدم طلب نقل ملكية لمركبتك الآن')
+AppBanner(title: 'حجز فحص المركبة', subtitle: 'احجز موعد الفحص الآن')
+Text('الطلبات', style: AppTextStyles.title)
+Text('عرض الكل', style: AppTextStyles.caption)
+OrderCard(
+vehicleName: 'تويوتا كورولا ٢٠٢٤',
+date: 'أرسل في 10 يونيو 2024',
+OrderCard(
+vehicleName: 'تويوتا كورولا ٢٠٢٤',
+date: 'أرسل في 10 يونيو 2024',
+Text('الخدمات', style: AppTextStyles.title)
+AppCard.peach(
+AppCard.lavender(
+AppBottomNav(

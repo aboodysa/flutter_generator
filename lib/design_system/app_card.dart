@@ -27,19 +27,26 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: height,
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color ?? AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: child,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth =
+            constraints.maxWidth.isFinite ? double.infinity : 180.0;
+
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: cardWidth,
+            height: height,
+            padding: padding,
+            decoration: BoxDecoration(
+              color: color ?? AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

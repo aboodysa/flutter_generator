@@ -13,15 +13,15 @@ class PhoneInputScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      header: 
-                AppTopBar(title: '', showBack: true),
-      body: 
-                Column(
+      header:
+        AppTopBar(title: '', showBack: true),
+      body:
+        Column(
           spacing: AppSpacing.lg,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-                  AppTopBar(title: 'رقم الهاتف', showBack: false),
-                  AppTopBar(title: 'سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', showBack: false),
+                  Text('رقم الهاتف', style: AppTextStyles.heading, textAlign: TextAlign.right),
+                  Text('سوف نرسل ٤ أرقام لهاتفك المحمول للتأكد', style: AppTextStyles.bodyRegular.copyWith(color: AppColors.textMuted, height: 1.5), textAlign: TextAlign.right),
                   AppPhoneField(label: '', placeholder: '051234321'),
                   AppButton.primary(
                     'متابعة',

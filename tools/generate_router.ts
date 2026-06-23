@@ -24,6 +24,10 @@ function toFilePath(screenId: string): string {
   return screenId.replace(/-/g, '_');
 }
 
+function toDisplayTitle(name: string): string {
+  return name.replace(/Screen$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
 function generateRouter(manifest: Manifest): string {
   const imports = manifest.screens
     .map(s => {
@@ -42,6 +46,9 @@ function generateRouter(manifest: Manifest): string {
     )`;
     })
     .join(',\n');
+  const entries = manifest.screens
+    .map(s => `  GeneratedScreenEntry(screenId: '${s.screenId}', title: '${toDisplayTitle(s.name)}', route: '${s.route}')`)
+    .join(',\n');
 
   return `// GENERATED CODE - DO NOT MODIFY BY HAND.
 // Generated from: specs/manifest.json
@@ -50,11 +57,31 @@ function generateRouter(manifest: Manifest): string {
 import 'package:go_router/go_router.dart';
 ${imports}
 
-final generatedAppRouter = GoRouter(
-  initialLocation: '${manifest.initialRoute}',
-  routes: [
+class GeneratedScreenEntry {
+  const GeneratedScreenEntry({
+    required this.screenId,
+    required this.title,
+    required this.route,
+  });
+
+  final String screenId;
+  final String title;
+  final String route;
+}
+
+final generatedInitialLocation = '${manifest.initialRoute}';
+
+const generatedScreenEntries = <GeneratedScreenEntry>[
+${entries},
+];
+
+final generatedRoutes = <RouteBase>[
 ${routes},
-  ],
+];
+
+final generatedAppRouter = GoRouter(
+  initialLocation: generatedInitialLocation,
+  routes: generatedRoutes,
 );
 `;
 }

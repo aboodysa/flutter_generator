@@ -19,20 +19,35 @@ class SummaryBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsetsDirectional.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: color ?? AppColors.cultured,
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
+        textDirection: Directionality.of(context),
         children: [
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(title, style: AppTextStyles.label),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    title,
+                    style: AppTextStyles.label,
+                    textAlign: TextAlign.start,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: AppTextStyles.caption),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    subtitle,
+                    style: AppTextStyles.caption,
+                    textAlign: TextAlign.start,
+                  ),
+                ),
               ],
             ),
           ),

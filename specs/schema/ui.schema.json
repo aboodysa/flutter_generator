@@ -6,6 +6,34 @@
   "properties": {
     "screenId": { "type": "string" },
     "usesProductSpec": { "type": "string" },
+    "sourceEvidence": { "type": "object" },
+    "renderEvidence": { "type": "object" },
+    "refinementLog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "screenId": { "type": "string" },
+          "fieldPath": { "type": "string" },
+          "field": { "type": "string" },
+          "before": {},
+          "after": {},
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "source": { "type": "string", "enum": ["raw_html", "rendered_html"] },
+              "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+              "inferenceLevel": { "type": "string", "enum": ["direct", "inferred"] },
+              "caption": { "type": "string" },
+              "screenId": { "type": "string" },
+              "evidence": { "type": "object" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["screenId", "fieldPath", "field", "provenance"]
+      }
+    },
     "layout": {
       "type": "object",
       "required": ["type"],

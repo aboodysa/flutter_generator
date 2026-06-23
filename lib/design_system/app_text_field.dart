@@ -21,13 +21,25 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textDirection = Directionality.of(context);
+    final isRtl = textDirection == TextDirection.rtl;
+    final leadingSlot = isRtl ? suffix : prefix;
+    final trailingSlot = isRtl ? prefix : suffix;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (label != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(label!, style: AppTextStyles.label),
+            padding: const EdgeInsetsDirectional.only(bottom: 8),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                label!,
+                style: AppTextStyles.label,
+                textAlign: TextAlign.start,
+              ),
+            ),
           ),
         Container(
           height: 50,
@@ -37,13 +49,17 @@ class AppTextField extends StatelessWidget {
             border: Border.all(color: AppColors.line),
           ),
           child: Row(
+            textDirection: textDirection,
             children: [
-              if (suffix != null)
+              if (leadingSlot != null)
                 Padding(
-                    padding: const EdgeInsets.only(left: 12), child: suffix!),
+                  padding: const EdgeInsetsDirectional.only(end: 12),
+                  child: leadingSlot,
+                ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding:
+                      const EdgeInsetsDirectional.symmetric(horizontal: 12),
                   child: Text(
                     value ?? placeholder ?? '',
                     style: TextStyle(
@@ -54,13 +70,15 @@ class AppTextField extends StatelessWidget {
                       fontWeight:
                           value != null ? FontWeight.w500 : FontWeight.w400,
                     ),
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.start,
                   ),
                 ),
               ),
-              if (prefix != null)
+              if (trailingSlot != null)
                 Padding(
-                    padding: const EdgeInsets.only(right: 12), child: prefix!),
+                  padding: const EdgeInsetsDirectional.only(start: 12),
+                  child: trailingSlot,
+                ),
             ],
           ),
         ),
