@@ -44,6 +44,12 @@ npx ts-node tools/generate_router.ts
 
 The generator should only read refined specs. It should not infer prototype-specific behavior from screen names.
 
+For a combined pipeline entrypoint, use:
+
+```bash
+npm run generate:pipeline
+```
+
 ### 4. Verify generated output
 
 ```bash
@@ -106,6 +112,30 @@ Do not use rendered HTML to modify:
 - business rules
 - Flutter widget names
 - raw hex colors
+
+## Architecture Compliance
+
+The generator should stay SOLID-friendly and spec-driven.
+
+Rules:
+
+- keep generated Flutter files UI-only
+- keep navigation and business logic out of `lib/generated/screens`
+- keep the generator generic, not screen-specific
+- fail fast on unsupported components in strict mode
+- add new artifact families only when their specs and tests exist
+
+Run the compliance guard when changing generator behavior:
+
+```bash
+npm run guard:architecture
+```
+
+Use the roadmap and policy docs as the source of truth:
+
+- [Generator refactor plan](./artifacts/roadmap/2026-06-24-generator-refactor-plan.md)
+- [Generator roadmap](./artifacts/roadmap/2026-06-24-generator-refactor-roadmap.md)
+- [Generator architecture rules](./artifacts/architecture/generator-architecture-rules.md)
 
 ## Rollback-Safe Commits
 

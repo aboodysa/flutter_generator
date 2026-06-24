@@ -1,0 +1,14 @@
+{
+  "outputDir": "lib",
+  "stateManagement": "none",
+  "artifacts": {
+    "ui": true,
+    "router": true,
+    "models": false,
+    "repositories": false,
+    "bloc": false,
+    "usecases": false,
+    "di": false,
+    "tests": false
+  }
+}

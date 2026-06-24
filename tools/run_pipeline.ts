@@ -1,22 +1,13 @@
 import { buildGenerationContext, loadGenerationConfig } from './core/context';
 import { GenerationPipeline } from './core/pipeline';
 import { RouterGenerator } from './generators/router.generator';
+import { UIGenerator } from './generators/ui.generator';
 
 async function main() {
   const config = loadGenerationConfig(process.argv);
-  config.artifacts = {
-    ui: false,
-    router: true,
-    models: false,
-    repositories: false,
-    bloc: false,
-    usecases: false,
-    di: false,
-    tests: false,
-  };
-
   const context = buildGenerationContext(config);
   const pipeline = new GenerationPipeline();
+  pipeline.register(new UIGenerator());
   pipeline.register(new RouterGenerator());
   await pipeline.run(context);
 }
