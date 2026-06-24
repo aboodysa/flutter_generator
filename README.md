@@ -50,6 +50,12 @@ For a combined pipeline entrypoint, use:
 npm run generate:pipeline
 ```
 
+For the full HTML-to-Flutter path, use:
+
+```bash
+npm run generate:from-html
+```
+
 ### 4. Verify generated output
 
 ```bash

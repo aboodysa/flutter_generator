@@ -9,7 +9,7 @@
     "generate:screen": "npx ts-node tools/generate_flutter.ts --screen",
     "generate:pipeline": "npx ts-node tools/run_pipeline.ts",
     "import:prototype": "npx ts-node tools/import_prototype_html.ts fahs_flutter_like_prototype_v2.html",
-    "generate:from-html": "npm run import:prototype && npm run generate:screens",
+    "generate:from-html": "npm run import:prototype && npm run generate:pipeline",
     "verify:generated": "npx ts-node tools/verify_generated.ts",
     "guard:architecture": "npx ts-node tools/check_architecture.ts",
     "golden:payment:update": "flutter test test/goldens/payment_screen_golden_test.dart --update-goldens",
