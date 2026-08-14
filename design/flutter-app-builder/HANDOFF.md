@@ -1,59 +1,44 @@
-# HANDOFF — current round (2026-08-14)
+# HANDOFF — current round (2026-08-14, state-mgmt + arch)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Objective
-Drive the Flutter App Builder to **v1** (end of Phase 3: semantic lane + trust boundary),
-and prove it by **running + testing a generated Flutter web app in Chrome for Testing**
-via `~/Documents/cto/new_chrome_ext` (malls-app pattern). See
-`design/flutter-app-builder/PLAN_RUN_TEST_CFT.md`.
+Reach **v1** (end of Phase 3) and prove it: a generated app that runs + is tested in
+Chrome for Testing (`new_chrome_ext`, malls-app pattern). See `ROADMAP.md` + `PLAN_RUN_TEST_CFT.md`.
 
 ## Actors
-- **opencode (me)** — orchestrator: briefs, approve claude's commands, verify, commit.
-- **claude** — tmux `claude-flutter-grill` (cwd `~/temp/opencode/flutter-app-builder`), manual mode. Implements delegated slices.
-- **`opencode/deepseek-v4-pro`** — semantic-lane LLM (`MODEL` in `builder/src/requirements.ts` + `business_rule_agent.ts`).
+- **opencode (me)** — orchestrator: briefs, verify, commit. (Claude in tmux `claude-flutter-grill` is **out of quota** — paused until reset.)
+- **`opencode/deepseek-v4-pro`** — semantic-lane LLM (`MODEL` in requirements.ts / business_rule_agent.ts).
 
-## Repo map
-- `lib/` `test/` — payment pilot (Rasheed). Don't regress.
-- `builder/` — Flutter App Builder (deterministic compiler). Active area.
-- `design/flutter-app-builder/` — `DESIGN.md` (v3.5) + `PHASE_PLAN.md` + `GRILLING.md` + `BENCHMARK.md` + `HANDOFF.md` (this) + `context_history.md`.
-- `AGENTS.md` (repo root) — operating contract for agents.
-- Briefs live in `~/temp/opencode/flutter-app-builder/*.md`.
+## Just done (this round)
+- **P1 real screens** — list/detail render declared entity fields (title/subtitle/labeled rows), 3-row demo seed, null-safe field formatting. `e3caeaa`.
+- **Arch decision layer + state-mgmt providers** — new `arch.ts` (`decideArchitecture` = single source of truth for stateManagement/DI/routing/per-state strategy + coupled-pair matrix guard); `provider.ts` registry (none/bloc/riverpod); **riverpod** implemented as the 2nd provider (Notifier+NotifierProvider, ConsumerWidget+ref.watch, ProviderScope); bloc unchanged as enterprise default; explicit `attributes.stateManagement` override. `16d9da8`.
+- **CFT driver** — `docs/qa/expense/drive_cft.cjs` (puppeteer-core → CFT :9222; asserts boot/title/console-clean). Generated `main()` now calls `ensureSemantics()` (a11y + DOM text for tests). `2775ec8`.
 
-## Ground truth (roadmap vs done)
-| Phase | State |
+## Ground truth (roadmap)
+| Area | State |
 |---|---|
-| 1 deterministic core | ✅ plan.json, region hash, lockfile tuple, arch/security/determinism gates |
-| 2 pattern gen | ✅ component registry, 8-input scoring + none branch, forms, state machines (gaps: pagination/caching, persistence validator, 2nd state-mgmt plugin) |
-| 3a semantic lane | 🚧 BusinessRuleAgent IN PROGRESS (claude) — NL→`RuleModel`, schema-validate, entity/field cross-check, provenance, `extensionQueue`; fixture dry-run path |
-| 3b trust boundary | ✅ write-ACL, provenance, approve gate, oracle corpus + blocking coverage gate, decision-table `rows[]` + `daysSince>|<` |
-| 4 novel/hardening | partial (extract.ts, regen.ts) |
-
-## Commits this session
-`8fd3e39` … `468e48f` (last: ops AGENTS.md + CFT plan + deepseek-v4-pro default).
-3b rules+oracle slice committed `eb87a58`.
-
-## In flight (uncommitted, claude)
-- `builder/src/business_rule_agent.ts` (NEW)
-- `builder/samples/promo.ir.json` (Promotion + `promotionStatus` decision-table rule)
-- `builder/samples/rules/promotionStatus.oracle.json`, `rules/_fixture/business_rule_agent_output.json`
-- Verifying: typecheck → `--fixture` dry-run → all samples validate → promo flutter analyze+test
+| Phase 1 (deterministic core) | ✅ |
+| Phase 2 (pattern) | ✅ + arch layer + bloc/riverpod/none providers (gaps: pagination/caching, persistence validator) |
+| Phase 3a (BusinessRuleAgent) | ✅ `6fb6672` |
+| Phase 3b (oracle + trust core) | ✅ `eb87a58`; gaps: approval routing 2×2, two-party confidence, sealed-events template (C3) |
+| Phase 4 | partial (extract.ts, regen.ts) |
+| CFT run/test (P2) | 🚧 driver + build+serve done; `hasDataRow` assertion fails (seeded title field `merchant` is null → rows show 'Untitled', id is key not title) |
 
 ## Verification commands
 ```bash
 npm run typecheck:builder
 npx ts-node --transpile-only builder/src/index.ts <ir> <out>   # then:
-npx ts-node --transpile-only builder/src/validate.ts <ir> <out> # expect VALIDATION PASSED (incl [oracle] PASS)
-# sample app: flutter pub get && flutter analyze && flutter test
+npx ts-node --transpile-only builder/src/validate.ts <ir> <out> # VALIDATION PASSED (incl [oracle])
+# app: flutter create --platforms=web . && flutter build web; serve + drive_cft.cjs
 ```
-Sample IRs: `builder/samples/{expense.semantic, inventory, todo, rasheed, promo}.ir.json`.
-Oracle corpus: `builder/samples/rules/`.
+Samples: `builder/samples/{expense.semantic, inventory, todo, promo, rasheed, todo.riverpod}.ir.json`.
 
 ## Next steps
-1. Claude finishes 3a → I verify + commit ("add Phase 3a BusinessRuleAgent…").
-2. Track B: `flutter build web` a generated sample + serve.
-3. Track C: CFT launch + browserpilot driver navigates/asserts (app boots, screen renders, zero console/network errors) — evidence under `docs/qa/<sample>/`.
-4. Loop until run + tested green; then handle remaining 3b (approval routing 2×2, two-party confidence) → v1.
+1. P2 CFT: fix demo seed so the rendered list *title* field is distinct (not just the key) → `hasDataRow` passes → commit CFT green evidence.
+2. P3: approval routing 2×2 (C1), two-party confidence (C2), honor per-state `sealed-events` (C3), strategy-fidelity gate (C4).
+3. Keep HANDOFF lean; archive prior → `context_history.md`.
 
 ## Rules
-- Additive-only; small commits; never bypass oracle/approval gates; SOLID; 0% LLM in deterministic core.
+Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;
+LLM = `opencode/deepseek-v4-pro`; agents read `AGENTS.md` + briefs in `~/temp/opencode/flutter-app-builder/`.
