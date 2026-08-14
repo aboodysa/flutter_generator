@@ -45,6 +45,14 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
    work, verification commands, next steps, rules). **Move the previous HANDOFF
    content to `design/flutter-app-builder/context_history.md`** (append, dated
    header) so HANDOFF stays lean and history is preserved.
+9. **Send goldens + progress to Telegram each run.** After generating/updating
+   screens, capture iPhone-size goldens (golden tests already set `390×844`) via
+   `flutter test --update-goldens`, then send the `.png`s + a one-line progress
+   note to the owner over Telegram (mac_companion bot). Send photos with:
+   `curl -s -F "chat_id=1117739189" -F "photo=@<file.png>" "https://api.telegram.org/bot$(cat ~/.mac_companion/token)/sendPhoto"`
+   and text with `sendMessage` (`text=` field). Goldens MUST render real text —
+   the golden test loads Roboto via `FontLoader` + `buildTheme()` (never bare
+   `MaterialApp`, which renders Ahem boxes).
 
 ## Commands (run from repo root unless noted)
 
