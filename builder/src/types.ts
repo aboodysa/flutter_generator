@@ -145,8 +145,9 @@ export interface RepositoryImplModel {
 export interface ScreenModel {
   name: string; // e.g. TransactionListScreen
   entity: string; // entity shown
-  type: "list" | "detail";
+  type: string; // composition archetype id: "list" | "detail" | "dashboard" | ... (open set, see composition.ts)
   state: string; // state/cubit name
+  hero?: string; // optional: field name or headline to render as the screen's focal point
 }
 
 export interface TransitionModel {

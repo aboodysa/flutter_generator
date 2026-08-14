@@ -34,6 +34,15 @@ abstract final class AppColors {
   static const error = Color(0xFFDC2626);
 }
 
+// Rhythm / spacing scale (composition layer) — gap by intent, not fixed 16s.
+abstract final class AppSpacing {
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const md = 16.0;
+  static const lg = 24.0;
+  static const xl = 40.0;
+}
+
 ThemeData buildTheme() => ThemeData(
   colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
   useMaterial3: true,

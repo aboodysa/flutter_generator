@@ -1,0 +1,16 @@
+For a deterministic Flutter app generator, map app categories to the following builder decision inputs. Output a JSON object keyed by category, each value an object with exactly these keys:
+- "entities": number (rough entity/model count, int)
+- "filterAxes": number (rough search/filter dimension count, int)
+- "refreshCadence": "static" | "occasional" | "frequent" | "realtime"
+- "density": "compact" | "comfortable"
+- "responsiveness": "mobile" | "responsive"
+- "offlinePolicy": "none" | "cache" | "offline-first"
+- "permissionScope": "none" | "basic" | "sensitive"
+- "stateComplexity": "low" | "medium" | "high"
+- "stateManagement": "none" | "bloc" | "riverpod"
+- "screens": list of dominant screen pattern names
+- "designIntensity": "simple" | "moderate" | "rich"
+
+Cover these categories: E-commerce, Fintech/Banking, Healthcare, Social, Productivity, Education, Logistics/Delivery, Transport/Ride-hail, Food ordering, Real estate, Government/Public services, Enterprise/CRM, Field service, Media/Streaming, IoT/Smart home, Travel, Gaming, HR/People ops, Utilities, B2B SaaS/Admin tools.
+
+Output ONLY valid JSON (no markdown, no commentary).

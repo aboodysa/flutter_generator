@@ -1,0 +1,18 @@
+You are building a "Design DNA" profile for app categories so a UI generator can produce new screens that look native to each category.
+
+For EACH of these categories, output a JSON object with exactly these keys:
+- "components": array of dominant reusable UI components
+- "patterns": array of dominant screen layout patterns
+- "flows": array of dominant navigation flows
+- "conventions": array of layout/interaction conventions
+- "semanticRoles": array of domain-specific semantic components
+- "designDNA": 1-line summary of visual+structural+behavioral identity
+
+Categories: E-commerce, Fintech/Banking, Healthcare, Social, Productivity, Education, Logistics/Delivery, Transport/Ride-hail, Food ordering, Real estate, Government/Public services, Enterprise/CRM, Field service, Media/Streaming, IoT/Smart home, Travel, Gaming, HR/People ops, Utilities, B2B SaaS/Admin tools.
+
+STRICT RULES:
+- Output ONLY a single valid JSON object keyed by category name.
+- Every string MUST use double quotes. If a string contains a double quote, escape it as \". NEVER use single quotes for strings.
+- No markdown, no commentary, no trailing commas.
+
+Output the JSON object (including enclosing { } braces).

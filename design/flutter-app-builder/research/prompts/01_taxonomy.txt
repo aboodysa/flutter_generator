@@ -1,0 +1,12 @@
+You are researching the landscape of mobile/app products for a Flutter app generator (which deterministically generates apps from a spec). 
+
+Produce a JSON array of ~18 app CATEGORIES. For each category give:
+- "category": short name (e.g. "E-commerce", "Fintech/Banking")
+- "audience": primary audience (B2C | B2B | B2G | internal | consumer)
+- "sectors": 1-3 industry sectors it commonly appears in
+- "examples": 2-3 well-known real app names
+- "typicalScreens": list of dominant screen patterns (list, detail, form, dashboard, chat, map, feed, checkout, etc.)
+
+Be comprehensive across: commerce, finance, health, social, productivity, education, logistics/delivery, transport/ride-hail, food, real estate, government, enterprise/CRM, field service, media/streaming, IoT/smart home, travel, gaming, utilities, HR, field ops.
+
+Output ONLY valid JSON (no markdown, no commentary).

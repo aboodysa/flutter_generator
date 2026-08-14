@@ -1,0 +1,130 @@
+[0m
+> build · deepseek-v4-flash-free
+[0m
+  {
+    "category": "E-commerce",
+    "audience": "B2C",
+    "sectors": ["Retail", "Marketplace", "Fashion & Apparel"],
+    "examples": ["Amazon", "Shein", "Etsy"],
+    "typicalScreens": ["home/feed", "search & filters", "product list", "product detail", "shopping cart", "checkout", "order history & tracking", "wishlist", "reviews & ratings", "profile/settings"]
+  },
+  {
+    "category": "Fintech / Banking",
+    "audience": "B2C",
+    "sectors": ["Banking", "Payments", "Investing"],
+    "examples": ["Revolut", "Nubank", "Coinbase"],
+    "typicalScreens": ["dashboard/accounts overview", "account detail & transactions", "add money form", "transfer/pay form", "biometric/2FA auth", "card management", "bill pay & scheduled payments", "portfolio/analytics", "chat support", "statements"]
+  },
+  {
+    "category": "Health & Fitness",
+    "audience": "consumer",
+    "sectors": ["Healthcare", "Wellness", "Fitness"],
+    "examples": ["Strava", "MyFitnessPal", "MyChart"],
+    "typicalScreens": ["dashboard/stats", "activity log & charts", "workout/activity detail", "meal & calorie tracker form", "step/goal ring", "appointment booking form", "telehealth chat/video", "medication reminders", "profile with health metrics"]
+  },
+  {
+    "category": "Social / Community",
+    "audience": "consumer",
+    "sectors": ["Social Networking", "Messaging", "UGC Community"],
+    "examples": ["Instagram", "Reddit", "Discord"],
+    "typicalScreens": ["feed", "post composer", "post detail & comments", "direct messages/chat", "stories", "profiles", "followers/following list", "notifications", "search/explore", "groups/servers"]
+  },
+  {
+    "category": "Productivity",
+    "audience": "consumer",
+    "sectors": ["Task Management", "Notes", "Project Tools"],
+    "examples": ["Notion", "Todoist", "Evernote"],
+    "typicalScreens": ["dashboard/home", "workspace/board list", "task/todo list", "item detail & editor", "creation form", "calendar", "tags & filters", "search", "reminders/notifications", "settings & sync"]
+  },
+  {
+    "category": "Education / E-learning",
+    "audience": "B2C",
+    "sectors": ["EdTech", "Corporate Training", "Language Learning"],
+    "examples": ["Duolingo", "Khan Academy", "Udemy"],
+    "typicalScreens": ["course catalog list", "lesson/detail player", "quiz & exercises", "progress dashboard", "enrollment/checkout", "flashcards & practice", "leaderboards", "chat/discussion", "certificate", "profile"]
+  },
+  {
+    "category": "Logistics / Delivery (3PL)",
+    "audience": "B2B",
+    "sectors": ["Freight & Trucking", "Warehousing", "Courier"],
+    "examples": ["Flexport", "Onfleet", "Maersk"],
+    "typicalScreens": ["shipment list", "shipment detail & timeline", "driver/route assignment", "route/map view", "proof of delivery form", "dispatch dashboard", "billing/invoice", "analytics dashboard", "chat with driver", "tracking live map"]
+  },
+  {
+    "category": "Food & Restaurant",
+    "audience": "B2C",
+    "sectors": ["Food Delivery", "Restaurants", "Groceries"],
+    "examples": ["DoorDash", "Uber Eats", "Instacart"],
+    "typicalScreens": ["restaurant discovery list", "restaurant detail & menu", "menu item detail", "cart with modifiers", "checkout & scheduling", "live order tracking map", "order history", "reviews", "promo/coupon", "reorder"]
+  },
+  {
+    "category": "Transport / Ride-hail",
+    "audience": "B2C",
+    "sectors": ["Mobility", "Ride-hailing", "Car-sharing"],
+    "examples": ["Uber", "Lyft", "Bolt"],
+    "typicalScreens": ["map with pickup", "destination search", "ride options list", "fare estimate", "booking/confirm form", "live driver tracking map", "ride detail/receipt", "driver rating form", "payment methods", "trip history"]
+  },
+  {
+    "category": "Real Estate",
+    "audience": "B2C",
+    "sectors": ["Proptech", "Rental & Leasing", "Property Sales"],
+    "examples": ["Zillow", "Airbnb", "Redfin"],
+    "typicalScreens": ["property search list & map", "property detail with gallery", "filter form", "map view", "booking/contact form", "favorites/saved", "mortgage/price calculator", "agent chat", "tour scheduling", "profile"]
+  },
+  {
+    "category": "Government / Civic",
+    "audience": "B2G",
+    "sectors": ["Public Services", "Utilities", "Regulatory"],
+    "examples": ["Gov.br", "Gov.UK", "Singpass"],
+    "typicalScreens": ["service catalog list", "application form", "document upload", "request status tracking", "payment for fees", "ID verification", "appointment booking", "notifications/alerts", "search & FAQ", "profile/account"]
+  },
+  {
+    "category": "Enterprise CRM / Sales",
+    "audience": "B2B",
+    "sectors": ["Sales", "Marketing", "Customer Support"],
+    "examples": ["Salesforce", "HubSpot", "Pipedrive"],
+    "typicalScreens": ["dashboard with KPIs", "lead/contact list", "contact/deal detail", "pipeline/kanban board", "data entry form", "activity/task log", "meeting calendar", "call/email log", "reports & charts", "search with filters"]
+  },
+  {
+    "category": "Field Service / Field Ops",
+    "audience": "B2B",
+    "sectors": ["Field Service", "Utilities & Energy", "Maintenance"],
+    "examples": ["ServiceTitan", "Jobber", "Fieldwire"],
+    "typicalScreens": ["jobs/work orders list", "job detail", "route/map view", "job status updates", "photo upload/evidence", "signature capture", "spare parts/inventory", "invoice & billing", "time tracking form", "chat with dispatcher", "checklist form"]
+  },
+  {
+    "category": "Media / Streaming",
+    "audience": "consumer",
+    "sectors": ["Entertainment", "Podcasts", "Video"],
+    "examples": ["Netflix", "Spotify", "YouTube Music"],
+    "typicalScreens": ["home/feed of content", "content detail", "player", "search", "categories/genre list", "library/my content", "downloads/offline", "queue/up next", "subscription/paywall", "profile & parental controls"]
+  },
+  {
+    "category": "IoT / Smart Home",
+    "audience": "consumer",
+    "sectors": ["Smart Home", "Security", "Energy Management"],
+    "examples": ["Google Home", "Ring", "Philips Hue"],
+    "typicalScreens": ["device dashboard", "room/device list", "device control", "live camera feed", "scenes/automations", "device pairing/wifi setup form", "energy usage charts", "alerts & notifications", "schedules & timers", "settings"]
+  },
+  {
+    "category": "Travel & Hospitality",
+    "audience": "B2C",
+    "sectors": ["Airlines", "Hotels", "Travel Booking"],
+    "examples": ["Booking.com", "Kayak", "Grab"],
+    "typicalScreens": ["search with filters", "results list", "result detail", "booking form & seats", "checkout/payment", "itinerary/trip list", "boarding pass/QR", "map of destinations", "reviews", "push notifications for updates"]
+  },
+  {
+    "category": "Gaming",
+    "audience": "consumer",
+    "sectors": ["Mobile Gaming", "Casual Games", "eSports"],
+    "examples": ["Candy Crush", "PUBG Mobile", "Among Us"],
+    "typicalScreens": ["home/lobby", "game board/play screen", "level select", "leaderboard & ranks", "profile & avatars", "in-game store/shop", "currency & rewards", "chat/im", "settings", "matchmaking queue"]
+  },
+  {
+    "category": "HR / Workforce",
+    "audience": "B2B",
+    "sectors": ["Human Resources", "Staffing", "Payroll"],
+    "examples": ["BambooHR", "Gusto", "Workday"],
+    "typicalScreens": ["dashboard & announcements", "time off request form", "attendance/clock-in", "payroll & payslips", "schedules list", "shift detail", "approvals queue", "employee directory", "onboarding form", "feedback/reviews", "chat"]
+  }
+]
