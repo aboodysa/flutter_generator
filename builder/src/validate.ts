@@ -36,6 +36,10 @@ function archCheck(f: string, src: string): string | null {
   if (layer.includes("/presentation")) {
     const bad = imports.filter((i) => i.includes("/data/datasources") || i.includes("/data/repositories/"));
     if (bad.length) return `presentation→data-impl in ${rel}: ${bad.join(", ")}`;
+    // Component registry (§8): screens must not hardcode tokens — consume registry components instead.
+    if (/Colors\.|Color\(0x|Color\.fromRGBO|const Color\(/.test(src)) {
+      return `presentation bypasses registry (raw color literal) in ${rel}`;
+    }
   }
   return null;
 }

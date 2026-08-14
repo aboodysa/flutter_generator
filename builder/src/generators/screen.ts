@@ -18,11 +18,13 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const stateImport = ctx?.symbols.get(s.state)
     ? `import 'package:${ctx.pkg}/${ctx.symbols.get(s.state)}';`
     : `import '${s.state.toLowerCase()}.dart';`;
+  const componentsImport = ctx ? `import 'package:${ctx.pkg}/core/components.dart';` : "import '../../core/components.dart';";
 
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+${componentsImport}
 ${stateImport}
 
 class ${s.name} extends StatelessWidget {
@@ -34,7 +36,8 @@ class ${s.name} extends StatelessWidget {
       appBar: AppBar(title: const Text('${s.name}')),
       body: BlocBuilder<${cubit}, ${stateClass}>(
         builder: (context, state) {
-          if (state.status == ${statusEnum}.loading) return const Center(child: CircularProgressIndicator());
+          if (state.status == ${statusEnum}.loading) return const LoadingState();
+          if (state.status == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);
 ${body}
         },
       ),
