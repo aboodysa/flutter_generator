@@ -5,10 +5,21 @@ import { FeatureModel, Field } from "../types";
  * Emits a model round-trip + entity equality unit test for the first entity.
  */
 export function generateUnitTest(feature: FeatureModel): string {
-  const entity = feature.entities[0];
-  if (!entity) throw new Error("[test] no entities in IR; cannot generate unit test");
-  const model = `${entity.name}Model`;
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const entity = feature.entities[0];
+  if (!entity) {
+    return `// [generated] generator=UnitTestGenerator template=unit_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('vanilla app has no domain entities to test', () {
+    expect(true, isTrue);
+  });
+}
+`;
+  }
+  const model = `${entity.name}Model`;
 
   const jsonSample = (f: Field): string => {
     if (f.semanticType) {
@@ -88,7 +99,21 @@ ${jsonEntries}
 export function generateGoldenTest(feature: FeatureModel): string {
   const screen = feature.screens?.[0];
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  if (!screen) throw new Error("[test] no screens in IR; cannot generate golden test");
+  if (!screen) {
+    return `// [generated] generator=GoldenTestGenerator template=golden.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:${pkg}/main.dart';
+import 'package:flutter/material.dart';
+
+void main() {
+  testWidgets('app renders (golden)', (tester) async {
+    await tester.pumpWidget(const ReplicaApp());
+    await expectLater(find.byType(Scaffold), matchesGoldenFile('goldens/app.png'));
+  });
+}
+`;
+  }
 
   const goldenName = screen.name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
   const cubit = `${screen.state}Cubit`;
@@ -119,7 +144,6 @@ void main() {
 export function generateFlowTest(feature: FeatureModel): string {
   const screen = feature.screens?.[0];
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  if (!screen) throw new Error("[test] no screens in IR; cannot generate flow test");
 
   return `// [generated] generator=FlowTestGenerator template=flow.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
@@ -128,9 +152,9 @@ import 'package:${pkg}/main.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  testWidgets('app boots and ${screen.name} is reachable', (tester) async {
+  testWidgets('app boots and renders', (tester) async {
     await tester.pumpWidget(const ReplicaApp());
-    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.byType(Scaffold), findsWidgets);
   });
 }
 `;

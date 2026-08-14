@@ -1,11 +1,21 @@
 import { FeatureModel } from "../types";
 import { GenContext } from "../dart";
+import { ScoringDecision } from "../scoring";
 
 /**
  * DIGenerator — structural, deterministic, 0% LLM.
  * Emits a get_it service locator from the dependency graph (datasources → repos → use cases → cubits).
+ * Honors the §5.2 `none` branch: below the complexity floor, emits no DI container.
  */
-export function generateDi(feature: FeatureModel, ctx?: GenContext): string {
+export function generateDi(feature: FeatureModel, ctx?: GenContext, decision?: ScoringDecision): string {
+  if (decision?.di === "none") {
+    return `// [generated] generator=DIGenerator template=di_none.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+// Vanilla (none) strategy — no DI container needed for a minimal app.
+void setupDependencies() {}
+`;
+  }
+
   const lines: string[] = ["final sl = GetIt.instance;", "", "void setupDependencies() {"];
 
   for (const d of feature.datasources ?? []) {

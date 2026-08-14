@@ -197,8 +197,8 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   }
 
   const core: [string, string][] = [
-    ["di.dart", generateDi(ir, ctx)],
-    ["router.dart", generateRoutes(ir, ctx)],
+    ["di.dart", generateDi(ir, ctx, appDecision)],
+    ["router.dart", generateRoutes(ir, ctx, appDecision)],
     ["components.dart", generateComponents(ir)],
     ["app_strings.dart", generateLocalization(ir)],
     ["theme.dart", generateTheme(ir)],
@@ -239,7 +239,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   fs.writeFileSync(barrelFile, generateBarrel(ir, ctx));
   const mainFile = path.join(outDir, "lib", "main.dart");
   fs.writeFileSync(mainFile, generateMain(ir));
-  fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir));
+  fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, appDecision));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   const testDir = path.join(outDir, "test");
   fs.mkdirSync(testDir, { recursive: true });
