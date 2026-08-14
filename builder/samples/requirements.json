@@ -1,0 +1,33 @@
+{
+  "$comment": "Generic requirements spec — the WHAT. The generator turns this into an IR, then into idiomatic Flutter (the HOW). Nothing here is Rasheed-specific.",
+  "app": "Expense tracker",
+  "locale": ["ar", "en"],
+  "direction": "rtl",
+  "features": [
+    {
+      "feature": "transactions",
+      "description": "Track expense transactions",
+      "concepts": [
+        { "name": "Transaction", "fields": [
+          { "name": "amount", "meaning": "total monetary amount" },
+          { "name": "date", "meaning": "when the transaction happened" },
+          { "name": "merchant", "meaning": "seller name" },
+          { "name": "category", "meaning": "expense category" },
+          { "name": "paymentMethod", "meaning": "how it was paid (cash/card/other)" },
+          { "name": "items", "meaning": "line items purchased" },
+          { "name": "attachments", "meaning": "receipts/files" }
+        ]},
+        { "name": "TransactionItem", "fields": [{ "name": "name" }, { "name": "quantity" }, { "name": "unitPrice" }] },
+        { "name": "TransactionAttachment", "fields": [{ "name": "filePath" }, { "name": "fileType" }] },
+        { "name": "ExpensePayment", "fields": [{ "name": "paymentType" }, { "name": "paidAmount" }] },
+        { "name": "TransactionFeedback", "fields": [{ "name": "reaction" }, { "name": "comment" }] }
+      ]
+    }
+  ],
+  "behaviors": [
+    { "name": "listTransactions", "capability": "list transactions, filter/search/paginate" },
+    { "name": "viewTransactionDetail", "capability": "view simple + detailed transaction" },
+    { "name": "watchTransactions", "capability": "live/streamed listing with cache flag" },
+    { "name": "submitFeedback", "capability": "submit reaction + comment on a transaction" }
+  ]
+}

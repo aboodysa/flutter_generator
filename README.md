@@ -142,6 +142,51 @@ Use the roadmap and policy docs as the source of truth:
 - [Generator refactor plan](./artifacts/roadmap/2026-06-24-generator-refactor-plan.md)
 - [Generator roadmap](./artifacts/roadmap/2026-06-24-generator-refactor-roadmap.md)
 - [Generator architecture rules](./artifacts/architecture/generator-architecture-rules.md)
+- [Payment pilot integration note](./artifacts/roadmap/2026-06-25-payment-pilot-integration-note.md)
+- [Payment spec-driven roadmap](./artifacts/roadmap/2026-06-25-payment-spec-generator-roadmap.md)
+
+## Payment Pilot Merge Status
+
+### Implemented
+
+- Added `Failure`, `Order`, `ConfirmPaymentRequest`, `PaymentRepository`, `PaymentRepositoryImpl`, and `ConfirmPaymentUseCase`.
+- Patched `lib/app/app_action_dispatcher.dart` manually to handle `payment.confirmOrder`.
+- Wired the current generated Payment screen to the fake payment flow.
+
+### Verified
+
+- `flutter pub get`
+- `dart format lib test`
+- `flutter analyze`
+- `flutter test test/features/payment/payment_domain_test.dart`
+- Package name is `fahs`.
+- `order_details` exists in `lib/generated/app/router.g.dart`.
+- Generated Payment screen dispatches `screenId: 'payment'`, `actionId: 'confirmOrder'`, and `fallbackRouteName: 'order_details'`.
+
+### Limitations
+
+- The payment handler is still a pilot stub.
+- `inspectionId` is hardcoded.
+- `paymentMethod` is hardcoded.
+- `PaymentRepositoryImpl` is fake and does not call a real API.
+- No Bloc is connected yet.
+- No DI is connected yet.
+- No Payment UI rewrite was done.
+- No success listener exists outside the dispatcher route call.
+- No Payment widget or golden tests were added yet.
+- `dart format lib test` also reformatted unrelated generated files and should be reviewed separately if needed.
+
+### Roadmap
+
+- Clean the diff so only the intended payment pilot files and dispatcher/pubspec changes remain.
+- Map Payment into the current product/UI spec structure.
+- Add Bloc only after the current-schema payment mapping is stable.
+- Add DI and real API integration after the domain flow is proven.
+
+### Next Step
+
+- Keep this merge minimal, review the diff, and commit only the intended payment pilot changes.
+- Then start the next small step: current-schema product/UI spec mapping for Payment, not Bloc yet.
 
 ## Rollback-Safe Commits
 
@@ -177,3 +222,4 @@ If the screenshot is readable but the layout is off:
 - `tools/compare_payment_golden.py`
 - `flutter_test_config.dart`
 - `test/goldens/payment_screen_golden_test.dart`
+- [Tool usage guide](./artifacts/guides/tool-usage-guide.md)

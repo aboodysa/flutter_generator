@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "valueobject.schema.v1",
+  "title": "ValueObjectModel",
+  "type": "object",
+  "required": ["name", "baseType"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+    "baseType": { "enum": ["String", "int", "double", "DateTime"] },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "object", "required": ["kind", "value"], "properties": { "kind": { "enum": ["min", "max"] }, "value": { "type": "number" } }, "additionalProperties": false },
+          { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "nonEmpty" } }, "additionalProperties": false },
+          { "type": "object", "required": ["kind", "value"], "properties": { "kind": { "const": "regex" }, "value": { "type": "string" } }, "additionalProperties": false }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

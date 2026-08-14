@@ -1,0 +1,5 @@
+{ "$schema": "http://json-schema.org/draft-07/schema#", "$id": "rule.schema.v1", "title": "RuleModel",
+  "type": "object", "required": ["name", "entity", "conditions", "result"],
+  "properties": { "name": {"type":"string","pattern":"^[A-Za-z][A-Za-z0-9]*$"}, "entity": {"type":"string"}, "result": {"type":"string"},
+    "conditions": {"type":"array","items":{"type":"object","required":["field","operator","value"],"properties":{"field":{"type":"string"},"operator":{"enum":[">=","<=",">","<","==","!=","contains"]},"value":{"type":"string"}},"additionalProperties":false}} },
+  "additionalProperties": false }

@@ -1,0 +1,247 @@
+{
+  "$comment": "Second generic sample — inventory/warehouse domain. Proves the generator is domain-agnostic.",
+  "name": "inventory",
+  "enums": [
+    {
+      "name": "Unit",
+      "values": [
+        "piece",
+        "kg",
+        "liter",
+        "box"
+      ]
+    },
+    {
+      "name": "StockStatus",
+      "values": [
+        "inStock",
+        "low",
+        "outOfStock"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "Product",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "sku",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "price",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "unit",
+          "type": "enum",
+          "of": "Unit",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "of": "StockStatus",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "reference",
+          "of": "Category",
+          "nullable": true
+        },
+        {
+          "name": "warehouses",
+          "type": "List",
+          "of": "StockEntry"
+        }
+      ]
+    },
+    {
+      "name": "StockEntry",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "warehouseId",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "int",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Category",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "ProductFilter",
+      "fields": [
+        {
+          "name": "search",
+          "type": "String?"
+        },
+        {
+          "name": "status",
+          "type": "StockStatus?"
+        },
+        {
+          "name": "minPrice",
+          "type": "double?"
+        },
+        {
+          "name": "maxPrice",
+          "type": "double?"
+        }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "ProductRepository",
+      "operations": [
+        {
+          "name": "listProducts",
+          "returns": "Future<List<Product>>",
+          "params": [
+            {
+              "name": "filter",
+              "type": "ProductFilter",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "getProduct",
+          "returns": "Future<Product>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "restock",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "productId",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "quantity",
+              "type": "int",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "name": "ProductList",
+      "entity": "Product",
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ],
+      "extraFields": [
+        {
+          "name": "filter",
+          "type": "ProductFilter",
+          "default": "const ProductFilter()"
+        }
+      ]
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListProducts",
+      "repository": "ProductRepository",
+      "operation": "listProducts",
+      "paramType": "ProductFilter",
+      "returnType": "List<Product>"
+    }
+  ],
+  "datasources": [
+    {
+      "name": "ProductRemoteDataSource",
+      "endpoints": [
+        {
+          "name": "fetchProducts",
+          "method": "GET",
+          "path": "/products",
+          "returns": "List<Map<String, dynamic>>"
+        }
+      ]
+    }
+  ],
+  "repositoryImpls": [
+    {
+      "name": "ProductRepositoryImpl",
+      "contract": "ProductRepository",
+      "datasource": "ProductRemoteDataSource"
+    }
+  ],
+  "screens": [
+    {
+      "name": "ProductListScreen",
+      "entity": "Product",
+      "type": "list",
+      "state": "ProductList"
+    }
+  ],
+  "schemaVersion": "1"
+}

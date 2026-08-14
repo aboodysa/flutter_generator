@@ -1,0 +1,646 @@
+{
+  "name": "expense",
+  "enums": [
+    {
+      "name": "PaymentMethod",
+      "values": [
+        "cash",
+        "creditCard",
+        "other"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "TransactionEntity",
+      "identity": {
+        "field": "id"
+      },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "accountId",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "cycleId",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "categoryId",
+          "type": "int",
+          "nullable": true
+        },
+        {
+          "name": "merchantId",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "merchantNameRaw",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "branchName",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "amount",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "vatAmount",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "discountAmount",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "totalQty",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "invoiceNumber",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "taxNumber",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "terminalCode",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "commercialRegisterNumber",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "paymentMethod",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "paymentMethodMap",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "cashierName",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "salesName",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "customerName",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "customerPhone",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "transactionDateTime",
+          "type": "DateTime",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "qrCode",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "subtotal",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "taxableAmount",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "totalSavings",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "usedCredit",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "netPayable",
+          "type": "double",
+          "nullable": true
+        },
+        {
+          "name": "transactionType",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "captureMethod",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "isDigitalReceipt",
+          "type": "bool",
+          "required": true
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "required": true
+        },
+        {
+          "name": "categoryName",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "sectionCode",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "sectionIconIndex",
+          "type": "int",
+          "nullable": true
+        },
+        {
+          "name": "categoryIconAsset",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "categoryColorHex",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "captureMethodIconAsset",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "attachments",
+          "type": "List",
+          "of": "TransactionAttachmentEntity"
+        },
+        {
+          "name": "items",
+          "type": "List",
+          "of": "TransactionItemEntity"
+        },
+        {
+          "name": "payments",
+          "type": "List",
+          "of": "ExpensePaymentEntity"
+        },
+        {
+          "name": "hasFeedback",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "name": "nfcTransactionCode",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "isLongReceipt",
+          "type": "bool",
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "TransactionItemEntity",
+      "identity": {
+        "field": "id"
+      },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "transactionId",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "itemName",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "totalPrice",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "unitPrice",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "disc",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "vat",
+          "type": "double",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "TransactionAttachmentEntity",
+      "identity": {
+        "field": "id"
+      },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "transactionId",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "filePath",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "fileType",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ExpensePaymentEntity",
+      "equality": "full",
+      "immutability": true,
+      "fields": [
+        {
+          "name": "paymentType",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "paidAmount",
+          "type": "double",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "TransactionFeedbackEntity",
+      "equality": "none",
+      "immutability": true,
+      "fields": [
+        {
+          "name": "feedbackCode",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "snapshotCode",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "reaction",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "String",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "ExpenseRepository",
+      "operations": [
+        {
+          "name": "watchTransactions",
+          "returns": "Stream<TransactionsPage>",
+          "params": [
+            {
+              "name": "query",
+              "type": "TransactionQuery",
+              "named": false
+            },
+            {
+              "name": "userId",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "languageCode",
+              "type": "String?"
+            },
+            {
+              "name": "localOnly",
+              "type": "bool",
+              "default": "false"
+            }
+          ]
+        },
+        {
+          "name": "getSimpleExpense",
+          "returns": "Future<TransactionEntity>",
+          "params": [
+            {
+              "name": "transactionCode",
+              "type": "String",
+              "named": false
+            },
+            {
+              "name": "page",
+              "type": "int",
+              "default": "1"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "10"
+            },
+            {
+              "name": "accountId",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "userId",
+              "type": "String",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "getDetailedExpense",
+          "returns": "Future<TransactionEntity>",
+          "params": [
+            {
+              "name": "transactionCode",
+              "type": "String",
+              "named": false
+            },
+            {
+              "name": "page",
+              "type": "int",
+              "default": "1"
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "10"
+            },
+            {
+              "name": "accountId",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "userId",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "languageCode",
+              "type": "String?"
+            }
+          ]
+        },
+        {
+          "name": "submitTransactionFeedback",
+          "returns": "Future<TransactionFeedbackEntity>",
+          "params": [
+            {
+              "name": "reaction",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "comment",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "transaction",
+              "type": "TransactionEntity",
+              "required": true
+            },
+            {
+              "name": "accountCode",
+              "type": "String",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "TransactionQuery",
+      "fields": [
+        {
+          "name": "page",
+          "type": "int",
+          "default": "1"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "default": "50"
+        },
+        {
+          "name": "accountCode",
+          "type": "String"
+        },
+        {
+          "name": "storeName",
+          "type": "String?"
+        },
+        {
+          "name": "categoryCodes",
+          "type": "List<int>?"
+        },
+        {
+          "name": "startDate",
+          "type": "DateTime?"
+        },
+        {
+          "name": "endDate",
+          "type": "DateTime?"
+        },
+        {
+          "name": "paymentMethodCodes",
+          "type": "List<int>?"
+        },
+        {
+          "name": "minAmount",
+          "type": "double?"
+        },
+        {
+          "name": "maxAmount",
+          "type": "double?"
+        },
+        {
+          "name": "allTransactions",
+          "type": "bool",
+          "default": "false"
+        },
+        {
+          "name": "cycleCode",
+          "type": "String?"
+        },
+        {
+          "name": "memberCode",
+          "type": "String?"
+        }
+      ],
+      "paramMap": {
+        "accountCode": "pocketCode",
+        "categoryCodes": "categoryCode",
+        "paymentMethodCodes": "paymentMethodCode"
+      }
+    },
+    {
+      "name": "TransactionFilter",
+      "fields": [
+        {
+          "name": "searchQuery",
+          "type": "String",
+          "default": "''"
+        }
+      ]
+    }
+  ],
+  "wrappers": [
+    {
+      "name": "TransactionsPage",
+      "fields": [
+        {
+          "name": "transactions",
+          "type": "List<TransactionEntity>"
+        },
+        {
+          "name": "fromCache",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "name": "AllExpenses",
+      "entity": "TransactionEntity",
+      "statuses": [
+        "initial",
+        "loading",
+        "refreshing",
+        "success",
+        "failure"
+      ],
+      "extraFields": [
+        {
+          "name": "visibleTransactions",
+          "type": "List<TransactionEntity>",
+          "default": "const []"
+        },
+        {
+          "name": "isFromCache",
+          "type": "bool",
+          "default": "false"
+        },
+        {
+          "name": "searchQuery",
+          "type": "String",
+          "default": "''"
+        },
+        {
+          "name": "accountCode",
+          "type": "String",
+          "default": "''"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "default": "50"
+        },
+        {
+          "name": "filter",
+          "type": "TransactionFilter",
+          "default": "const TransactionFilter()"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": "1"
+}

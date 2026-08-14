@@ -1,0 +1,109 @@
+import { StateModel, StateField } from "../types";
+import { importsFromTypes, sampleArgs, GenContext } from "../dart";
+
+const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
+
+// The three built-in fields every list state has.
+function builtinFields(entity: string): StateField[] {
+  return [
+    { name: "status", type: "STATUS", default: "initial" },
+    { name: "transactions", type: `List<${entity}>`, default: "const []" },
+    { name: "errorMessage", type: "String?", default: undefined },
+  ];
+}
+
+/**
+ * StateGenerator — structural, deterministic, 0% LLM (enum-status strategy).
+ * IR StateModel → enum Status + state class + Cubit.
+ */
+export function generateState(s: StateModel, ctx?: GenContext): string {
+  const name = s.name;
+  const entity = s.entity;
+  const statuses = s.statuses ?? DEFAULT_STATUSES;
+  const statusEnum = `${name}Status`;
+  const stateClass = `${name}State`;
+  const cubitClass = `${name}Cubit`;
+
+  // status field type resolves to the enum; all others are IR-declared.
+  const fields: StateField[] = builtinFields(entity);
+  for (const f of s.extraFields ?? []) fields.push(f);
+
+  const fieldDecl = (f: StateField) => {
+    const t = f.type === "STATUS" ? statusEnum : f.type;
+    return `  final ${t} ${f.name};`;
+  };
+
+  const ctorParam = (f: StateField) => {
+    const t = f.type === "STATUS" ? statusEnum : f.type;
+    if (f.default !== undefined) return `    this.${f.name} = ${f.name === "status" ? `${statusEnum}.${f.default}` : f.default},`;
+    if (t.endsWith("?")) return `    this.${f.name},`;
+    return `    required this.${f.name},`;
+  };
+
+  const copyWithParam = (f: StateField) => {
+    const t = f.type === "STATUS" ? statusEnum : f.type;
+    const nt = t.endsWith("?") ? t : `${t}?`;
+    return `    ${nt} ${f.name},`;
+  };
+
+  const copyWithAssign = (f: StateField) => {
+    // errorMessage-style nullable fields use direct assignment (no `??`), per the real pattern.
+    return f.type.endsWith("?") ? `    ${f.name}: ${f.name},` : `    ${f.name}: ${f.name} ?? this.${f.name},`;
+  };
+
+  const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity);
+  const sample = entityModel
+    ? `${entity}(${sampleArgs(entityModel, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [])})`
+    : "null";
+
+  // Imports: entity + extra field types + enum/VO types referenced by the sample construction.
+  const refTypes: string[] = [entity, ...(s.extraFields ?? []).map((f) => f.type)];
+  if (entityModel) {
+    for (const f of entityModel.fields as any[]) {
+      if (f.semanticType) refTypes.push(f.semanticType);
+      else if (f.type === "enum") refTypes.push(f.of || f.name.charAt(0).toUpperCase() + f.name.slice(1));
+    }
+  }
+  const imports = importsFromTypes(refTypes, ctx).join("\n");
+
+  return `// [generated] generator=StateGenerator template=state_enum_status.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+${imports}
+
+enum ${statusEnum} { ${statuses.join(", ")} }
+
+class ${stateClass} extends Equatable {
+${fields.map(fieldDecl).join("\n")}
+
+  const ${stateClass}({
+${fields.map(ctorParam).join("\n")}
+  });
+
+  ${stateClass} copyWith({
+${fields.map(copyWithParam).join("\n")}
+  }) => ${stateClass}(
+${fields.map(copyWithAssign).join("\n")}
+  );
+
+  @override
+  List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
+}
+
+class ${cubitClass} extends Cubit<${stateClass}> {
+  ${cubitClass}() : super(const ${stateClass}());
+
+  Future<void> load() async {
+    emit(state.copyWith(status: ${statusEnum}.loading));
+    try {
+      // [user] region:user — replace with real repository call.
+      // Deterministic demo data so the app renders rows out of the box:
+      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${sample}]));
+    } catch (e) {
+      emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
+    }
+  }
+}
+`;
+}

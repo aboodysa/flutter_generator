@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fahs/features/payment/data/models/confirm_payment_request_model.dart';
+import 'package:fahs/features/payment/data/repositories/payment_repository_impl.dart';
+import 'package:fahs/features/payment/domain/use_cases/confirm_payment_use_case.dart';
+
 typedef AppActionHandler = Future<void> Function(BuildContext context);
 
 class AppActionDispatcher {
@@ -10,6 +14,7 @@ class AppActionDispatcher {
     'phone_input.continue': _phoneInputContinue,
     'otp_verification.resend': _otpResend,
     'add_balance.submit': _addBalanceSubmit,
+    'payment.confirmOrder': _paymentConfirmOrder,
   };
 
   static Future<void> dispatch(
@@ -44,5 +49,23 @@ class AppActionDispatcher {
 
   static Future<void> _addBalanceSubmit(BuildContext context) async {
     context.goNamed('payment');
+  }
+
+  static Future<void> _paymentConfirmOrder(BuildContext context) async {
+    final repository = PaymentRepositoryImpl();
+    final useCase = ConfirmPaymentUseCase(repository);
+
+    await useCase.execute(
+      const ConfirmPaymentRequest(
+        inspectionId: 'inspection-current-repo-pilot',
+        paymentMethod: 'mada',
+      ),
+    );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    context.goNamed('order_details');
   }
 }

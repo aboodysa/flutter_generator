@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+
+# Node
+node_modules/
+
+# Flutter / Dart build artifacts
+.dart_tool/
+build/
+*.iml
+.idea/
+
+# Logs
+*.log

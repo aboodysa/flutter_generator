@@ -1,0 +1,4 @@
+{ "$schema": "http://json-schema.org/draft-07/schema#", "$id": "repository_impl.schema.v1", "title": "RepositoryImplModel",
+  "type": "object", "required": ["name","contract","datasource"],
+  "properties": { "name": {"type":"string","pattern":"^[A-Z][A-Za-z0-9]*$"}, "contract": {"type":"string"}, "datasource": {"type":"string"} },
+  "additionalProperties": false }

@@ -1,0 +1,1 @@
+A todo app where users can create tasks, mark them done, and assign them a priority. Tasks have a title, an optional description, a due date, and a priority level (low, medium, high). Users can list tasks filtered by priority and completion status.

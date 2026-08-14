@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "entity.schema.v1",
+  "title": "EntityModel",
+  "type": "object",
+  "required": ["name", "fields"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+    "identity": {
+      "type": "object",
+      "properties": { "field": { "type": "string" } },
+      "required": ["field"]
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/field" }
+    },
+    "equality": { "enum": ["identity", "full", "none"], "default": "identity" },
+    "immutability": { "type": "boolean", "default": true }
+  },
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
+        "type": {
+          "enum": ["String", "int", "double", "bool", "DateTime", "enum", "List", "reference"]
+        },
+        "of": { "type": "string", "description": "item type for List, or referenced entity name for reference" },
+        "enumValues": { "type": "array", "items": { "type": "string" } },
+        "required": { "type": "boolean", "default": false },
+        "nullable": { "type": "boolean", "default": false },
+        "default": { "type": ["string", "number", "boolean", "null"] },
+        "semanticType": {
+          "type": "string",
+          "description": "known semantic value-object type: Email, PhoneNumber, Money, NationalId, etc."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

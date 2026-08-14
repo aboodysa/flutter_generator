@@ -1,0 +1,4 @@
+{ "$schema": "http://json-schema.org/draft-07/schema#", "$id": "datasource.schema.v1", "title": "DatasourceModel",
+  "type": "object", "required": ["name","endpoints"],
+  "properties": { "name": {"type":"string","pattern":"^[A-Z][A-Za-z0-9]*$"}, "endpoints": {"type":"array","items":{"type":"object","required":["name","method","path","returns"],"properties":{"name":{"type":"string"},"method":{"enum":["GET","POST","PUT","PATCH","DELETE"]},"path":{"type":"string"},"returns":{"type":"string"}},"additionalProperties":false}} },
+  "additionalProperties": false }

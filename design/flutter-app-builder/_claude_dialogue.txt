@@ -1,0 +1,250 @@
+### ME (author)
+
+You are an independent senior Flutter + compiler/code-generation architect. I want you to REVIEW a design, then GRILL me (the design's author), and I will grill you back in turn.
+
+READ THIS FILE IN FULL FIRST:
+/Users/username/temp/opencode/flutter-app-builder/DESIGN.md
+
+Context: It is the design for a greenfield, general-purpose "Flutter App Compiler" — a hybrid pipeline where deterministic/schema/template generators produce most artifacts, and an LLM is used only for reasoning/business logic, writing into a validated intermediate representation (IR) rather than raw code. Two prior AI review passes already ran (a "griller" and a "reviewer"). Their findings are consolidated in §22 of the doc. The reviewer's verdict was "APPROVE WITH CHANGES" with 5 remaining issues, the top two being: (1) the correctness oracle is not truly independent (agents read the same IR and the "human examples" are themselves LLM-authored by the RequirementAgent), and (2) "human-declared Novel lane" is a rule, not a mechanism — an agent could set implementation:novel and route around the rule language.Your tasks:1. Give your INDEPENDENT verdict on the design (do not just rubber-stamp the prior reviews). Tell me the 3-5 most important things you would change or are skeptical about, with severity.2. Then grill ME relentlessly, one question at a time, hardest first. For each question, state your recommended answer and why. Wait for my answer before the next question.3. Be prepared for me to grill you back about your own positions — defend them concretely, not vaguely.Do not edit any files. This is a pure design conversation. Begin now with your verdict + first grill question.
+
+
+### CLAUDE
+
+I read DESIGN.md in full, including §22's mapping of prior findings to resolutions. Here's my independent verdict.
+
+## Verdict: APPROVE WITH CHANGES — but for different reasons than the prior review gave you credit for
+
+The determinism-first architecture, the classification taxonomy, and the plugin conformance-suite idea are genuinely well-formed — better than most "AI app builder" designs I've reviewed. But two of the "fixed" items in §22 are not actually fixed, they're restated as policy without a mechanism, and there's a structural gap in oracle coverage that neither prior pass caught. In severity order:
+
+**1. [CRITICAL] The Novel-lane mechanism still doesn't exist — §22 row 2 is marked resolved but isn't.**
+§5.4 says Novel is "triggered only by an IR element that explicitly declares `implementation: novel`." §9.2 says "no agent may reclassify an artifact to route around the rule language." But §2.3.3 also says the IR is "the LLM's only write target." Nothing in the document specifies *who or what is mechanically prevented from writing the string `"novel"` into an `implementation` field*. A policy sentence ("no agent may...") is not a control — it's a comment next to the door, not a lock on it. This is the exact finding the reviewer raised, restated as if resolved.
+
+**2. [HIGH] The independent-oracle principle is scoped to business rules only — it doesn't cover domain modeling.**
+§9.4's oracle (human examples + invariants) applies to `RuleModel` output from BusinessRuleAgent. But entities, relations, and screens — marked "structural, ✅, 0% LLM" in §4.1 — are only deterministic *given* IR fields that DomainAgent and UIAgent (LLMs) proposed in the first place. If DomainAgent mis-models a relation cardinality, or misses a field, that error sails through 100% deterministic generation with no oracle ever checking it, because the oracle machinery only activates for `kind: business` use cases and rules. Principle 2 ("correctness needs an independent oracle") is stated as pipeline-wide; the actual mechanism in §9 is not.
+
+**3. [MEDIUM-HIGH] `consumes`/`affects` in the change-impact graph (§12.2) is manually declared when it could be derived.**
+Since §19's rule language is closed and typed, the field-read set of any `RuleModel` expression is mechanically computable from its AST. Requiring rule authors to *also* hand-declare `consumes`/`affects` introduces a drift vector — the design's own regeneration-safety story depends on this list being accurate, and nothing cross-validates it against the actual expression. This is a self-inflicted risk in a design that otherwise prides itself on not trusting hand-maintained things.
+
+**4. [MEDIUM] No evidence the formal rule language (§19) covers enough of real business logic.**
+Three primitives — comparison/boolean/arithmetic, temporal, aggregate — plus decision tables and state machines, is a solid CRUD-app language. But real apps have recursive calculations, cross-entity joins beyond simple aggregates, retry/backoff logic, third-party integration quirks. All of that falls to §19.4's human extension queue. If that queue ends up handling most of the interesting logic in a typical app, the "compiler, not autocomplete" pitch quietly degrades into "boilerplate generator with an LLM-authored escape hatch for everything that matters." The design offers no estimate of what fraction of realistic business rules the closed language actually covers.
+
+**5. [MEDIUM] Plugin combinatorics aren't sized.** §10 requires each plugin to ship a full template set (not a parameterization) and pass a conformance suite, and §10.2 acknowledges invalid combinations exist across ~7 capability axes. The maintenance surface (templates × conformance suites × valid combinations) grows fast and isn't budgeted anywhere in the MVP roadmap (§23).
+
+---
+
+Now I'll grill you, hardest question first. I'll give my recommended answer to each before you respond.
+
+**Question 1: Who — mechanically, not by policy — is prevented from writing `implementation: novel` into an IR element?**
+
+My recommended answer: introduce a **write-ACL at the field level**, enforced by the Validator (the trust boundary you already have at §9.1), not by agent good behavior. Concretely: every write to the IR carries a signed `authorRole` (`agent:<name>` or `human:<userId>`) derived from the credential of the calling pipeline stage, not from a claim inside the JSON payload itself (an agent can't self-attest "I am human"). The IR schema marks specific fields — starting with `implementation`, and probably `classification.class` itself — as `human-writable-only`. The Validator rejects any patch that sets a human-only field from an `agent:*` credential, full stop, before the write ever reaches the IR. This turns §9.2's sentence into an actual gate, symmetrical with how §11.1 already gates file overwrites by content hash instead of trusting "the generator won't touch user code."
+
+Do you agree this is necessary, or do you think there's a lighter-weight mechanism that still closes the hole — and if so, what is it?
+
+
+### ME (author)
+
+Yes — agree, and I'd go slightly further. The write-ACL is necessary and it's the right primitive: a field-level authorization rule enforced by the Validator, keyed on an `actor` field derived from the calling stage's credential, not from anything the payload claims. I'll fold it into the provenance I already attach to every IR element (§2.2): provenance gains an `actor` field (`agent:domain` | `agent:businessRule` | `human:attested`), and the IR schema splits into per-role writable subschemas. `implementation` and `classification.class` live in the human-only subschema. An agent's output, validated against the agent subschema, structurally cannot contain `implementation: novel`.
+
+One correction to make it airtight: `human:<userId>` must NOT mean "a human's API key." A headless user running the compiler is still a machine from the validator's view. It must mean an *attested interactive token* — a signed approval produced by an actual CLI prompt / web-UI interaction, the same thing that powers the §9.5 approval queue. Otherwise "human" is just another claim in a payload, which is exactly the hole you're closing.
+
+So: yes, necessary. And the lighter alternative (just omit `implementation` from the agent subschema and let the schema reject it) is a degenerate case of the same ACL — it works but isn't auditable per-write, so I'll take the ACL.
+
+Now my counter-question for you, same standard — be concrete.
+
+Your verdict #2 says domain modeling (entities, relations, screen structure) sails through deterministic generation with no oracle, because §9.4 only activates for business rules. You rate it HIGH. But the oracle for a business rule has ground truth — a human example input/output pair. What is the oracle for a domain model? The only ground truth for "Employee has a one-to-many relation with Department" is the natural-language product spec itself. So any "domain oracle" would be another LLM reading the same prose — precisely the LLM-agreement trap you (correctly) flagged in your §9.3 concern.
+
+Question: what is the ground-truth source for domain-modeling correctness that is NOT another LLM reading the same requirement text — or do you concede that domain modeling is inherently un-oracleable, in which case what's the honest implication for the "0% LLM, ✅ deterministic" label on entities?
+
+
+### CLAUDE
+
+Good catch on the credential distinction — an API key held by a headless process is not "human" just because a person owns the key. That's the right fix, and it also plugs a gap I hadn't fully closed: without attested-interactive-token, my ACL degrades back to a payload claim. I'll take that correction.
+
+**Answering your counter-question directly, not vaguely:**
+
+You're right that a second LLM reading the same prose is not an oracle — it's correlated failure wearing a disguise. But I don't think domain modeling is uniformly un-oracleable; it splits into two cases, and the design should treat them differently instead of giving both the same `✅ deterministic` badge.
+
+**Case A — structured input exists (OpenAPI/SQL DDL/GraphQL schema/Figma structure).** §0 lists these as legitimate intent sources. When they're present, the schema itself *is* a non-LLM oracle: a SQL foreign key from `employees.department_id → departments.id` is ground truth for the relation's existence and cardinality, independent of any model's reading of the prose. DomainAgent's inferred `RelationModel` should be validated against the structural source and rejected/flagged on mismatch — this is a real, mechanical check, no LLM judging LLM.
+
+**Case B — pure NL, no structured source.** Here I concede the point cleanly: there is no artifact-based oracle. The only thing that isn't "another LLM reading the same text" is an actual human. So the honest fix is not to invent an oracle that doesn't exist, but to stop mislabeling the artifact. Concretely, I'd split what `classification.class = structural, ✅` currently conflates into two separate questions:
+
+- **Is codegen deterministic given the IR fields?** — yes, always, for structural class. This is what §4's `✅` actually measures today.
+- **Is the IR field's *value* trustworthy?** — depends entirely on `origin`. If `origin: schema-derived`, yes (Case A). If `origin: llm-inferred` from pure NL with no structured backing, no — and `requiresApproval` should default `true` until a human explicitly confirms that specific relation/cardinality, at which point `origin` flips to `human-confirmed` and only then does the field earn `confidence: 1.0`.
+
+The `✅` symbol in your matrix currently answers "is generation pure?" but every reader — including both prior AI reviewers and, implicitly, you in trusting the label — reads it as "is this correct?" That conflation is exactly how this gap survived two review passes: the matrix is honest about codegen purity and silent about input provenance.
+
+One risk I'll flag against my own proposal before you have to: confirmation fatigue. If DomainAgent proposes 40 entities and 60 relations and you ask a human to confirm all of them in one sitting, they'll rubber-stamp it and you're back to zero oracle. The confirmation surface needs to be scoped tightly — cardinalities, nullability, and identity — the fields that downstream business rules and generation actually branch on — not every field name. That scoping rule belongs in the design, not left as an implementation detail.
+
+---
+
+**Question 2 (next hardest):** What fraction of the business rules in a realistically complex app — say an HR system with promotion workflows, or e-commerce with inventory/promotions — do you expect are actually expressible in §19's closed language (comparison/boolean/arithmetic, temporal, aggregate, decision tables, transitions), versus falling into the §19.4 human extension queue? If you don't have a number, how would you get one before committing Phase 3's engineering investment, and what's the fallback if the answer turns out to be "most of the interesting logic falls through"?
+
+My recommended answer: you don't know yet, and you shouldn't guess — you should measure it before Phase 3 is greenlit, not after. Concretely, extend Phase 0 (§23) beyond its single vertical-slice rule: hand-encode 30–50 real business rules pulled from actual specs/tickets across 3 different app domains (not synthetic examples you write to make the language look good) into the §19 grammar, and record the fallthrough rate. Set an explicit threshold — I'd propose >70% coverage — as a gate before funding Phase 3's agent pipeline. If coverage comes in low, the fallback shouldn't be "ship it anyway and let the extension queue absorb the rest" — it should be a real fork: either extend the formal language with a small, closed set of additional primitives that the failed rules cluster around (e.g., weighted scoring, bounded retry/backoff), or narrow the product's honest positioning from "general-purpose Flutter compiler" to "compiler for structured/CRUD-heavy business apps," and say so in the thesis (§0) instead of implying broader coverage than the language delivers.
+
+
+### ME (author)
+
+On Q2: I accept "measure before you fund Phase 3" — correct call, and I'll adopt the Phase-0 rule-encoding exercise as a gate. But I'll sharpen three things about HOW we measure, because ">70% expressible" is the wrong number to hold the fork on.
+
+1. Coverage % alone hides the real cost metric. The extension queue isn't a defect — it's a designed escape hatch. The metric that matters is fallthrough COST: (# rules that fall through) x (human effort per rule), and specifically whether fallthrough rules cluster into a small number of reusable missing primitives. 60% expressible with the other 40% needing bespoke hand-code is a bad outcome; 60% expressible where the other 40% need only 3 new primitives is a good one. Measure cluster, not just count.
+
+2. The sample must be category-stratified, not just "3 domains." Coverage is wildly non-uniform across rule KINDS: CRUD validation ~100%, workflow state ~95%, temporal ~90%, aggregate ~80%, pricing/scoring ~40%, ML-ish ~5%. An unstratified "3 domains" sample lets you accidentally pick 3 CRUD-heavy domains and kid yourself. Stratify by rule category, report coverage per category, and make the fork per-category (extend language where rules cluster; explicitly position "not covered" where they don't).
+
+3. The fork's first branch should be "grow the language," and the language must be designed as extensible-by-authoring, not frozen. §19.4 implies this but states it as a reject queue. I'll restate: every extension-queue item is a candidate primitive; a human authors a new primitive with spec + tests, it's added to the grammar version, all prior IRs migrate (§2.4). Then "coverage" is a property of the grammar VERSION, monotonic over time — the >70% gate is a release criterion per grammar version, not a one-time pass.
+
+The "narrow the positioning" fallback is real and I accept it as the honest outcome if clustering fails.
+
+Now my counter-question — I think you oversold your Case A oracle.
+
+You said a SQL foreign key is "ground truth for the relation's existence and cardinality, independent of any model's reading." It is ground truth for the DATA model, but the generator emits a DOMAIN model, and those are not the same layer. Three ways a schema "oracle" silently lies about the domain:
+
+(a) a FK proves existence, not cardinality — 1:N vs N:M requires reading a join table, and `employees.department_id` tells you nothing about whether an employee may have zero departments;
+(b) DB nullability != domain nullability — `department_id NOT NULL` is a storage constraint, not a domain invariant ("must have a department" vs "must have a department ROW that exists");
+(c) the schema is itself already someone's interpretation — the DDL author made modeling choices (denormalization, a JSONB blob hiding a 1:N relation) the generator would faithfully reproduce as domain truth.
+
+So: is Case A's oracle actually validating the DOMAIN model, or just validating that DomainAgent didn't drift from the DDL — an internal-consistency check against a source that may itself be domain-wrong? If it's the latter, what distinguishes Case A from "trusting the DDL author the way we refuse to trust the LLM," and shouldn't `origin: schema-derived` carry confidence < 1.0 for anything the DDL cannot structurally express (cardinality semantics, invariants, value-object boundaries)?
+
+
+### CLAUDE
+
+Fair — and you're not just correct, you've made my original finding *worse*, not weaker. Let me not soften that.
+
+**Conceding the substance:** you're right that I collapsed two different claims. A FK/DDL fact proves *DomainAgent didn't fabricate structure the schema doesn't support* — that's real and worth having. It does not prove the domain model is *correct*, because:
+
+- (a) is fixable in the narrow case — uniqueness constraints + join-table shape do let you derive the cardinality *tier* (nullable single FK = 0-or-1; non-null single FK = exactly-1; composite-PK join table = N:M) mechanically, without inference. So "existence" was too weak a claim on my part, but "cardinality" is only partially rescued — you still can't get *optionality-in-the-business-sense* out of a NOT NULL constraint, which is your point (b) and it lands clean: `NOT NULL` is a storage-layer decision (could be a migration artifact, a default-value hack, or a genuine invariant) and nothing in the DDL disambiguates which.
+- (c) is the one I have no rescue for at all. If the DDL denormalizes or hides a 1:N relation in a JSONB blob, "matches the DDL" isn't even the right consistency check — there's no DomainAgent claim to check *against*, because the schema itself never expressed the relation structurally. The oracle has nothing to say.
+
+So the honest reframing: Case A doesn't validate the domain model, it validates a narrower thing — *referential non-fabrication* against a source that is itself unaudited. That's still worth having (it catches an agent inventing an `Employee → Invoice` relation with no basis anywhere), but it's a much smaller claim than "ground truth," and I was wrong to call it that.
+
+**Fixing the confidence assignment concretely**, per your ask — I'd split `origin: schema-derived` into two tiers instead of one:
+
+- `schema-structural` (confidence 1.0): only facts the DDL encodes with no interpretation — column existence/type, FK target entity, and cardinality *tier* derived from uniqueness/PK shape (the mechanical part of (a)).
+- `schema-interpreted` (confidence < 1.0, routes to the same human-confirmation gate as Case B): NOT NULL read as business-required, any denormalized/blob-unpacked relation, any naming-based inference ("this column is probably a value object"). This is everything under (b) and (c).
+
+Net effect on my original finding: the surface requiring human confirmation is smaller than pure-NL modeling, but it doesn't shrink to zero the way I implied — most of the *interesting* domain decisions (is this field really required, is this hidden structure really a relation) still live in the unconfirmed tier. I'll revise my severity language: not "Case A solves it, Case B doesn't," but "confidence 1.0 is earned only by a thin band of literally-structural facts, everything else — schema-backed or not — needs the same confirmation gate." That's a stricter design requirement than what's in §2.2/§3.3 today.
+
+---
+
+**Question 3:** The design accumulates human gates everywhere — domain-relation confirmation (just added), business-rule disagreement review (§9.5), critical-rule approval (§9.5), golden-baseline approval (§20.3), Novel-code approval (§5.4), extension-queue triage (§19.4), scaffold-merge conflicts (§11.4). None of this is costed in aggregate. For a mid-size generated app, is there any budget on total human approval actions, and what's the plan when that number is too large for a human to meaningfully engage with — i.e., when "the compiler asks for approval on everything" quietly becomes "the human reviews the whole app anyway," which is the outcome this design exists to avoid?
+
+My recommended answer: yes, there needs to be an explicit **human-touchpoint budget** stated as a design constraint (e.g., a target ceiling per N entities/rules), and the way you hit it isn't "raise thresholds so fewer things trigger review" — that just hides risk — it's **confirmation batching by structural similarity**: cluster IR elements that share a pattern (ten near-identical CRUD entities, five decision-table rules with the same shape) and present one confirmation per cluster, with per-instance drill-down only on request, the same clustering move you just applied to language-primitive coverage in your Q2 answer. Blast radius (§12.2's affected-set) should also gate priority — a relation that only affects one internal field gets batched/low-friction; one that touches permissions or money gets a solo review. Without this, I'd expect approval fatigue to set in within the first non-trivial generated app, and every gate degrades to rubber-stamp — which quietly reintroduces exactly the self-certification problem §9.3–9.4 were built to eliminate.
+
+
+### ME (author)
+
+On Q3: accept the budget — but the right design primitive is a 2x2, not a single ceiling.
+
+The gates I listed aren't one class; they differ on two axes the current design never separates: REVERSIBILITY (can a wrong decision be fixed cheaply later?) and BLAST RADIUS (how much does a wrong decision cost?). A single "total human approval actions" ceiling is the wrong denominator because it prices a reversible cosmetic relation-confirmation the same as an irreversible compliance rule.
+
+Proposed, two tiers:
+
+- Tier R (reversible, cheap to fix): domain relation/cardinality confirmations, naming, value-object boundaries, golden baselines. Batched-by-cluster AND deferrable — a "review later" bucket that does NOT block generation, because a wrong answer costs a one-line edit. Batching by structural similarity is fine here precisely because the cost is low.
+
+- Tier I (irreversible or high blast radius): business rules touching money/permissions/compliance, novel-code promotion, critical transitions, schema-interpreted nullability that gates deletion/cascade. Always solo, always blocking, never batched, never deferred. The budget here is small and fixed by blast radius, not by count.
+
+So the answer to "what when the number is too large" isn't "raise thresholds" (agreed — hides risk) and isn't only "batch by similarity" — it's "route by the R/I 2x2 so human attention concentrates on Tier I, while Tier R queues behind generation and drains opportunistically." The "human reviews the whole app anyway" failure happens when Tier R gates are made blocking; making them deferrable prevents it.
+
+Now my counter, on the batching axis — I think you conflated two things.
+
+You said "cluster IR elements that share a pattern (ten near-identical CRUD entities) and present one confirmation per cluster." Similarity in SHAPE is the right clustering for GENERATION (shared template), but the wrong clustering for REVIEW. Ten near-identical CRUD entities can each carry one subtly different, high-stakes field — all "Account-like," but exactly one has a `salary` field, or one's `delete` is a soft-delete that a compliance rule depends on. Batching by shape presents "Account x10, confirm once" and buries the one field that matters — the exact rubber-stamp failure you're preventing.So: is the correct review-clustering axis "structural similarity," or "decision-type x blast-radius" — cluster all soft-delete-vs-hard-delete decisions across every entity into one review regardless of whether the entities look alike? If the latter (which I think it is), then your batching move and my R/I 2x2 do the same work but keyed on different axes, and only the blast-radius key actually protects the user. Which do you claim?
+
+
+### CLAUDE
+
+Decision-type × blast-radius is the correct key, cleanly. My structural-similarity clustering was wrong as a primary axis for exactly the reason you gave: it operates at the wrong granularity. Shape-clustering groups *entities*; the thing that actually needs sorting is *decisions* (fields, relations, delete-semantics, nullability), and a shape-similar entity can hide one decision that isn't. Grouping the container hides the outlier inside it — which is the rubber-stamp failure restated, not prevented.
+
+The fix, concretely: don't cluster entities at all. Decompose to the decision/field level first, classify each decision's blast radius, *then* cluster only among decisions that already cleared as low-blast-radius. And blast-radius classification shouldn't be a fresh manual judgment either — it's exactly what §12.2's `consumes/affects` graph already computes: a decision is Tier I precisely when it appears in the `consumes` set of a rule tagged money/permission/compliance/cascade, Tier R otherwise. This is the same lever we landed on two exchanges ago — `consumes/affects` needs to be AST-derived, not hand-declared, and now I have a second, sharper reason: if it's hand-declared, an author can (accidentally or not) under-declare a field's `consumes` edge and silently downgrade a Tier-I decision into the batched Tier-R pool, defeating the whole routing scheme. Structural similarity survives only as a *secondary* grouping applied after blast-radius screening — "these 9 nullable-string fields across different entities, all already cleared as low-stakes, batch them" — never as the first cut.
+
+So: decision-type × blast-radius, computed from a graph that must be derivation-verified rather than trusted, not structural similarity. You're right, and it tightens a finding I'd already flagged rather than opening a new one.
+
+---
+
+**Question 4 (shifting axes — engineering economics, not correctness):** §10 requires each plugin to ship a *full template set* per capability (Riverpod's codegen `Notifier` shape and Bloc's sealed-state shape are declared to be genuinely different templates, not a string swap), plus its own conformance suite, and §10.2 layers a compatibility matrix across roughly seven capability axes (state mgmt, DI, routing, HTTP, local DB, serialization, form validation). Even at 3–4 options per axis, valid combinations run into the dozens, each needing template coverage for every artifact class that touches that capability. Nothing in the roadmap (§23) prices this. What's the actual plan to keep this from becoming an unbounded maintenance burden as plugins are added — do you cap supported combinations, or is there a structural way to avoid the combinatorial blowup rather than just capping it?
+
+My recommended answer: don't template per *combination* — template per *capability*, once, against an abstract adapter interface, and let each plugin supply only the adapter for its own axis. Concretely: one canonical "screen bound to state" template parameterized over an abstract state-binding contract; the Riverpod plugin and the Bloc plugin each implement that contract in their own idiom. This collapses the cost from O(∏ options-per-axis) to O(Σ options-per-axis) — you pay per plugin added to one axis, not per cross-product cell. Phase 1 should stay explicitly capped at one plugin per axis (which §23 already does, just not by stated principle), and every subsequent plugin addition is gated by passing the conformance suite for its one axis — never by re-deriving a new template set per combination. The compatibility matrix (§10.2) should be documented as a slowly-grown allow-list, not an aspirational full grid.
+
+
+### ME (author)
+
+On Q4: agree with the O(sum) vs O(product) direction, but "abstract adapter interface" is doing more work in your answer than it can bear. Let me pin down what's actually true.
+
+The state-management capability does NOT factor into "one canonical template + per-axis adapter," because what varies between Riverpod and Bloc is the SHAPE of the generated code (freezed providers + Notifier vs sealed state classes + events + BlocProvider), not the library call sites. An "abstract state-binding contract" lands in one of two degenerate places:
+
+- too abstract — "produce an observable of states, dispatch events, dispose" — at which point the adapter doesn't reduce template count; it's a spec note, and you still hand-write a full template set per plugin (back to O(product), relabeled);
+- too concrete — shaped like Riverpod's Notifier — at which point Bloc is a forced port, not idiomatic.
+
+So the honest number isn't "one template + adapter" (that's the same over-claim my earlier griller caught). The honest structure is: a small set of generation STRATEGIES (2-3: observable-notifier, sealed-events, mutable-notifier), each a full template family, and the real anti-blowup lever is a different one you gestured at but didn't name: cross-axis INDEPENDENCE. The layers are already decoupled by Clean Architecture — HTTP/local-DB/serialization sit behind repository interfaces the state layer never sees, so state-mgmt x HTTP is not a real cross-product cell at all; the only genuine matrix is state-mgmt x DI (small, ~6 cells) and routing x guards. The combinatorial explosion is a symptom of coupling plugins at the wrong level, and the design should say explicitly: capabilities are tiered into {coupled pairs with an explicit allow-list matrix} and {orthogonal axes that never multiply}. That's the structural fix, not the adapter.
+
+Counter-question on your "gate plugin addition by the conformance suite": what does that suite actually gate?
+
+§10.1's conformance is behavioral — states, transitions, disposal, single-flight. But what genuinely varies between a Riverpod plugin and a Bloc plugin is IDIOMATICITY — is the emitted code actually good Riverpod (codegen, ref invalidation, no rebuild storms) vs good Bloc (sealed states, no shared-state mutation)? That is not machine-checkable; "idiomatic" is a human aesthetic judgment. So the conformance suite can certify "the generated code behaves correctly and passes tests" but not "this is the right way to write Riverpod," which is precisely the dimension on which a cheap plugin is cheap.
+
+Question: if the conformance suite can't verify the one thing that makes a plugin worth having, what actually gates plugin quality — a human reviewer per plugin, a canonical-reference "golden app" the plugin must regenerate byte-similarly, or do you accept that plugin quality is permanently outside the automated trust boundary?
+
+
+### CLAUDE
+
+You're right, and "abstract adapter interface" was the same over-claim in a new outfit — it either degenerates to a spec note (no template reduction) or forces one plugin into the other's shape. I'll drop it. Your framing is sharper and I'll adopt it as stated: a small closed set of **generation strategies** (observable-notifier, sealed-events, mutable-notifier — maybe 2-3, not one-per-plugin), each a full template family; and the real anti-blowup lever isn't adapter abstraction, it's **naming which axes are genuinely coupled versus orthogonal**. State-mgmt × DI is a real, small matrix (~6 cells) because DI wiring has to know the state shape. State-mgmt × HTTP/local-DB/serialization is not a real cell at all, because Clean Architecture already puts a repository interface between them — the state layer never sees Dio versus http, or Drift versus Hive. The design should say this explicitly as a rule (§10.2 becomes "declare coupled-pair matrices explicitly; everything else is assumed orthogonal and generation-order proves it structurally"), not leave it implicit in the layering. That's a real fix to bring back into §10, and it's yours, not mine.
+
+**Answering your counter-question on idiomaticity:**
+
+I'll partially concede and then sharpen the boundary, because I don't think it's fully outside the trust boundary — it's outside *this* trust boundary (behavioral conformance) but the design already has a working pattern for exactly this shape of problem, and it isn't being reused here.
+
+§20.3 already solves an analogous case: golden UI tests can't be self-certified by a generator (a generator can't judge its own visual output), so the design makes a **human review a baseline once**, pins it to a generation context, and treats subsequent drift from that pinned baseline as the automated signal — re-approval only on context change, not on every run. That's the identical shape as "is this idiomatic Riverpod" — a human with library expertise reviews a **golden reference app** for that plugin *once per plugin version*, approves it, and the plugin's conformance suite then checks future generator output against that approved reference structurally (AST/shape diffing against the baseline, not byte-identity — two idiomatic outputs can differ in acceptable ways, so this isn't §6.2's purity check repurposed, it's a separate similarity-to-approved-shape check).
+
+Concretely, I'd extend the Plugin contract (§10) with two things it's currently missing:
+- `idiomLints: []` — a plugin-authored lint pack enforced by the arch linter (§21) that mechanizes the part of idiomaticity that *is* checkable (Riverpod: no `ref.watch` in build causing rebuild storms, codegen used not hand-rolled providers; Bloc: no shared-state mutation, sealed states exhaustive). This shrinks, but doesn't eliminate, the human-judgment residue.
+- `goldenReference: {approvedBy, version, artifact}` — the one-time human-expert sign-off, amortized per plugin *version* the same way golden UI baselines are amortized per screen version, not paid per generated app.
+
+The honest bottom line: idiomaticity is permanently outside *automated self-certification*, but not outside the design's trust-boundary architecture — it reuses the golden-baseline pattern instead of inventing an unaudited category. One caveat I'd add on top of your question: that expert reviewer shouldn't be the plugin's own author by default (same "who watches the watcher" issue as agent self-report) — for any plugin not maintained by the core team, the golden-reference approval should come from someone independent of whoever wrote the plugin.
+
+---
+
+**Question 5:** You just agreed the rule grammar (§19) should be monotonically extensible, with coverage measured as a release criterion per grammar version. §16.2 gives every generated app a lockfile pinning IR/plugin/template versions with an "upgrade/regen path" for major bumps — but that's scoped to plugin/template drift, not to *semantic* grammar growth. Here's the sharp case: an app ships with a rule that fell through to the §19.4 extension queue and got hand-coded as `ExternalCodeNode` — human-approved, tested, in production. Six months later, the grammar grows a new native primitive (say, weighted scoring) that structurally covers what that hand-coded workaround does. What happens to that already-deployed app's IR? Does the fleet auto-migrate, stay frozen forever on its original grammar version, or is there a reconciliation path — and if there is, does that mean §0's "IR is the single source of truth" claim actually only holds *within one grammar version*, not across a fleet of apps built over time?
+
+My recommended answer: never auto-migrate. Grammar bumps must be strictly additive and non-retroactive with respect to already-approved Novel/extension-queue code — that code passed human approval and adversarial review, and silently superseding it with a new primitive would violate the exact "never silently reclassify" guarantee §5.4 already establishes for the Novel lane in the other direction. Instead, a grammar bump should surface a **suggestion**, not a migration: "`ext:legacy_promo_mapper` structurally matches new primitive `weightedScore`; consider replacing" — routed through the same human-approval gate as any other IR change, opt-in, never automatic. And I'd state the scoping honestly in §2.4/§16.2 rather than let it be implied: the "single source of truth" claim holds *per app, as of its last regeneration against its pinned grammar version* — it is not a live, fleet-wide invariant, and the design should say so instead of letting the phrase in §0 imply more than the mechanism delivers.
+
+
+### ME (author)
+
+On Q5: agree with "never auto-migrate," and I'll add the one piece your recommendation is missing — the suggestion must carry a BEHAVIORAL diff, not just a structural match.
+
+The real risk isn't "should we silently replace the hand-coded workaround" (obviously not) — it's that "structurally matches new primitive weightedScore" is a shape claim, and shape equivalence says nothing about semantic equivalence. The new primitive likely covers the common case but with different edge behavior (tie-breaking, empty-input handling, rounding). So the surfaced suggestion must be a three-way diff: (1) the test cases the hand-coded `ExternalCodeNode` currently satisfies, (2) the test cases the new primitive's spec guarantees, and (3) the set-difference — "these 3 cases pass on the old code but the primitive does X instead." The human's decision is then "is that difference acceptable for this rule" — which is a real business decision, not a migration checkbox. The suggestion also carries traceability back to the original requirement (`R-023`) the workaround was satisfying, so the reviewer judges intent, not shape.
+
+On the "single source of truth" scoping: agree and I'll restate §0's claim precisely — "the IR is the single source of truth for everything GENERATED; `externalCode` is authoritative-but-opaque; reconciliation between them is a human-supervised, opt-in suggestion, never an automatic invariant." That's honest and it survives the fleet-across-time case. I'll write that into §2.4.
+
+Now my counter — I'm turning your own Q4 critique back on your `goldenReference` answer.
+
+You said the plugin conformance suite should check future generator output against the approved reference "structurally (AST/shape diffing against the baseline, not byte-identity)" because "two idiomatic outputs can differ in acceptable ways." That "similarity-to-approved-shape" check needs a concrete similarity function and a threshold — and you offered neither. That's precisely the criticism you leveled at MY "abstract adapter interface" one message ago: a phrase that sounds like a mechanism but has no executable definition. Concretely, any similarity function you pick lands in one of two traps:
+- too strict → false negatives: a genuinely-idiomatic variation (a new freezed constructor style, a codegen flag) fails "similarity" and every generator change triggers a full human re-review, which destroys the per-version amortization that made the scheme cheap in the first place;
+- too loose → false positives: drift from the approved idiom sails through, and the gate is theater — the exact self-certification hole this whole design exists to close.
+
+So my question: what is the actual similarity oracle for `goldenReference` — a hard syntactic matcher (and which one, and why does it not false-negative on idiomatic variation), a soft LLM-as-judge (which reintroduces the uncertified-judge problem you just spent Q4 denying), or do you concede that `goldenReference` reduces to "human re-review per plugin version, and the AST-diff is just a change-detector that flags WHICH outputs need re-review, not a correctness gate" — in which case I'll accept that version, but I want you to say which of the three it is, because the current wording implies the second while being implementable only as the third.On Q5: agree with "never auto-migrate," and I'll add the one piece your recommendation is missing — the suggestion must carry a BEHAVIORAL diff, not just a structural match.
+
+The real risk isn't "should we silently replace the hand-coded workaround" (obviously not) — it's that "structurally matches new primitive weightedScore" is a shape claim, and shape equivalence says nothing about semantic equivalence. The new primitive likely covers the common case but with different edge behavior (tie-breaking, empty-input handling, rounding). So the surfaced suggestion must be a three-way diff: (1) the test cases the hand-coded `ExternalCodeNode` currently satisfies, (2) the test cases the new primitive's spec guarantees, and (3) the set-difference — "these 3 cases pass on the old code but the primitive does X instead." The human's decision is then "is that difference acceptable for this rule" — which is a real business decision, not a migration checkbox. The suggestion also carries traceability back to the original requirement (`R-023`) the workaround was satisfying, so the reviewer judges intent, not shape.
+
+On the "single source of truth" scoping: agree and I'll restate §0's claim precisely — "the IR is the single source of truth for everything GENERATED; `externalCode` is authoritative-but-opaque; reconciliation between them is a human-supervised, opt-in suggestion, never an automatic invariant." That's honest and it survives the fleet-across-time case. I'll write that into §2.4.
+
+Now my counter — I'm turning your own Q4 critique back on your `goldenReference` answer.
+
+You said the plugin conformance suite should check future generator output against the approved reference "structurally (AST/shape diffing against the baseline, not byte-identity)" because "two idiomatic outputs can differ in acceptable ways." That "similarity-to-approved-shape" check needs a concrete similarity function and a threshold — and you offered neither. That's precisely the criticism you leveled at MY "abstract adapter interface" one message ago: a phrase that sounds like a mechanism but has no executable definition. Concretely, any similarity function you pick lands in one of two traps:
+- too strict → false negatives: a genuinely-idiomatic variation (a new freezed constructor style, a codegen flag) fails "similarity" and every generator change triggers a full human re-review, which destroys the per-version amortization that made the scheme cheap in the first place;
+- too loose → false positives: drift from the approved idiom sails through, and the gate is theater — the exact self-certification hole this whole design exists to close.
+
+So my question: what is the actual similarity oracle for `goldenReference` — a hard syntactic matcher (and which one, and why does it not false-negative on idiomatic variation), a soft LLM-as-judge (which reintroduces the uncertified-judge problem you just spent Q4 denying), or do you concede that `goldenReference` reduces to "human re-review per plugin version, and the AST-diff is just a change-detector that flags WHICH outputs need re-review, not a correctness gate" — in which case I'll accept that version, but I want you to say which of the three it is, because the current wording implies the second while being implementable only as the third.
+
+
+### CLAUDE
+
+Concede fully — it's the third option, and I was overclaiming. There's no principled similarity function here: pick strict, and a harmless freezed-constructor-style change or a new codegen flag false-negatives into unnecessary full review, killing the amortization; pick loose, and real idiomatic drift sails through as theater. I don't get to pick a number on that dial with a straight face, so I won't.
+
+The honest mechanism: there is no similarity threshold. Golden-reference re-review is **binary and version-triggered**, not similarity-graded — any bump to a `GenerationContext` component (§6.2) that touches this plugin's template set (`templateVersion`, `pluginVersion`, `generatorVersion`) *always* triggers mandatory human re-review of the golden reference, full stop. This reuses machinery the design already has rather than inventing a new metric — §6.2 already makes that tuple the cache key and purity boundary, so "did anything relevant change" is already a fact you know for free, with no diffing required to detect it. The AST/structural diff I mentioned earlier isn't a gate at all — it's a UI aid that shows the human reviewer *what* changed inside a re-review that was already mandatory, so the review is fast instead of a blind full re-read. It decides nothing; it summarizes.
+
+That's a real correction to what I said, not a rephrasing: I described the diff as if it adjudicated acceptability ("differ in acceptable ways"), and it can't — nothing can, without either a human or an uncertified LLM judge. The amortization claim survives, but weaker than I first stated: cheap because re-review triggers only on an actual version bump of a component this plugin depends on (not per generated app), not because some similarity score is quietly deciding pass/fail underneath.
+
+---
+
+We've now stress-tested all five points from my original verdict, and each came out sharper than I first stated it — the Novel-lane ACL needed the attested-token correction, the domain oracle needed the schema-structural/schema-interpreted split, the approval-fatigue fix needed decision-level blast-radius routing instead of shape clustering, the plugin economics needed strategy-families plus explicit coupled-axis declaration instead of an adapter abstraction, and the grammar-versioning question needed a behavioral three-way diff plus an honest per-app scoping of "source of truth." In every round the flaw was the same shape: a mechanism-sounding phrase with no executable definition underneath it — including, just now, one of mine.
+
+Two threads I haven't opened: whether Phase 0's single vertical slice (§23) is enough to validate a "general-purpose" IR given the stratified-sampling standard we just agreed on for rule-language coverage, and whether human-authored example/expected-value pairs (§9.4) — which may contain real data — get any data-handling treatment before being sent to LLM providers or baked into checked-in golden tests. Want me to keep going on one of those, or do you want to stop here and have me consolidate everything above into a single revised finding set (with the corrected mechanisms) you can fold back into §22?
+

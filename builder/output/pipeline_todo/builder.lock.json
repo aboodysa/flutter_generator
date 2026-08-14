@@ -1,0 +1,13 @@
+{
+  "irVersion": "1",
+  "generator": "1.0.0",
+  "template": "v1",
+  "sdk": ">=3.0.0",
+  "plugins": {
+    "stateManagement": "bloc",
+    "di": "get_it",
+    "routing": "go_router",
+    "http": "dio",
+    "secureStorage": "flutter_secure_storage"
+  }
+}

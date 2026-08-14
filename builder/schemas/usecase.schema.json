@@ -1,0 +1,4 @@
+{ "$schema": "http://json-schema.org/draft-07/schema#", "$id": "usecase.schema.v1", "title": "UseCaseModel",
+  "type": "object", "required": ["name","repository","operation","paramType","returnType"],
+  "properties": { "name": {"type":"string"}, "repository": {"type":"string"}, "operation": {"type":"string"}, "paramType": {"type":"string"}, "returnType": {"type":"string"} },
+  "additionalProperties": false }

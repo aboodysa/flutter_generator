@@ -1,0 +1,23 @@
+# [generated] generator=ProjectGenerator template=pubspec.v1 class=structural ownership=generated
+# Do not hand-edit this file; regenerate from IR.
+name: rasheed_replica_expense
+description: Generated replica of the expense feature.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  equatable: ^2.0.5
+  flutter_bloc: ^8.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

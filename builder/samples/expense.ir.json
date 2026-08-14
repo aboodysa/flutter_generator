@@ -1,0 +1,88 @@
+{
+  "name": "expense",
+  "enums": [
+    { "name": "PaymentMethod", "values": ["cash", "creditCard", "other"] },
+    { "name": "Scope", "values": ["USER", "SYSTEM"] }
+  ],
+  "valueObjects": [
+    { "name": "Money", "baseType": "double", "invariants": [{ "kind": "min", "value": 0 }] }
+  ],
+  "entities": [
+    {
+      "name": "Transaction",
+      "identity": { "field": "id" },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "transactionCode", "type": "String", "required": true },
+        { "name": "amount", "type": "double", "required": true, "semanticType": "Money" },
+        { "name": "currency", "type": "String", "default": "SAR" },
+        { "name": "date", "type": "DateTime", "required": true },
+        { "name": "note", "type": "String", "nullable": true },
+        { "name": "category", "type": "reference", "of": "ExpenseCategory", "nullable": true },
+        { "name": "paymentMethod", "type": "enum", "of": "PaymentMethod", "required": true },
+        { "name": "items", "type": "List", "of": "TransactionItem" },
+        { "name": "attachments", "type": "List", "of": "TransactionAttachment" },
+        { "name": "isDeleted", "type": "bool", "default": false }
+      ]
+    },
+    {
+      "name": "TransactionItem",
+      "identity": { "field": "id" },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "name", "type": "String", "required": true },
+        { "name": "quantity", "type": "int", "required": true },
+        { "name": "unitPrice", "type": "double", "required": true, "semanticType": "Money" }
+      ]
+    },
+    {
+      "name": "TransactionAttachment",
+      "identity": { "field": "id" },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "path", "type": "String", "required": true },
+        { "name": "isImage", "type": "bool", "default": false }
+      ]
+    },
+    {
+      "name": "ExpenseCategory",
+      "identity": { "field": "id" },
+      "equality": "identity",
+      "immutability": true,
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "name", "type": "String", "required": true },
+        { "name": "scope", "type": "enum", "of": "Scope", "required": true },
+        { "name": "iconAsset", "type": "String", "nullable": true }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "ExpenseRepository",
+      "entity": "Transaction",
+      "operations": [
+        { "name": "getTransactions", "kind": "list" },
+        { "name": "getTransaction", "kind": "get" },
+        { "name": "createTransaction", "kind": "create" },
+        { "name": "deleteTransaction", "kind": "delete" }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "TransactionModel",
+      "entity": "Transaction",
+      "acceptedKeys": {
+        "transactionCode": ["transaction_code", "code"],
+        "amount": ["totalAmount", "total_amount"]
+      }
+    }
+  ]
+}

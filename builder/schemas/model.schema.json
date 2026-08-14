@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "model.schema.v1",
+  "title": "ModelModel (DTO override)",
+  "type": "object",
+  "required": ["name", "entity"],
+  "properties": {
+    "name": { "type": "string" },
+    "entity": { "type": "string" },
+    "jsonKeys": { "type": "object", "additionalProperties": { "type": "string" } },
+    "acceptedKeys": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+  },
+  "additionalProperties": false
+}

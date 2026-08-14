@@ -1,0 +1,394 @@
+{
+  "$comment": "SEMANTIC IR — the WHAT. Generic expense-tracker spec (Rasheed used only as a realistic requirement source). Generator decides the HOW.",
+  "name": "expense_tracker",
+  "enums": [
+    {
+      "name": "PaymentMethod",
+      "values": [
+        "cash",
+        "creditCard",
+        "other"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "Transaction",
+      "identity": {
+        "field": "id"
+      },
+      "equality": "identity",
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "DateTime",
+          "required": true
+        },
+        {
+          "name": "merchant",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "category",
+          "type": "reference",
+          "of": "Category",
+          "nullable": true
+        },
+        {
+          "name": "paymentMethod",
+          "type": "enum",
+          "of": "PaymentMethod",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "String",
+          "nullable": true
+        },
+        {
+          "name": "items",
+          "type": "List",
+          "of": "TransactionItem"
+        },
+        {
+          "name": "attachments",
+          "type": "List",
+          "of": "TransactionAttachment"
+        }
+      ]
+    },
+    {
+      "name": "TransactionItem",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "double",
+          "required": true
+        },
+        {
+          "name": "unitPrice",
+          "type": "double",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "TransactionAttachment",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "filePath",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "fileType",
+          "type": "String",
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "ExpensePayment",
+      "equality": "full",
+      "fields": [
+        {
+          "name": "paymentType",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "paidAmount",
+          "type": "double",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "TransactionFeedback",
+      "equality": "none",
+      "fields": [
+        {
+          "name": "reaction",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "comment",
+          "type": "String",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Category",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "TransactionFilter",
+      "fields": [
+        {
+          "name": "search",
+          "type": "String?"
+        },
+        {
+          "name": "categoryIds",
+          "type": "List<int>?"
+        },
+        {
+          "name": "minAmount",
+          "type": "double?"
+        },
+        {
+          "name": "maxAmount",
+          "type": "double?"
+        }
+      ]
+    }
+  ],
+  "wrappers": [
+    {
+      "name": "TransactionsPage",
+      "fields": [
+        {
+          "name": "transactions",
+          "type": "List<Transaction>"
+        },
+        {
+          "name": "fromCache",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "TransactionRepository",
+      "operations": [
+        {
+          "name": "listTransactions",
+          "returns": "Future<List<Transaction>>",
+          "params": [
+            {
+              "name": "filter",
+              "type": "TransactionFilter",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "getTransactionDetail",
+          "returns": "Future<Transaction>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "watchTransactions",
+          "returns": "Stream<TransactionsPage>",
+          "params": [
+            {
+              "name": "filter",
+              "type": "TransactionFilter",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "submitFeedback",
+          "returns": "Future<TransactionFeedback>",
+          "params": [
+            {
+              "name": "reaction",
+              "type": "String",
+              "required": true
+            },
+            {
+              "name": "comment",
+              "type": "String",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "name": "TransactionList",
+      "entity": "Transaction",
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ],
+      "extraFields": [
+        {
+          "name": "filter",
+          "type": "TransactionFilter",
+          "default": "const TransactionFilter()"
+        }
+      ]
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListTransactions",
+      "repository": "TransactionRepository",
+      "operation": "listTransactions",
+      "paramType": "TransactionFilter",
+      "returnType": "List<Transaction>"
+    }
+  ],
+  "datasources": [
+    {
+      "name": "TransactionRemoteDataSource",
+      "endpoints": [
+        {
+          "name": "fetchTransactions",
+          "method": "GET",
+          "path": "/transactions",
+          "returns": "List<Map<String, dynamic>>"
+        }
+      ]
+    }
+  ],
+  "repositoryImpls": [
+    {
+      "name": "TransactionRepositoryImpl",
+      "contract": "TransactionRepository",
+      "datasource": "TransactionRemoteDataSource"
+    }
+  ],
+  "screens": [
+    {
+      "name": "TransactionListScreen",
+      "entity": "Transaction",
+      "type": "list",
+      "state": "TransactionList"
+    }
+  ],
+  "schemaVersion": "1",
+  "stateMachines": [
+    {
+      "name": "TransactionApproval",
+      "states": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected"
+      ],
+      "events": [
+        "submit",
+        "approve",
+        "reject"
+      ],
+      "transitions": [
+        {
+          "from": "draft",
+          "event": "submit",
+          "to": "submitted"
+        },
+        {
+          "from": "submitted",
+          "event": "approve",
+          "to": "approved",
+          "guard": "isManager"
+        },
+        {
+          "from": "submitted",
+          "event": "reject",
+          "to": "rejected"
+        }
+      ]
+    }
+  ],
+  "forms": [
+    {
+      "name": "TransactionForm",
+      "fields": [
+        {
+          "name": "merchant",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "isLargeExpense",
+      "entity": "Transaction",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "amount",
+          "operator": ">=",
+          "value": "1000"
+        }
+      ]
+    }
+  ]
+}
