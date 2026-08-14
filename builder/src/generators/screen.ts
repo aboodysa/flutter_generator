@@ -55,6 +55,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const comp = compositionFor(s.type);
 
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
+  const identityField = entity?.identity?.field ?? "id";
 
   // Hero block (rendered when the archetype has a hero or the IR declares one).
   const hero = heroExpr(s);
@@ -75,7 +76,8 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
         })
         .join("\n");
       body = `            if (state.transactions.isEmpty) return const Center(child: Text('No data'));
-            final item = state.transactions.first;
+            final id = GoRouterState.of(context).pathParameters['id'];
+            final item = state.transactions.firstWhere((e) => e.${identityField} == id, orElse: () => state.transactions.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
@@ -117,6 +119,7 @@ ${heroBlock}
                             title: Text(${titleExpr}),
                             subtitle: Text(${subtitleExpr}),
                             trailing: const Icon(Icons.chevron_right),
+                            onTap: () => context.go('/detail/\${item.${identity}}'),
                           ),
                         ),
                       );
@@ -177,6 +180,7 @@ ${body}
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 ${stateLibImport}
 ${componentsImport}
 ${themeImport}

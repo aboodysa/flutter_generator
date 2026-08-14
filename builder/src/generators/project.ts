@@ -69,37 +69,36 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
   const entityNames = feature.entities.map((e) => e.name).join(", ");
 
   if (screen) {
-    // bloc: BlocProvider wraps the screen; riverpod: ProviderScope wraps MaterialApp
-    // (inside ReplicaApp so tests pumping ReplicaApp() get the scope).
-    const home = sm === "riverpod"
-      ? `      home: const ${screen.name}(),`
-      : `      home: BlocProvider<${screen.state}Cubit>(
-        create: (_) => ${screen.state}Cubit()..load(),
-        child: const ${screen.name}(),
-      ),`;
+    // bloc: BlocProvider wraps the router so both list + detail routes share the cubit;
+    // riverpod: ProviderScope (notifier.build() seeds data). Navigation via go_router appRouter.
     const buildReturn = sm === "riverpod"
       ? `    return ProviderScope(
-      child: MaterialApp(
+      child: MaterialApp.router(
         title: 'Generated app',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
-${home}
+        routerConfig: appRouter,
       ),
     );`
-      : `    return MaterialApp(
-      title: 'Generated app',
-      theme: ThemeData(colorSchemeSeed: Colors.teal),
-${home}
+      : `    return BlocProvider<${screen.state}Cubit>(
+      create: (_) => ${screen.state}Cubit()..load(),
+      child: MaterialApp.router(
+        title: 'Generated app',
+        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        routerConfig: appRouter,
+      ),
     );`;
     const providerImport = sm === "riverpod"
       ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
       : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+    // bloc references the cubit from generated.dart; riverpod only needs appRouter.
+    const generatedImport = sm === "riverpod" ? "" : `import 'generated.dart';`;
 
     return `// [generated] generator=ProjectGenerator template=main.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 ${providerImport}
-import 'generated.dart';
+${generatedImport}import 'core/router.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

@@ -85,7 +85,7 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
     return {
       inputs: i, complexity: i.stateComplexity || 1, stateManagement,
       di: override === "riverpod" ? "provider_scope" : "get_it",
-      routing: override === "riverpod" ? "none" : "go_router",
+      routing: "go_router",
       reason: `explicit override stateManagement=${override} (coupled-pair: ${override} × ${override === "riverpod" ? "provider_scope" : "get_it"})`,
     };
   }

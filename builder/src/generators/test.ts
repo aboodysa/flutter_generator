@@ -182,19 +182,30 @@ ${pumpWidget}
  * Emits a widget-level integration flow test (pump the whole app, verify the screen renders).
  */
 export function generateFlowTest(feature: FeatureModel): string {
-  const screen = feature.screens?.[0];
+  const screens = feature.screens ?? [];
+  const detail = screens.find((s) => s.type === "detail");
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  const generatedImport = detail ? `import 'package:${pkg}/generated.dart';` : "";
+  const nav = detail
+    ? `    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(${detail.name}), findsOneWidget);`
+    : "";
 
   return `// [generated] generator=FlowTestGenerator template=flow.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:${pkg}/main.dart';
 import 'package:flutter/material.dart';
+${generatedImport}
 
 void main() {
-  testWidgets('app boots and renders', (tester) async {
+  testWidgets('app boots and navigates', (tester) async {
     await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
     expect(find.byType(Scaffold), findsWidgets);
+${nav}
   });
 }
 `;

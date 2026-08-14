@@ -17,7 +17,8 @@ export function generateRoutes(feature: FeatureModel, ctx?: GenContext, decision
 
   const routes = (feature.screens ?? [])
     .map((s) => {
-      const path = "/" + s.name.replace(/Screen$/, "").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+      // list = the app root; detail = a param'd route the list navigates to.
+      const path = s.type === "detail" ? "/detail/:id" : "/";
       return `      GoRoute(path: '${path}', builder: (_, __) => const ${s.name}()),`;
     })
     .join("\n");
