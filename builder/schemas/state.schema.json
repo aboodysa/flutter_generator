@@ -3,22 +3,118 @@
   "$id": "state.schema.v1",
   "title": "StateModel",
   "type": "object",
-  "required": ["name", "entity"],
+  "required": [
+    "name",
+    "entity"
+  ],
   "properties": {
-    "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
-    "entity": { "type": "string" },
-    "statuses": { "type": "array", "items": { "type": "string" } },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]*$"
+    },
+    "entity": {
+      "type": "string"
+    },
+    "statuses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "extraFields": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "type"],
+        "required": [
+          "name",
+          "type"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "type": { "type": "string" },
-          "default": { "type": "string" }
+          "actor": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "deterministic",
+              "schema-structural",
+              "schema-interpreted",
+              "llm-inferred",
+              "human-confirmed"
+            ]
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "confidenceSource": {
+            "enum": [
+              "deterministic",
+              "second-party",
+              "human-attested"
+            ]
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trace": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
+      }
+    },
+    "actor": {
+      "type": "string"
+    },
+    "origin": {
+      "enum": [
+        "deterministic",
+        "schema-structural",
+        "schema-interpreted",
+        "llm-inferred",
+        "human-confirmed"
+      ]
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "confidenceSource": {
+      "enum": [
+        "deterministic",
+        "second-party",
+        "human-attested"
+      ]
+    },
+    "requiresApproval": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   },

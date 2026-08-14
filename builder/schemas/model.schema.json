@@ -3,12 +3,69 @@
   "$id": "model.schema.v1",
   "title": "ModelModel (DTO override)",
   "type": "object",
-  "required": ["name", "entity"],
+  "required": [
+    "name",
+    "entity"
+  ],
   "properties": {
-    "name": { "type": "string" },
-    "entity": { "type": "string" },
-    "jsonKeys": { "type": "object", "additionalProperties": { "type": "string" } },
-    "acceptedKeys": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+    "name": {
+      "type": "string"
+    },
+    "entity": {
+      "type": "string"
+    },
+    "jsonKeys": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "acceptedKeys": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "actor": {
+      "type": "string"
+    },
+    "origin": {
+      "enum": [
+        "deterministic",
+        "schema-structural",
+        "schema-interpreted",
+        "llm-inferred",
+        "human-confirmed"
+      ]
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "confidenceSource": {
+      "enum": [
+        "deterministic",
+        "second-party",
+        "human-attested"
+      ]
+    },
+    "requiresApproval": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "additionalProperties": false
 }

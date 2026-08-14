@@ -30,6 +30,7 @@ import { scoreStateStrategy, scoreApp } from "./scoring";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 import { buildLockfile } from "./context";
+import { unapprovedElements } from "./provenance";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -78,6 +79,16 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   // Write-ACL (DESIGN §9.3): human-only fields require an attested human actor.
   const aclViolations = enforceWriteAcl(ir);
   if (aclViolations.length) throw new Error(aclViolations.join("\n"));
+
+  // Approval gate (DESIGN §9.2): LLM-inferred elements require human attestation before generation.
+  const unapproved = unapprovedElements(ir);
+  if (unapproved.length) {
+    throw new Error(
+      `[approval] ${unapproved.length} element(s) require human approval before generation:\n` +
+        unapproved.map((u) => `  - ${u}`).join("\n") +
+        `\nRun builder/src/approve.ts to attest them (actor=human:attested).`,
+    );
+  }
 
   const pkg = pkgName(ir.name);
   const symbols = buildSymbols(ir);

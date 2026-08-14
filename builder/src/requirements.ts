@@ -1,10 +1,13 @@
 import * as fs from "fs";
 import { execSync } from "child_process";
+import { stampAgentProvenance } from "./provenance";
 
 /**
  * RequirementAgent (Phase 3) — natural language → validated IR.
  * Uses an LLM (opencode/deepseek-v4-flash by default) to reason, but the output is
  * schema-validated by the deterministic pipeline — the trust boundary (DESIGN §9.1).
+ * Agent output is tagged with provenance (actor=agent:requirement, origin=llm-inferred,
+ * requiresApproval=true) and is BLOCKED from generation until a human attests (§9.2).
  */
 
 const MODEL = "opencode/deepseek-v4-flash-free";
@@ -48,8 +51,9 @@ export function run(requirement: string, outPath: string, model = MODEL): any {
   const raw = execSync(`opencode run -m ${model} --auto ${JSON.stringify(prompt)}`, { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
   const ir = extractJson(raw);
   if (typeof ir.schemaVersion !== "string") ir.schemaVersion = "1";
+  stampAgentProvenance(ir, "requirement", "llm-inferred", 0.6);
   fs.writeFileSync(outPath, JSON.stringify(ir, null, 2));
-  console.log(`[requirements] IR written → ${outPath}`);
+  console.log(`[requirements] IR written → ${outPath} (origin=llm-inferred, requiresApproval=true — run approve.ts to attest)`);
   return ir;
 }
 

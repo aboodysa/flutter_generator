@@ -1,4 +1,68 @@
-{ "$schema": "http://json-schema.org/draft-07/schema#", "$id": "screen.schema.v1", "title": "ScreenModel",
-  "type": "object", "required": ["name","entity","type","state"],
-  "properties": { "name": {"type":"string","pattern":"^[A-Z][A-Za-z0-9]*$"}, "entity": {"type":"string"}, "type": {"enum":["list","detail"]}, "state": {"type":"string"} },
-  "additionalProperties": false }
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "screen.schema.v1",
+  "title": "ScreenModel",
+  "type": "object",
+  "required": [
+    "name",
+    "entity",
+    "type",
+    "state"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]*$"
+    },
+    "entity": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "list",
+        "detail"
+      ]
+    },
+    "state": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "string"
+    },
+    "origin": {
+      "enum": [
+        "deterministic",
+        "schema-structural",
+        "schema-interpreted",
+        "llm-inferred",
+        "human-confirmed"
+      ]
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "confidenceSource": {
+      "enum": [
+        "deterministic",
+        "second-party",
+        "human-attested"
+      ]
+    },
+    "requiresApproval": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}
