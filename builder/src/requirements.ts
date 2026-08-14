@@ -4,13 +4,13 @@ import { stampAgentProvenance } from "./provenance";
 
 /**
  * RequirementAgent (Phase 3) — natural language → validated IR.
- * Uses an LLM (opencode/deepseek-v4-flash by default) to reason, but the output is
+ * Uses an LLM (opencode/deepseek-v4-pro by default) to reason, but the output is
  * schema-validated by the deterministic pipeline — the trust boundary (DESIGN §9.1).
  * Agent output is tagged with provenance (actor=agent:requirement, origin=llm-inferred,
  * requiresApproval=true) and is BLOCKED from generation until a human attests (§9.2).
  */
 
-const MODEL = "opencode/deepseek-v4-flash-free";
+const MODEL = "opencode/deepseek-v4-pro";
 
 const SYSTEM = `You are the DomainAgent of a deterministic Flutter app generator. Convert the user's natural-language requirement into a JSON IR that matches this schema exactly.
 
