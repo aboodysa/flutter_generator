@@ -61,6 +61,16 @@ export interface FeatureModel {
   stateMachines?: StateMachineModel[];
   forms?: FormModel[];
   businessRules?: RuleModel[];
+  attributes?: AppAttributes;
+}
+
+/** Explicit IR attributes consumed by the §5.2 pattern-selection scoring function. */
+export interface AppAttributes {
+  refreshCadence?: "static" | "occasional" | "frequent" | "realtime";
+  density?: "compact" | "comfortable";
+  responsiveness?: "mobile" | "responsive";
+  offlinePolicy?: "none" | "cache" | "offline-first";
+  permissionScope?: "none" | "basic" | "sensitive";
 }
 
 export type OperationKind = "list" | "get" | "create" | "update" | "delete";

@@ -27,6 +27,7 @@ export interface GenerationPlan {
   generatorVersion: string;
   artifactCount: number;
   entries: PlanEntry[];
+  scoring?: unknown; // §5.2 app-level pattern-selection decision
 }
 
 /** Map an IR collection key to its artifact-id tag (e.g. "entities" → "entity"). */

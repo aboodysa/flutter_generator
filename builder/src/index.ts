@@ -26,7 +26,7 @@ import { generateUnitTest, generateGoldenTest, generateFlowTest } from "./genera
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
-import { scoreStateStrategy } from "./scoring";
+import { scoreStateStrategy, scoreApp } from "./scoring";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 import { buildLockfile } from "./context";
@@ -90,6 +90,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
     stateStrategy.set(s.name, strategy);
     scoring.push(`${s.name} → ${strategy}`);
   }
+  const appDecision = scoreApp(ir);
 
   const planEntries: PlanEntry[] = [];
 
@@ -261,6 +262,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
+    scoring: appDecision,
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
