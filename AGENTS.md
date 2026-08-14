@@ -52,7 +52,9 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
    `curl -s -F "chat_id=1117739189" -F "photo=@<file.png>" "https://api.telegram.org/bot$(cat ~/.mac_companion/token)/sendPhoto"`
    and text with `sendMessage` (`text=` field). Goldens MUST render real text —
    the golden test loads Roboto via `FontLoader` + `buildTheme()` (never bare
-   `MaterialApp`, which renders Ahem boxes).
+   `MaterialApp`, which renders Ahem boxes). **Break long content into multiple
+   `sendMessage` calls** (one point/paragraph per message) — never one huge
+   message; the owner reads on a phone.
 
 ## Commands (run from repo root unless noted)
 
