@@ -29,6 +29,7 @@ import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } fro
 import { scoreStateStrategy } from "./scoring";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
+import { buildLockfile } from "./context";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -227,10 +228,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   const mainFile = path.join(outDir, "lib", "main.dart");
   fs.writeFileSync(mainFile, generateMain(ir));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir));
-  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify({
-    irVersion, generator: "1.0.0", template: "v1", sdk: ">=3.0.0",
-    plugins: { stateManagement: "bloc", di: "get_it", routing: "go_router", http: "dio", secureStorage: "flutter_secure_storage" },
-  }, null, 2));
+  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   const testDir = path.join(outDir, "test");
   fs.mkdirSync(testDir, { recursive: true });
   const testFiles: [string, string, string][] = [
