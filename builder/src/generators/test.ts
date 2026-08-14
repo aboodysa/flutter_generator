@@ -140,7 +140,7 @@ ${fontLoader}
       child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`
     : `    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
-      create: (_) => ${screen.state}Cubit(),
+      create: (_) => ${screen.state}Cubit()..load(),
       child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`;
   const libImport = sm === "riverpod"
@@ -167,6 +167,7 @@ ${fontLoader}
   testWidgets('${screen.name} renders (golden)', (tester) async {
 ${surface}
 ${pumpWidget}
+    await tester.pumpAndSettle();
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });
 }
