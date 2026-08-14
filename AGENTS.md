@@ -39,6 +39,12 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
 7. **SOLID applies to all new code** (see the briefs pattern): one module =
    one concern; generators emit strings (no I/O); the oracle module only reads
    the corpus; the composition root (`index.ts`) wires; depend on types, not I/O.
+8. **Lean handoff every round.** At the end of each round (or when the user asks),
+   overwrite `design/flutter-app-builder/HANDOFF.md` with a lean, current-state
+   summary (objective, actors, repo map, ground truth table, commits, in-flight
+   work, verification commands, next steps, rules). **Move the previous HANDOFF
+   content to `design/flutter-app-builder/context_history.md`** (append, dated
+   header) so HANDOFF stays lean and history is preserved.
 
 ## Commands (run from repo root unless noted)
 
