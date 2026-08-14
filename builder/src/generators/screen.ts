@@ -43,8 +43,8 @@ function pickTitle(entity: EntityModel): Field | undefined {
 
 export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const stateClass = `${s.state}State`;
-  const cubit = `${s.state}Cubit`;
   const statusEnum = `${s.state}Status`;
+  const sm = ctx?.sm ?? "bloc";
 
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
 
@@ -100,29 +100,54 @@ ${rows}
     : `import '${s.state.toLowerCase()}.dart';`;
   const componentsImport = ctx ? `import 'package:${ctx.pkg}/core/components.dart';` : "import '../../core/components.dart';";
 
-  return `// [generated] generator=ScreenGenerator template=screen_${s.type}.v1 class=structural ownership=generated
-// Do not hand-edit this file; regenerate from IR.
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-${componentsImport}
-${stateImport}
+  const checks = `        if (state.status == ${statusEnum}.loading) return const LoadingState();
+        if (state.status == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);`;
 
-class ${s.name} extends StatelessWidget {
+  // Subscription differs by provider (arch layer): bloc = BlocBuilder, riverpod = ConsumerWidget + ref.watch.
+  const stateLibImport = sm === "riverpod"
+    ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+    : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+
+  const widgetBody = sm === "riverpod"
+    ? `class ${s.name} extends ConsumerWidget {
+  const ${s.name}({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('${s.name}')),
+      body: Builder(builder: (_) {
+${checks}
+${body}
+      }),
+    );
+  }
+}`
+    : `class ${s.name} extends StatelessWidget {
   const ${s.name}({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('${s.name}')),
-      body: BlocBuilder<${cubit}, ${stateClass}>(
+      body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
         builder: (context, state) {
-          if (state.status == ${statusEnum}.loading) return const LoadingState();
-          if (state.status == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);
+${checks}
 ${body}
         },
       ),
     );
   }
-}
+}`;
+
+  return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter/material.dart';
+${stateLibImport}
+${componentsImport}
+${stateImport}
+
+${widgetBody}
 `;
 }

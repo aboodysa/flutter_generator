@@ -26,7 +26,8 @@ import { generateUnitTest, generateGoldenTest, generateFlowTest } from "./genera
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
-import { scoreStateStrategy, scoreApp } from "./scoring";
+import { scoreStateStrategy } from "./scoring";
+import { decideArchitecture } from "./arch";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 import { buildLockfile } from "./context";
@@ -94,16 +95,12 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
 
   const pkg = pkgName(ir.name);
   const symbols = buildSymbols(ir);
-  const ctx: GenContext = { pkg, symbols, ir };
+  const arch = decideArchitecture(ir);
+  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement };
 
   const scoring: string[] = [];
-  const stateStrategy = new Map<string, string>();
-  for (const s of ir.states ?? []) {
-    const strategy = scoreStateStrategy(s);
-    stateStrategy.set(s.name, strategy);
-    scoring.push(`${s.name} → ${strategy}`);
-  }
-  const appDecision = scoreApp(ir);
+  for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
+  scoring.push(`app → ${arch.stateManagement} (${arch.coupledPair})`);
 
   const planEntries: PlanEntry[] = [];
 
@@ -169,7 +166,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
         schema: entry.schema,
         layer: entry.layer,
         file: path.relative(outDir, f),
-        strategy: tag === "state" ? stateStrategy.get(item.name) ?? "enum-status" : "default",
+        strategy: tag === "state" ? arch.perStateStrategy.get(item.name) ?? "enum-status" : "default",
         dependsOn: dependsOnFor(entry.irKey, item),
         mode: entry.class === "semantic" ? "semantic" : "deterministic",
         class: entry.class,
@@ -199,8 +196,8 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   }
 
   const core: [string, string][] = [
-    ["di.dart", generateDi(ir, ctx, appDecision)],
-    ["router.dart", generateRoutes(ir, ctx, appDecision)],
+    ["di.dart", generateDi(ir, ctx, arch)],
+    ["router.dart", generateRoutes(ir, ctx, arch)],
     ["components.dart", generateComponents(ir)],
     ["app_strings.dart", generateLocalization(ir)],
     ["theme.dart", generateTheme(ir)],
@@ -240,8 +237,8 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   const barrelFile = path.join(outDir, "lib", "generated.dart");
   fs.writeFileSync(barrelFile, generateBarrel(ir, ctx));
   const mainFile = path.join(outDir, "lib", "main.dart");
-  fs.writeFileSync(mainFile, generateMain(ir));
-  fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, appDecision));
+  fs.writeFileSync(mainFile, generateMain(ir, arch.stateManagement));
+  fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   const testDir = path.join(outDir, "test");
   fs.mkdirSync(testDir, { recursive: true });
@@ -249,7 +246,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
     ["widget_test.dart", generateWidgetTest(ir), "WidgetTestGenerator"],
     ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
     ["flow_test.dart", generateFlowTest(ir), "FlowTestGenerator"],
-    ["golden_test.dart", generateGoldenTest(ir), "GoldenTestGenerator"],
+    ["golden_test.dart", generateGoldenTest(ir, arch.stateManagement), "GoldenTestGenerator"],
   ];
   for (const [f, content, generator] of testFiles) {
     fs.writeFileSync(path.join(testDir, f), content);
@@ -304,7 +301,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
-    scoring: appDecision,
+    scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, coupledPair: arch.coupledPair, complexity: arch.complexity },
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));

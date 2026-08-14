@@ -1,11 +1,11 @@
-import { FeatureModel } from "../types";
+import { FeatureModel, StateManagementProvider } from "../types";
 import { GenContext } from "../dart";
-import { ScoringDecision } from "../scoring";
+import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
-  bloc: "flutter_bloc: ^8.1.6",
-  riverpod: "flutter_riverpod: ^2.5.1",
+  bloc: "^8.1.6",
+  riverpod: "^2.5.1",
   none: "",
 };
 
@@ -14,16 +14,17 @@ const PROVIDER_VERSIONS: Record<string, string> = {
  * Emits a minimal runnable Flutter app shell: pubspec.yaml + main.dart.
  * main.dart imports the generated entities and renders a demo list.
  */
-export function generatePubspec(feature: FeatureModel, decision?: ScoringDecision): string {
+export function generatePubspec(feature: FeatureModel, decision?: ArchitectureDecision): string {
   const name = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
   const sm = decision?.stateManagement ?? "bloc";
   const provider = providerFor(sm);
 
-  // State-management dependency from the provider registry; DI/routing only above the floor.
+  // Dependencies derived from the arch layer: state-mgmt package (provider), get_it (DI),
+  // go_router (routing). Each is added only when its axis is actually selected.
   const smDep = provider.package ? `  ${provider.package}: ${PROVIDER_VERSIONS[provider.id]}\n` : "";
-  const infraDeps = provider.di === "none"
-    ? smDep
-    : `${smDep}  get_it: ^8.0.1\n  go_router: ^17.1.0\n`;
+  const diDep = decision?.di === "get_it" ? "  get_it: ^8.0.1\n" : "";
+  const routingDep = decision?.routing === "go_router" ? "  go_router: ^17.1.0\n" : "";
+  const infraDeps = `${smDep}${diDep}${routingDep}`;
 
   return `# [generated] generator=ProjectGenerator template=pubspec.v1 class=structural ownership=generated
 # Do not hand-edit this file; regenerate from IR.
@@ -52,17 +53,41 @@ flutter:
 `;
 }
 
-export function generateMain(feature: FeatureModel): string {
+export function generateMain(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
   const screen = feature.screens?.[0];
   const entityNames = feature.entities.map((e) => e.name).join(", ");
 
   if (screen) {
-    const cubit = `${screen.state}Cubit`;
+    // bloc: BlocProvider wraps the screen; riverpod: ProviderScope wraps MaterialApp
+    // (inside ReplicaApp so tests pumping ReplicaApp() get the scope).
+    const home = sm === "riverpod"
+      ? `      home: const ${screen.name}(),`
+      : `      home: BlocProvider<${screen.state}Cubit>(
+        create: (_) => ${screen.state}Cubit()..load(),
+        child: const ${screen.name}(),
+      ),`;
+    const buildReturn = sm === "riverpod"
+      ? `    return ProviderScope(
+      child: MaterialApp(
+        title: 'Generated app',
+        theme: ThemeData(colorSchemeSeed: Colors.teal),
+${home}
+      ),
+    );`
+      : `    return MaterialApp(
+      title: 'Generated app',
+      theme: ThemeData(colorSchemeSeed: Colors.teal),
+${home}
+    );`;
+    const providerImport = sm === "riverpod"
+      ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+      : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+
     return `// [generated] generator=ProjectGenerator template=main.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+${providerImport}
 import 'generated.dart';
 
 void main() {
@@ -78,14 +103,7 @@ class ReplicaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Generated app',
-      theme: ThemeData(colorSchemeSeed: Colors.teal),
-      home: BlocProvider<${cubit}>(
-        create: (_) => ${cubit}()..load(),
-        child: const ${screen.name}(),
-      ),
-    );
+${buildReturn}
   }
 }
 `;

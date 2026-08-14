@@ -28,7 +28,7 @@ export interface ScoringDecision {
   inputs: ScoringInputs;
   complexity: number;
   stateManagement: "none" | "bloc" | "riverpod";
-  di: "none" | "get_it";
+  di: "none" | "get_it" | "provider_scope";
   routing: "none" | "go_router";
   reason: string;
 }
@@ -76,14 +76,17 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
   const override = ir.attributes?.stateManagement;
   if (override) {
     const stateManagement = override;
-    const vanilla = override === "none";
+    if (override === "none") {
+      return {
+        inputs: i, complexity: 0, stateManagement, di: "none", routing: "none",
+        reason: `explicit override stateManagement=none`,
+      };
+    }
     return {
-      inputs: i,
-      complexity: vanilla ? 0 : i.stateComplexity || 1,
-      stateManagement,
-      di: vanilla ? "none" : "get_it",
-      routing: vanilla ? "none" : "go_router",
-      reason: `explicit override stateManagement=${override}`,
+      inputs: i, complexity: i.stateComplexity || 1, stateManagement,
+      di: override === "riverpod" ? "provider_scope" : "get_it",
+      routing: override === "riverpod" ? "none" : "go_router",
+      reason: `explicit override stateManagement=${override} (coupled-pair: ${override} × ${override === "riverpod" ? "provider_scope" : "get_it"})`,
     };
   }
 

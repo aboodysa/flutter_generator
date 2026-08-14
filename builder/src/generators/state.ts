@@ -66,13 +66,8 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
   }
   const imports = importsFromTypes(refTypes, ctx).join("\n");
 
-  return `// [generated] generator=StateGenerator template=state_enum_status.v1 class=structural ownership=generated
-// Do not hand-edit this file; regenerate from IR.
-import 'package:equatable/equatable.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-${imports}
-
-enum ${statusEnum} { ${statuses.join(", ")} }
+  const sm = ctx?.sm ?? "bloc";
+  const stateBlock = `enum ${statusEnum} { ${statuses.join(", ")} }
 
 class ${stateClass} extends Equatable {
 ${fields.map(fieldDecl).join("\n")}
@@ -89,10 +84,31 @@ ${fields.map(copyWithAssign).join("\n")}
 
   @override
   List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
-}
+}`;
 
-class ${cubitClass} extends Cubit<${stateClass}> {
-  ${cubitClass}() : super(const ${stateClass}());
+  // Container differs by provider (arch layer): bloc = Cubit, riverpod = Notifier + provider.
+  const container = sm === "riverpod"
+    ? `final ${camelize(name)}Provider = NotifierProvider<${name}Notifier, ${stateClass}>(${name}Notifier.new);
+
+class ${name}Notifier extends Notifier<${stateClass}> {
+  @override
+  ${stateClass} build() => ${stateClass}(
+    status: ${statusEnum}.success,
+    transactions: [${demoRows}],
+  );
+
+  Future<void> load() async {
+    state = state.copyWith(status: ${statusEnum}.loading);
+    try {
+      // [user] region:user — replace with real repository call.
+      state = state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]);
+    } catch (e) {
+      state = state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString());
+    }
+  }
+}`
+    : `class ${name}Cubit extends Cubit<${stateClass}> {
+  ${name}Cubit() : super(const ${stateClass}());
 
   Future<void> load() async {
     emit(state.copyWith(status: ${statusEnum}.loading));
@@ -104,6 +120,23 @@ class ${cubitClass} extends Cubit<${stateClass}> {
       emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
     }
   }
-}
+}`;
+
+  const stateLib = sm === "riverpod" ? "flutter_riverpod" : "flutter_bloc";
+  const template = sm === "riverpod" ? "state_notifier.v1" : "state_enum_status.v1";
+
+  return `// [generated] generator=StateGenerator template=${template} class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:equatable/equatable.dart';
+import 'package:${stateLib}/${stateLib}.dart';
+${imports}
+
+${stateBlock}
+
+${container}
 `;
+}
+
+function camelize(name: string): string {
+  return name.charAt(0).toLowerCase() + name.slice(1);
 }

@@ -1,4 +1,4 @@
-import { FeatureModel, Field } from "../types";
+import { FeatureModel, Field, StateManagementProvider } from "../types";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -96,7 +96,7 @@ ${jsonEntries}
  * GoldenTestGenerator — structural, deterministic, 0% LLM.
  * Emits a golden (screenshot) regression test for the first screen.
  */
-export function generateGoldenTest(feature: FeatureModel): string {
+export function generateGoldenTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
   const screen = feature.screens?.[0];
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
   if (!screen) {
@@ -116,21 +116,29 @@ void main() {
   }
 
   const goldenName = screen.name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-  const cubit = `${screen.state}Cubit`;
+  // bloc: BlocProvider wraps the screen; riverpod: ProviderScope (notifier.build() seeds data).
+  const pumpWidget = sm === "riverpod"
+    ? `    await tester.pumpWidget(const ProviderScope(
+      child: MaterialApp(home: ${screen.name}()),
+    ));`
+    : `    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
+      create: (_) => ${screen.state}Cubit(),
+      child: const MaterialApp(home: ${screen.name}()),
+    ));`;
+  const libImport = sm === "riverpod"
+    ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+    : `import 'package:flutter_bloc/flutter_bloc.dart';`;
 
-  return `// [generated] generator=GoldenTestGenerator template=golden.v1 class=structural ownership=generated
+  return `// [generated] generator=GoldenTestGenerator template=golden_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+${libImport}
 import 'package:${pkg}/generated.dart';
 import 'package:flutter/material.dart';
 
 void main() {
   testWidgets('${screen.name} renders (golden)', (tester) async {
-    await tester.pumpWidget(BlocProvider<${cubit}>(
-      create: (_) => ${cubit}(),
-      child: const MaterialApp(home: ${screen.name}()),
-    ));
+${pumpWidget}
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });
 }

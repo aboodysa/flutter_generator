@@ -1,4 +1,4 @@
-import { EntityModel, Field, ValueObjectModel, DartTypeMap } from "./types";
+import { EntityModel, Field, ValueObjectModel, DartTypeMap, StateManagementProvider } from "./types";
 
 // Shared deterministic Dart helpers used by every generator (DRY: one source of truth).
 export const DART_TYPES: DartTypeMap = {
@@ -119,6 +119,7 @@ export interface GenContext {
   pkg: string; // package name (e.g. "rasheed_replica_expense")
   symbols: Map<string, string>; // typeName → package path
   ir?: any; // full IR, for cross-reference lookups (operation param naming, etc.)
+  sm?: StateManagementProvider; // selected state-management provider (from the arch layer)
 }
 
 // Scan Dart type strings for generated-type references and emit import lines.

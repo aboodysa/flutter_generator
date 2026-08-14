@@ -1,13 +1,13 @@
 import { FeatureModel } from "../types";
 import { GenContext } from "../dart";
-import { ScoringDecision } from "../scoring";
+import { ArchitectureDecision } from "../arch";
 
 /**
  * RouteGenerator — structural, deterministic, 0% LLM.
  * Emits go_router routes from the screens declared in the IR.
- * Honors the §5.2 `none` branch: below the complexity floor, emits no router.
+ * Honors the arch layer's `routing` decision: `none` → no router.
  */
-export function generateRoutes(feature: FeatureModel, ctx?: GenContext, decision?: ScoringDecision): string {
+export function generateRoutes(feature: FeatureModel, ctx?: GenContext, decision?: ArchitectureDecision): string {
   if (decision?.routing === "none") {
     return `// [generated] generator=RouteGenerator template=route_none.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
