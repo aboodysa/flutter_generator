@@ -28,6 +28,7 @@ import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
 import { scoreStateStrategy } from "./scoring";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
+import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -65,6 +66,7 @@ export interface GenerateResult {
   outDir: string;
   fileCount: number;
   scoring: string[];
+  conflicts: RegionConflict[];
 }
 
 /**
@@ -100,6 +102,23 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
 
   const featureRoot = path.join(outDir, "lib", "features", ir.name);
   const coreDir = path.join(outDir, "lib", "core");
+
+  // Region detection (§11.1): snapshot scaffold (use-case) files + last-known hashes BEFORE cleaning,
+  // so drifted user regions are preserved rather than silently clobbered.
+  const regionManifestPath = path.join(outDir, "regions.json");
+  const lastKnownHashes: Record<string, string> = fs.existsSync(regionManifestPath)
+    ? JSON.parse(fs.readFileSync(regionManifestPath, "utf8"))
+    : {};
+  const useCaseDir = path.join(featureRoot, "domain", "usecases");
+  const existingUseCases = new Map<string, string>();
+  if (fs.existsSync(useCaseDir)) {
+    for (const e of fs.readdirSync(useCaseDir)) {
+      if (e.endsWith(".dart")) existingUseCases.set(e, fs.readFileSync(path.join(useCaseDir, e), "utf8"));
+    }
+  }
+  const conflicts: RegionConflict[] = [];
+  const nextHashes: Record<string, string> = {};
+
   fs.rmSync(path.join(outDir, "lib"), { recursive: true, force: true }); // clean stale output
   fs.mkdirSync(coreDir, { recursive: true });
   const files: string[] = [];
@@ -112,7 +131,22 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
       const dir = path.join(featureRoot, entry.layer);
       fs.mkdirSync(dir, { recursive: true });
       const f = path.join(dir, entry.file(item));
-      fs.writeFileSync(f, entry.generate(item, ctx));
+      const generated = entry.generate(item, ctx);
+      let written = generated;
+      if (entry.irKey === "useCases") {
+        const fileName = entry.file(item);
+        const existing = existingUseCases.get(fileName);
+        if (existing !== undefined) {
+          const conflict = checkOverwrite(existing, lastKnownHashes[fileName] ?? null, path.relative(outDir, f));
+          if (conflict) {
+            conflicts.push(conflict);
+            written = existing; // preserve the user's hand-edited region
+          }
+        }
+        const h = userRegionHash(written);
+        if (h !== null) nextHashes[fileName] = h;
+      }
+      fs.writeFileSync(f, written);
       files.push(f);
       planEntries.push({
         artifact: `${tag}:${item.name}`,
@@ -233,8 +267,9 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
   fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
+  fs.writeFileSync(regionManifestPath, JSON.stringify(nextHashes, null, 2));
 
-  return { outDir, fileCount: files.length + 9, scoring };
+  return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }
 
 function main() {
@@ -256,6 +291,10 @@ function main() {
   console.log(`[context] generator=1.0.0 irVersion=${raw.schemaVersion}`);
   result.scoring.forEach((s) => console.log(`[scoring] ${s}`));
   console.log(`Generated ${result.fileCount} file(s) → ${outDir}`);
+  if (result.conflicts.length) {
+    console.log(`[regions] ${result.conflicts.length} conflict(s) preserved (no silent overwrite):`);
+    result.conflicts.forEach((c) => console.log(`  - ${c.file}: ${c.reason}`));
+  }
 }
 
 if (require.main === module) main();
