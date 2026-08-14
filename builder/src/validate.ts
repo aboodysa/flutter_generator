@@ -45,6 +45,34 @@ function archCheck(f: string, src: string): string | null {
   return null;
 }
 
+// Strategy fidelity (P3-C4): the plan.json `strategy` a state artifact claims must match
+// the "sealed"-ness of the template the generator actually emitted — catches the class of
+// bug where the scoring function selects sealed-events but the generator silently falls
+// back to enum-status (plan.json would then describe code that was never generated).
+function stateStrategyFidelity(outDir: string): string[] {
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) return [`[fidelity] plan.json missing in ${outDir}`];
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const mismatches: string[] = [];
+  for (const entry of plan.entries ?? []) {
+    if (entry.schema !== "state") continue;
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) {
+      mismatches.push(`[fidelity] ${entry.artifact}: declared file missing (${entry.file})`);
+      continue;
+    }
+    const src = fs.readFileSync(filePath, "utf8");
+    const m = src.match(/template=(\S+)/);
+    const template = m?.[1] ?? "<none>";
+    const claimsSealed = entry.strategy === "sealed-events";
+    const emitsSealed = /sealed/i.test(template);
+    if (claimsSealed !== emitsSealed) {
+      mismatches.push(`[fidelity] ${entry.artifact}: plan strategy='${entry.strategy}' but emitted template='${template}'`);
+    }
+  }
+  return mismatches;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -52,6 +80,7 @@ export interface ValidationResult {
   idioms: number;    // count of files with forbidden idioms
   arch: number;      // count of files with arch violations
   oracle: number;    // count of business rules missing or with zero-case oracle coverage
+  fidelity: number;  // count of state artifacts whose plan.json strategy doesn't match the emitted template
   files: number;
   issues: string[];
 }
@@ -88,7 +117,12 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   for (const r of [...oc.missing, ...oc.empty]) issues.push(`[oracle] ${r}: missing/zero-case oracle — unverifiable`);
   const oracle = oc.missing.length + oc.empty.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, files: files.length, issues };
+  // Strategy fidelity (P3-C4): plan.json's declared per-state strategy vs the emitted template.
+  const fidelityIssues = stateStrategyFidelity(outDir);
+  issues.push(...fidelityIssues);
+  const fidelity = fidelityIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, files: files.length, issues };
 }
 
 function main() {
@@ -101,7 +135,8 @@ function main() {
   console.log(`[forbidden-idioms] ${r.idioms === 0 ? "PASS" : "FAIL (" + r.idioms + ")"}`);
   console.log(`[architecture] ${r.arch === 0 ? "PASS" : "FAIL (" + r.arch + ")"}`);
   console.log(`[oracle] ${r.oracle === 0 ? "PASS" : "FAIL (" + r.oracle + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle > 0;
+  console.log(`[strategy-fidelity] ${r.fidelity === 0 ? "PASS" : "FAIL (" + r.fidelity + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

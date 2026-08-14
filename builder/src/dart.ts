@@ -96,17 +96,19 @@ export function sampleArgs(entity: EntityModel, enums: any[], valueObjects: Valu
 }
 
 // Deterministic demo rows for a list state: row 0 is the neutral sample, rows 1+ get
-// distinguishable values in the first String + first numeric field so the rendered list
-// looks real instead of N identical rows.
+// distinguishable values across ALL fields (not just required ones) so a display field
+// that happens to be optional — e.g. a nullable `merchant` title — is still populated
+// instead of silently staying null and rendering as "Untitled".
 export function variantSampleArgs(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], index: number): string {
   if (index === 0) return sampleArgs(entity, enums, valueObjects);
   const literal = (f: Field): string => {
     if (f.type === "String") return `'Sample item ${index}'`;
     if (f.type === "double") return `${index * 100 + 50}.0`;
     if (f.type === "int") return String(index);
+    if (f.type === "DateTime") return "DateTime(2025)";
     return sampleArgFor(f, enums, valueObjects);
   };
-  return entity.fields.filter((f) => f.required).map((f) => `${f.name}: ${literal(f)}`).join(", ");
+  return entity.fields.map((f) => `${f.name}: ${literal(f)}`).join(", ");
 }
 
 // Dart built-ins never generate an import.
