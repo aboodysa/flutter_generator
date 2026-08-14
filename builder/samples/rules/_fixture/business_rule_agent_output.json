@@ -1,0 +1,16 @@
+{
+  "businessRules": [
+    {
+      "name": "expenseAge",
+      "entity": "Transaction",
+      "conditions": [],
+      "result": "recent",
+      "rows": [
+        { "outcome": "stale", "conditions": [ { "field": "date", "operator": "daysSince>", "value": "90" } ] }
+      ]
+    }
+  ],
+  "extensionQueue": [
+    { "rule": "top5Merchants", "reason": "requires ranking/aggregation across all transactions (top-N), which is a quantifier over a collection — outside the closed rule language (§19)." }
+  ]
+}

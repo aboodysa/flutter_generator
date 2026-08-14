@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1",
+  "name": "promo",
+  "entities": [
+    {
+      "name": "Promotion",
+      "identity": { "field": "id" },
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "name", "type": "String", "required": true },
+        { "name": "startDate", "type": "DateTime", "required": true },
+        { "name": "endDate", "type": "DateTime", "required": true }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "promotionStatus",
+      "entity": "Promotion",
+      "conditions": [],
+      "result": "active",
+      "rows": [
+        { "outcome": "expired", "conditions": [ { "field": "endDate", "operator": "daysSince>", "value": "0" } ] },
+        { "outcome": "upcoming", "conditions": [ { "field": "startDate", "operator": "daysSince<", "value": "0" } ] }
+      ]
+    }
+  ]
+}

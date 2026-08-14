@@ -64,7 +64,10 @@ export function generateOracleTest(
     .map((c, i) => {
       const args = requiredFields.map((f) => `${f.name}: ${fieldLiteral(f, c.input[f.name], feature)}`).join(", ");
       const expected = expectedLiteral(c.expected);
-      return `  test('case ${i + 1}: expected ${expected}', () {
+      // Description is plain text (never the Dart literal) so a string outcome like 'expired'
+      // doesn't nest an unescaped quote inside the outer single-quoted test description.
+      const desc = typeof c.expected === "string" ? c.expected.replace(/'/g, "\\'") : String(c.expected);
+      return `  test('case ${i + 1}: expected ${desc}', () {
     final e = ${entity.name}(${args});
     expect(${rule.name}().evaluate(e), equals(${expected}));
   });`;
