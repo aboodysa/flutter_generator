@@ -73,25 +73,40 @@ export function entityByName(name: string, entities: EntityModel[]): EntityModel
 }
 
 // Deterministic sample constructor args for an entity's required fields (used by generated tests + demo data).
+export function sampleArgFor(f: Field, enums: any[], valueObjects: ValueObjectModel[]): string {
+  if (f.semanticType) {
+    const vo = valueObjects.find((v) => v.name === f.semanticType);
+    return `${f.semanticType}(${vo?.baseType === "String" ? "'x'" : "0"})`;
+  }
+  switch (f.type) {
+    case "String": return "'x'";
+    case "int": return "0";
+    case "double": return "0.0";
+    case "bool": return "false";
+    case "DateTime": return "DateTime(2024)";
+    case "enum": return `${f.of ?? "Object"}.values.first`;
+    case "List": return "const []";
+    case "reference": return "null";
+    default: return "null";
+  }
+}
+
 export function sampleArgs(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[]): string {
-  const dart = (f: Field): string => {
-    if (f.semanticType) {
-      const vo = valueObjects.find((v) => v.name === f.semanticType);
-      return `${f.semanticType}(${vo?.baseType === "String" ? "'x'" : "0"})`;
-    }
-    switch (f.type) {
-      case "String": return "'x'";
-      case "int": return "0";
-      case "double": return "0.0";
-      case "bool": return "false";
-      case "DateTime": return "DateTime(2024)";
-      case "enum": return `${f.of ?? "Object"}.values.first`;
-      case "List": return "const []";
-      case "reference": return "null";
-      default: return "null";
-    }
+  return entity.fields.filter((f) => f.required).map((f) => `${f.name}: ${sampleArgFor(f, enums, valueObjects)}`).join(", ");
+}
+
+// Deterministic demo rows for a list state: row 0 is the neutral sample, rows 1+ get
+// distinguishable values in the first String + first numeric field so the rendered list
+// looks real instead of N identical rows.
+export function variantSampleArgs(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], index: number): string {
+  if (index === 0) return sampleArgs(entity, enums, valueObjects);
+  const literal = (f: Field): string => {
+    if (f.type === "String") return `'Sample item ${index}'`;
+    if (f.type === "double") return `${index * 100 + 50}.0`;
+    if (f.type === "int") return String(index);
+    return sampleArgFor(f, enums, valueObjects);
   };
-  return entity.fields.filter((f) => f.required).map((f) => `${f.name}: ${dart(f)}`).join(", ");
+  return entity.fields.filter((f) => f.required).map((f) => `${f.name}: ${literal(f)}`).join(", ");
 }
 
 // Dart built-ins never generate an import.

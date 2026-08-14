@@ -1,5 +1,5 @@
 import { StateModel, StateField } from "../types";
-import { importsFromTypes, sampleArgs, GenContext } from "../dart";
+import { importsFromTypes, variantSampleArgs, GenContext } from "../dart";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
@@ -52,8 +52,8 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
   };
 
   const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity);
-  const sample = entityModel
-    ? `${entity}(${sampleArgs(entityModel, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [])})`
+  const demoRows = entityModel
+    ? [0, 1, 2].map((i) => `${entity}(${variantSampleArgs(entityModel, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [], i)})`).join(", ")
     : "null";
 
   // Imports: entity + extra field types + enum/VO types referenced by the sample construction.
@@ -99,7 +99,7 @@ class ${cubitClass} extends Cubit<${stateClass}> {
     try {
       // [user] region:user — replace with real repository call.
       // Deterministic demo data so the app renders rows out of the box:
-      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${sample}]));
+      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]));
     } catch (e) {
       emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
     }
