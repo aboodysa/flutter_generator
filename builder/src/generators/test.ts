@@ -108,6 +108,9 @@ export function generateGoldenTest(feature: FeatureModel, sm: StateManagementPro
       font.addFont(rootBundle.load('assets/fonts/\$f.ttf'));
     }
     await font.load();
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('assets/fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
   });`;
 
   if (!screen) {

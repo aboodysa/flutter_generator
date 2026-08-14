@@ -142,7 +142,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   if (fs.existsSync(fontsSrc)) {
     fs.mkdirSync(fontsDst, { recursive: true });
     for (const f of fs.readdirSync(fontsSrc)) {
-      if (f.endsWith(".ttf")) fs.copyFileSync(path.join(fontsSrc, f), path.join(fontsDst, f));
+      if (f.endsWith(".ttf") || f.endsWith(".otf")) fs.copyFileSync(path.join(fontsSrc, f), path.join(fontsDst, f));
     }
   }
 
