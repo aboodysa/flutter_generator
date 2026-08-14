@@ -27,7 +27,7 @@ export interface ScoringInputs {
 export interface ScoringDecision {
   inputs: ScoringInputs;
   complexity: number;
-  stateManagement: "none" | "bloc";
+  stateManagement: "none" | "bloc" | "riverpod";
   di: "none" | "get_it";
   routing: "none" | "go_router";
   reason: string;
@@ -71,6 +71,22 @@ export function computeInputs(ir: FeatureModel): ScoringInputs {
 
 export function scoreApp(ir: FeatureModel): ScoringDecision {
   const i = computeInputs(ir);
+
+  // Explicit provider override (enterprise: human-pinned selection) wins over scoring.
+  const override = ir.attributes?.stateManagement;
+  if (override) {
+    const stateManagement = override;
+    const vanilla = override === "none";
+    return {
+      inputs: i,
+      complexity: vanilla ? 0 : i.stateComplexity || 1,
+      stateManagement,
+      di: vanilla ? "none" : "get_it",
+      routing: vanilla ? "none" : "go_router",
+      reason: `explicit override stateManagement=${override}`,
+    };
+  }
+
   const complexity =
     i.collectionCardinality +
     i.filterAxes +
@@ -98,7 +114,7 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
     stateManagement: "bloc",
     di: "get_it",
     routing: "go_router",
-    reason: `complexity ${complexity} — bloc + get_it + go_router`,
+    reason: `complexity ${complexity} — bloc (enterprise default) + get_it + go_router`,
   };
 }
 

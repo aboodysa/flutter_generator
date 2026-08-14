@@ -1,6 +1,13 @@
 import { FeatureModel } from "../types";
 import { GenContext } from "../dart";
 import { ScoringDecision } from "../scoring";
+import { providerFor } from "../provider";
+
+const PROVIDER_VERSIONS: Record<string, string> = {
+  bloc: "flutter_bloc: ^8.1.6",
+  riverpod: "flutter_riverpod: ^2.5.1",
+  none: "",
+};
 
 /**
  * ProjectGenerator — structural, deterministic, 0% LLM.
@@ -9,11 +16,15 @@ import { ScoringDecision } from "../scoring";
  */
 export function generatePubspec(feature: FeatureModel, decision?: ScoringDecision): string {
   const name = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  // §5.2 `none` branch: omit state/DI/routing plugins below the complexity floor.
-  const vanilla = decision?.stateManagement === "none";
-  const infraDeps = vanilla
-    ? ""
-    : `  flutter_bloc: ^8.1.6\n  get_it: ^8.0.1\n  go_router: ^17.1.0\n`;
+  const sm = decision?.stateManagement ?? "bloc";
+  const provider = providerFor(sm);
+
+  // State-management dependency from the provider registry; DI/routing only above the floor.
+  const smDep = provider.package ? `  ${provider.package}: ${PROVIDER_VERSIONS[provider.id]}\n` : "";
+  const infraDeps = provider.di === "none"
+    ? smDep
+    : `${smDep}  get_it: ^8.0.1\n  go_router: ^17.1.0\n`;
+
   return `# [generated] generator=ProjectGenerator template=pubspec.v1 class=structural ownership=generated
 # Do not hand-edit this file; regenerate from IR.
 name: ${name}
@@ -50,10 +61,17 @@ export function generateMain(feature: FeatureModel): string {
     return `// [generated] generator=ProjectGenerator template=main.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'generated.dart';
 
-void main() => runApp(const ReplicaApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // A11y (§14.4): expose the semantics tree (aria/text) to the DOM on web so the app
+  // is screen-reader readable AND browser-testable (CFT/puppeteer) out of the box.
+  SemanticsBinding.instance.ensureSemantics();
+  runApp(const ReplicaApp());
+}
 
 class ReplicaApp extends StatelessWidget {
   const ReplicaApp({super.key});
@@ -77,8 +95,13 @@ class ReplicaApp extends StatelessWidget {
   return `// [generated] generator=ProjectGenerator template=main.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
-void main() => runApp(const ReplicaApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SemanticsBinding.instance.ensureSemantics();
+  runApp(const ReplicaApp());
+}
 
 class ReplicaApp extends StatelessWidget {
   const ReplicaApp({super.key});

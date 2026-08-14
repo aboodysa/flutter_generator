@@ -71,7 +71,10 @@ export interface AppAttributes {
   responsiveness?: "mobile" | "responsive";
   offlinePolicy?: "none" | "cache" | "offline-first";
   permissionScope?: "none" | "basic" | "sensitive";
+  stateManagement?: StateManagementProvider; // explicit provider override (wins over scoring)
 }
+
+export type StateManagementProvider = "none" | "bloc" | "riverpod";
 
 export type OperationKind = "list" | "get" | "create" | "update" | "delete";
 
