@@ -27,6 +27,7 @@ import { generateLocalization, generateTheme, generateConfig, generateSecrets, g
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
 import { scoreStateStrategy } from "./scoring";
+import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -36,26 +37,28 @@ interface RegistryEntry {
   irKey: string;
   schema: string;
   layer: string;
+  generator: string; // stable generator id (plan metadata, §6.1)
+  class: GenClass; // structural | pattern | semantic | novel
   generate: (item: any, ctx?: GenContext) => string;
   file: (item: any) => string;
   label: (item: any) => string;
 }
 
 const registry: RegistryEntry[] = [
-  { irKey: "enums", schema: "enum", layer: "domain/entities", generate: generateEnum, file: (e) => fileName(e.name), label: (e) => e.name },
-  { irKey: "valueObjects", schema: "valueobject", layer: "domain/entities", generate: generateValueObject, file: (v) => fileName(v.name), label: (v) => v.name },
-  { irKey: "queries", schema: "query", layer: "domain/entities", generate: generateQuery, file: (q) => fileName(q.name), label: (q) => q.name },
-  { irKey: "wrappers", schema: "wrapper", layer: "domain/entities", generate: generateWrapper, file: (w) => fileName(w.name), label: (w) => w.name },
-  { irKey: "entities", schema: "entity", layer: "domain/entities", generate: generateEntity, file: (e) => fileName(e.name), label: (e) => e.name },
-  { irKey: "repositories", schema: "repository", layer: "domain/repositories", generate: generateRepository, file: (r) => fileName(r.name), label: (r) => r.name },
-  { irKey: "useCases", schema: "usecase", layer: "domain/usecases", generate: generateUseCase, file: (u) => fileName(u.name), label: (u) => u.name },
-  { irKey: "datasources", schema: "datasource", layer: "data/datasources", generate: generateDatasource, file: (d) => fileName(d.name), label: (d) => d.name },
-  { irKey: "repositoryImpls", schema: "repository_impl", layer: "data/repositories", generate: generateRepositoryImpl, file: (r) => fileName(r.name), label: (r) => r.name },
-  { irKey: "states", schema: "state", layer: "presentation/state", generate: generateState, file: (s) => fileName(s.name), label: (s) => s.name },
-  { irKey: "screens", schema: "screen", layer: "presentation/screens", generate: generateScreen, file: (s) => fileName(s.name), label: (s) => s.name },
-  { irKey: "stateMachines", schema: "state_machine", layer: "domain/state_machines", generate: generateStateMachine, file: (s) => fileName(s.name + "StateMachine"), label: (s) => s.name },
-  { irKey: "forms", schema: "form", layer: "presentation/forms", generate: generateForm, file: (f) => fileName(f.name), label: (f) => f.name },
-  { irKey: "businessRules", schema: "rule", layer: "domain/rules", generate: generateRule, file: (r) => fileName(r.name), label: (r) => r.name },
+  { irKey: "enums", schema: "enum", layer: "domain/entities", generator: "EnumGenerator", class: "structural", generate: generateEnum, file: (e) => fileName(e.name), label: (e) => e.name },
+  { irKey: "valueObjects", schema: "valueobject", layer: "domain/entities", generator: "ValueObjectGenerator", class: "structural", generate: generateValueObject, file: (v) => fileName(v.name), label: (v) => v.name },
+  { irKey: "queries", schema: "query", layer: "domain/entities", generator: "QueryGenerator", class: "structural", generate: generateQuery, file: (q) => fileName(q.name), label: (q) => q.name },
+  { irKey: "wrappers", schema: "wrapper", layer: "domain/entities", generator: "WrapperGenerator", class: "structural", generate: generateWrapper, file: (w) => fileName(w.name), label: (w) => w.name },
+  { irKey: "entities", schema: "entity", layer: "domain/entities", generator: "EntityGenerator", class: "structural", generate: generateEntity, file: (e) => fileName(e.name), label: (e) => e.name },
+  { irKey: "repositories", schema: "repository", layer: "domain/repositories", generator: "RepositoryContractGenerator", class: "structural", generate: generateRepository, file: (r) => fileName(r.name), label: (r) => r.name },
+  { irKey: "useCases", schema: "usecase", layer: "domain/usecases", generator: "UseCaseGenerator", class: "structural", generate: generateUseCase, file: (u) => fileName(u.name), label: (u) => u.name },
+  { irKey: "datasources", schema: "datasource", layer: "data/datasources", generator: "DataSourceGenerator", class: "structural", generate: generateDatasource, file: (d) => fileName(d.name), label: (d) => d.name },
+  { irKey: "repositoryImpls", schema: "repository_impl", layer: "data/repositories", generator: "RepositoryImplGenerator", class: "structural", generate: generateRepositoryImpl, file: (r) => fileName(r.name), label: (r) => r.name },
+  { irKey: "states", schema: "state", layer: "presentation/state", generator: "StateGenerator", class: "pattern", generate: generateState, file: (s) => fileName(s.name), label: (s) => s.name },
+  { irKey: "screens", schema: "screen", layer: "presentation/screens", generator: "ScreenGenerator", class: "pattern", generate: generateScreen, file: (s) => fileName(s.name), label: (s) => s.name },
+  { irKey: "stateMachines", schema: "state_machine", layer: "domain/state_machines", generator: "StateMachineGenerator", class: "pattern", generate: generateStateMachine, file: (s) => fileName(s.name + "StateMachine"), label: (s) => s.name },
+  { irKey: "forms", schema: "form", layer: "presentation/forms", generator: "FormGenerator", class: "pattern", generate: generateForm, file: (f) => fileName(f.name), label: (f) => f.name },
+  { irKey: "businessRules", schema: "rule", layer: "domain/rules", generator: "RuleCodeGenerator", class: "semantic", generate: generateRule, file: (r) => fileName(r.name), label: (r) => r.name },
 ];
 
 export interface GenerateResult {
@@ -78,7 +81,14 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   const ctx: GenContext = { pkg, symbols, ir };
 
   const scoring: string[] = [];
-  for (const s of ir.states ?? []) scoring.push(`${s.name} → ${scoreStateStrategy(s)}`);
+  const stateStrategy = new Map<string, string>();
+  for (const s of ir.states ?? []) {
+    const strategy = scoreStateStrategy(s);
+    stateStrategy.set(s.name, strategy);
+    scoring.push(`${s.name} → ${strategy}`);
+  }
+
+  const planEntries: PlanEntry[] = [];
 
   const ajv = new Ajv({ allErrors: true, strict: false });
   const loadSchema = (n: string) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "schemas", `${n}.schema.json`), "utf8"));
@@ -95,6 +105,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   const files: string[] = [];
 
   for (const entry of registry) {
+    const tag = tagForIrKey(entry.irKey);
     const items = (ir as any)[entry.irKey] ?? [];
     for (const item of items) {
       check(`${entry.schema}:${entry.label(item)}`, validators[entry.schema], item);
@@ -103,6 +114,17 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
       const f = path.join(dir, entry.file(item));
       fs.writeFileSync(f, entry.generate(item, ctx));
       files.push(f);
+      planEntries.push({
+        artifact: `${tag}:${item.name}`,
+        generator: entry.generator,
+        schema: entry.schema,
+        layer: entry.layer,
+        file: path.relative(outDir, f),
+        strategy: tag === "state" ? stateStrategy.get(item.name) ?? "enum-status" : "default",
+        dependsOn: dependsOnFor(entry.irKey, item),
+        mode: entry.class === "semantic" ? "semantic" : "deterministic",
+        class: entry.class,
+      });
     }
   }
 
@@ -114,6 +136,17 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
     const f = path.join(dir, fileName(entity.name).replace(/\.dart$/, "_model.dart"));
     fs.writeFileSync(f, generateModel(entity, override, ctx));
     files.push(f);
+    planEntries.push({
+      artifact: `model:${entity.name}`,
+      generator: "ModelGenerator",
+      schema: "model",
+      layer: "data/models",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`entity:${entity.name}`],
+      mode: "deterministic",
+      class: "structural",
+    });
   }
 
   const core: [string, string][] = [
@@ -127,10 +160,38 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
     ["observability.dart", generateObservability(ir)],
     ["validator.dart", generateValidator(ir)],
   ];
-  for (const [f, content] of core) { const p = path.join(coreDir, f); fs.writeFileSync(p, content); files.push(p); }
+  const coreGenerator: Record<string, string> = {
+    "di.dart": "DIGenerator",
+    "router.dart": "RouteGenerator",
+    "components.dart": "ComponentRegistryGenerator",
+    "app_strings.dart": "LocalizationGenerator",
+    "theme.dart": "ThemeGenerator",
+    "config.dart": "ConfigGenerator",
+    "secrets.dart": "SecretsGenerator",
+    "observability.dart": "ObservabilityGenerator",
+    "validator.dart": "ValidatorGenerator",
+  };
+  for (const [f, content] of core) {
+    const p = path.join(coreDir, f);
+    fs.writeFileSync(p, content);
+    files.push(p);
+    planEntries.push({
+      artifact: `core:${f.replace(/\.dart$/, "")}`,
+      generator: coreGenerator[f] ?? "CoreGenerator",
+      schema: "core",
+      layer: "core",
+      file: path.relative(outDir, p),
+      strategy: "default",
+      dependsOn: [],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
 
-  fs.writeFileSync(path.join(outDir, "lib", "generated.dart"), generateBarrel(ir, ctx));
-  fs.writeFileSync(path.join(outDir, "lib", "main.dart"), generateMain(ir));
+  const barrelFile = path.join(outDir, "lib", "generated.dart");
+  fs.writeFileSync(barrelFile, generateBarrel(ir, ctx));
+  const mainFile = path.join(outDir, "lib", "main.dart");
+  fs.writeFileSync(mainFile, generateMain(ir));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify({
     irVersion, generator: "1.0.0", template: "v1", sdk: ">=3.0.0",
@@ -138,10 +199,40 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
   }, null, 2));
   const testDir = path.join(outDir, "test");
   fs.mkdirSync(testDir, { recursive: true });
-  fs.writeFileSync(path.join(testDir, "widget_test.dart"), generateWidgetTest(ir));
-  fs.writeFileSync(path.join(testDir, "unit_test.dart"), generateUnitTest(ir));
-  fs.writeFileSync(path.join(testDir, "flow_test.dart"), generateFlowTest(ir));
-  fs.writeFileSync(path.join(testDir, "golden_test.dart"), generateGoldenTest(ir));
+  const testFiles: [string, string, string][] = [
+    ["widget_test.dart", generateWidgetTest(ir), "WidgetTestGenerator"],
+    ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
+    ["flow_test.dart", generateFlowTest(ir), "FlowTestGenerator"],
+    ["golden_test.dart", generateGoldenTest(ir), "GoldenTestGenerator"],
+  ];
+  for (const [f, content, generator] of testFiles) {
+    fs.writeFileSync(path.join(testDir, f), content);
+    planEntries.push({
+      artifact: `test:${f.replace(/\.dart$/, "").replace(/_test$/, "")}`,
+      generator,
+      schema: "test",
+      layer: "test",
+      file: path.relative(outDir, path.join(testDir, f)),
+      strategy: "default",
+      dependsOn: [],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+  planEntries.push(
+    { artifact: "core:barrel", generator: "BarrelGenerator", schema: "core", layer: "core", file: path.relative(outDir, barrelFile), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural" },
+    { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
+  );
+
+  const plan: GenerationPlan = {
+    schemaVersion: irVersion,
+    generatorVersion: "1.0.0",
+    artifactCount: planEntries.length,
+    entries: planEntries,
+  };
+  const planIssues = validatePlanReferences(plan);
+  if (planIssues.length) throw new Error(planIssues.join("\n"));
+  fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
 
   return { outDir, fileCount: files.length + 9, scoring };
 }
