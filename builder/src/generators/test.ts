@@ -99,15 +99,32 @@ ${jsonEntries}
 export function generateGoldenTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
   const screen = feature.screens?.[0];
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  // Load the real Roboto font (bundled via pubspec `fonts:`): otherwise the test runner's
+  // default "FlutterTest" font renders every glyph as a solid box.
+  const fontLoader = `  setUpAll(() async {
+    final font = FontLoader('Roboto');
+    for (final f in const ['Roboto-Regular', 'Roboto-Medium', 'Roboto-Bold']) {
+      font.addFont(rootBundle.load('assets/fonts/\$f.ttf'));
+    }
+    await font.load();
+  });`;
+
   if (!screen) {
     return `// [generated] generator=GoldenTestGenerator template=golden.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:${pkg}/main.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+${fontLoader}
+
   testWidgets('app renders (golden)', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(const ReplicaApp());
     await expectLater(find.byType(Scaffold), matchesGoldenFile('goldens/app.png'));
   });
@@ -117,27 +134,38 @@ void main() {
 
   const goldenName = screen.name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
   // bloc: BlocProvider wraps the screen; riverpod: ProviderScope (notifier.build() seeds data).
+  // theme: buildTheme() sets fontFamily Roboto so real glyphs render (not boxes).
   const pumpWidget = sm === "riverpod"
-    ? `    await tester.pumpWidget(const ProviderScope(
-      child: MaterialApp(home: ${screen.name}()),
+    ? `    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`
     : `    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
       create: (_) => ${screen.state}Cubit(),
-      child: const MaterialApp(home: ${screen.name}()),
+      child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`;
   const libImport = sm === "riverpod"
     ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
     : `import 'package:flutter_bloc/flutter_bloc.dart';`;
 
+  // iPhone-size viewport so goldens reflect a real phone screen, not the 800×600 test default.
+  const surface = `    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);`;
+
   return `// [generated] generator=GoldenTestGenerator template=golden_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 ${libImport}
 import 'package:${pkg}/generated.dart';
+import 'package:${pkg}/core/theme.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+${fontLoader}
+
   testWidgets('${screen.name} renders (golden)', (tester) async {
+${surface}
 ${pumpWidget}
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });

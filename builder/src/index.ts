@@ -135,6 +135,17 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   fs.mkdirSync(coreDir, { recursive: true });
   const files: string[] = [];
 
+  // Bundle the Roboto font so `flutter test` golden runs render real text, not the
+  // default test font's solid boxes (same approach the payment pilot uses with Tajawal).
+  const fontsSrc = path.join(__dirname, "..", "templates", "fonts");
+  const fontsDst = path.join(outDir, "assets", "fonts");
+  if (fs.existsSync(fontsSrc)) {
+    fs.mkdirSync(fontsDst, { recursive: true });
+    for (const f of fs.readdirSync(fontsSrc)) {
+      if (f.endsWith(".ttf")) fs.copyFileSync(path.join(fontsSrc, f), path.join(fontsDst, f));
+    }
+  }
+
   for (const entry of registry) {
     const tag = tagForIrKey(entry.irKey);
     const items = (ir as any)[entry.irKey] ?? [];
