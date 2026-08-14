@@ -172,17 +172,27 @@ export interface FormModel {
 }
 
 // Business rule (formal, closed language — DESIGN §19). Deterministic rule representation.
+export type RuleOperator =
+  | ">=" | "<=" | ">" | "<" | "==" | "!=" | "contains"
+  | "daysSince>" | "daysSince<"; // temporal, scoped to decision-table rows only (§25 Phase 0 slice 3)
+
 export interface RuleModel {
   name: string; // e.g. promotionEligibility
   entity: string; // entity the rule acts on
-  conditions: RuleCondition[]; // all must hold (AND)
-  result: string; // e.g. "eligible" | "eligible=true" | decision table row outcome
+  conditions: RuleCondition[]; // all must hold (AND) — flat form
+  result: string; // flat outcome, or the default outcome when no decision-table row matches
+  rows?: DecisionTableRow[]; // decision-table form (additive, optional — §19)
+}
+
+export interface DecisionTableRow {
+  outcome: string;
+  conditions?: RuleCondition[]; // all must hold (AND) within this row
 }
 
 export interface RuleCondition {
   field: string;
-  operator: ">=" | "<=" | ">" | "<" | "==" | "!=" | "contains";
-  value: string; // literal, compared against the field (JSON literal form)
+  operator: RuleOperator;
+  value: string; // literal, compared against the field (JSON literal form); for daysSince* it's the day count
 }
 
 export interface ModelModel {

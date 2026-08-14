@@ -31,6 +31,8 @@ import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanRefer
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 import { buildLockfile } from "./context";
 import { unapprovedElements } from "./provenance";
+import { loadOracle, oracleDirFor } from "./oracle";
+import { generateOracleTest } from "./generators/oracle_test";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -75,7 +77,7 @@ export interface GenerateResult {
  * Core generation — the only function that writes files. CLI + web server share this.
  * Pure upstream (generators are (IR, ctx) → string); I/O is confined here.
  */
-export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): GenerateResult {
+export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
   // Write-ACL (DESIGN §9.3): human-only fields require an attested human actor.
   const aclViolations = enforceWriteAcl(ir);
   if (aclViolations.length) throw new Error(aclViolations.join("\n"));
@@ -268,6 +270,35 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1"): 
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
+  // Oracle tests (§9.4): for each business rule with a non-empty oracle corpus, compile its
+  // example/expected pairs into a Dart test. A rule with no (or empty) oracle stays unverified —
+  // caught by validate.ts's oracle-coverage gate, not silently generated as "tested".
+  if (oracleDir) {
+    const rulesTestDir = path.join(testDir, "rules");
+    for (const rule of ir.businessRules ?? []) {
+      const oracle = loadOracle(rule.name, oracleDir);
+      if (!oracle || oracle.cases.length === 0) continue;
+      const entity = ir.entities.find((e) => e.name === rule.entity);
+      if (!entity) continue;
+      fs.mkdirSync(rulesTestDir, { recursive: true });
+      const oracleFileName = fileName(rule.name).replace(/\.dart$/, "_oracle_test.dart");
+      const f = path.join(rulesTestDir, oracleFileName);
+      fs.writeFileSync(f, generateOracleTest(rule, oracle, entity, ir, pkg));
+      files.push(f);
+      planEntries.push({
+        artifact: `oracle:${rule.name}`,
+        generator: "RuleOracleTestGenerator",
+        schema: "rule",
+        layer: "test/rules",
+        file: path.relative(outDir, f),
+        strategy: "default",
+        dependsOn: [`rule:${rule.name}`],
+        mode: "semantic",
+        class: "semantic",
+      });
+    }
+  }
+
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
@@ -298,7 +329,7 @@ function main() {
     throw new Error(`[pipeline] IR missing schemaVersion (DESIGN §2.1) at ${irPath}`);
   }
 
-  const result = generateApp(raw as FeatureModel, outDir, raw.schemaVersion);
+  const result = generateApp(raw as FeatureModel, outDir, raw.schemaVersion, oracleDirFor(irPath));
   console.log(`[context] generator=1.0.0 irVersion=${raw.schemaVersion}`);
   result.scoring.forEach((s) => console.log(`[scoring] ${s}`));
   console.log(`Generated ${result.fileCount} file(s) → ${outDir}`);

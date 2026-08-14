@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
+import { oracleCoverage, oracleDirFor } from "./oracle";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -50,6 +51,7 @@ export interface ValidationResult {
   secrets: number;   // count of files with secret literals
   idioms: number;    // count of files with forbidden idioms
   arch: number;      // count of files with arch violations
+  oracle: number;    // count of business rules missing or with zero-case oracle coverage
   files: number;
   issues: string[];
 }
@@ -80,7 +82,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
     if (a) { issues.push(`[arch] ${a}`); arch++; }
   }
 
-  return { determinism, headers, secrets, idioms, arch, files: files.length, issues };
+  // Oracle coverage (§9.4): a business rule with no (or empty) oracle is unverified
+  // generated code — the correctness boundary DESIGN §0 treats as non-negotiable.
+  const oc = oracleCoverage(ir, oracleDirFor(irPath));
+  for (const r of [...oc.missing, ...oc.empty]) issues.push(`[oracle] ${r}: missing/zero-case oracle — unverifiable`);
+  const oracle = oc.missing.length + oc.empty.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, files: files.length, issues };
 }
 
 function main() {
@@ -92,7 +100,8 @@ function main() {
   console.log(`[secrets] ${r.secrets === 0 ? "PASS" : "FAIL (" + r.secrets + ")"}`);
   console.log(`[forbidden-idioms] ${r.idioms === 0 ? "PASS" : "FAIL (" + r.idioms + ")"}`);
   console.log(`[architecture] ${r.arch === 0 ? "PASS" : "FAIL (" + r.arch + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch > 0;
+  console.log(`[oracle] ${r.oracle === 0 ? "PASS" : "FAIL (" + r.oracle + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

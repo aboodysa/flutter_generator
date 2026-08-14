@@ -58,8 +58,8 @@ export function runPipeline(ir: any, outDir: string, irPath: string): PipelineRe
 
   // 6. validators (determinism + secrets + headers + idioms + arch)
   const v = validateOutput(ir, outDir, irPath);
-  const vPass = v.determinism && v.headers + v.secrets + v.idioms + v.arch === 0;
-  stages.push({ stage: "validators", status: vPass ? "pass" : "fail", detail: v.issues.join("; ") || "determinism + secrets + headers + idioms + arch all pass" });
+  const vPass = v.determinism && v.headers + v.secrets + v.idioms + v.arch + v.oracle === 0;
+  stages.push({ stage: "validators", status: vPass ? "pass" : "fail", detail: v.issues.join("; ") || "determinism + secrets + headers + idioms + arch + oracle all pass" });
 
   return { stages, passed: stages.every((s) => s.status !== "fail"), outDir };
 }

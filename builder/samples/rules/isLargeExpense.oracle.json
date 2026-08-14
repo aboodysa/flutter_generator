@@ -1,0 +1,22 @@
+{
+  "rule": "isLargeExpense",
+  "entity": "Transaction",
+  "cases": [
+    {
+      "input": { "id": "tx-1", "amount": 1500, "date": "2024-01-01T00:00:00.000Z", "paymentMethod": "cash" },
+      "expected": true
+    },
+    {
+      "input": { "id": "tx-2", "amount": 1000, "date": "2024-01-02T00:00:00.000Z", "paymentMethod": "cash" },
+      "expected": true
+    },
+    {
+      "input": { "id": "tx-3", "amount": 999.99, "date": "2024-01-03T00:00:00.000Z", "paymentMethod": "cash" },
+      "expected": false
+    },
+    {
+      "input": { "id": "tx-4", "amount": 0, "date": "2024-01-04T00:00:00.000Z", "paymentMethod": "cash" },
+      "expected": false
+    }
+  ]
+}

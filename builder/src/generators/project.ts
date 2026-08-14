@@ -112,6 +112,7 @@ export function generateBarrel(feature: FeatureModel, ctx?: GenContext): string 
   for (const ri of feature.repositoryImpls ?? []) names.push(ri.name);
   for (const s of feature.states ?? []) names.push(s.name);
   for (const sc of feature.screens ?? []) names.push(sc.name);
+  for (const r of feature.businessRules ?? []) names.push(r.name);
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);
