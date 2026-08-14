@@ -34,13 +34,13 @@ Slices: T1 build+serve harness; T2 CFT driver + assertions; T3 evidence/report.
 
 ### P3 — v1 closure (trust-boundary polish)
 Entry: P1–P2 done; v1 definition ("end of Phase 3") nearly met.
-Exit: DESIGN §9.5 approval routing 2×2 (Reversibility × Blast-radius: Tier R batched/deferrable, Tier I solo/blocking) implemented in `approve.ts`; §9.4 two-party confidence (second-party ReviewAgent + threshold) wired for business rules.
-Slices: C1 approval routing 2×2; C2 two-party confidence.
+Exit: DESIGN §9.5 approval routing 2×2 (Reversibility × Blast-radius: Tier R batched/deferrable, Tier I solo/blocking) implemented in `approve.ts`; §9.4 two-party confidence (second-party ReviewAgent + threshold) wired for business rules; **per-state strategy honored** (selection never lies) + **strategy-fidelity gate**.
+Slices: C1 approval routing 2×2; C2 two-party confidence; C3 honor per-state strategy (`sealed-events` template + per-state `none` fallback; thread `stateStrategy` into `generateState`); C4 strategy-fidelity gate (validate asserts plan.json state strategy == emitted `template=` marker; coupled-pair matrix §10.2 declared).
 
 ### P4 — Phase 2 gaps (deterministic polish)
 Entry: P3 done (v1 shipped).
-Exit: pagination/caching generator, persistence selection validator, second state-mgmt plugin (coupled-pair proof).
-Slices: D1 pagination/caching; D2 persistence validator; D3 second plugin.
+Exit: pagination/caching generator, persistence selection validator, second state-mgmt plugin (proves a 3rd coupled-pair cell on top of the C3 sealed-events template).
+Slices: D1 pagination/caching; D2 persistence validator; D3 second plugin (only after P3-C3).
 
 ### P5 — Phase 4 (post-v1)
 Entry: v1 + P4 shipped.
