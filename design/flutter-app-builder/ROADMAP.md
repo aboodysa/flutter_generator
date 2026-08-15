@@ -57,6 +57,21 @@ Exit (acceptance) — see `research/EXPECTED_GAPS.md` §3 (generator CAN produce
 - AR/EN + RTL via generated l10n.
 Slices: L1 money-as-int + split; L2 policy `PolicyVerdict` (+ severity/waive); L3 approvals + audit + CSV export; L4 l10n/RTL + seeded demo.
 
+### P8 — Multi-step workflow capability (general, framework-level)
+Entry: P6-F1/F2 done; generator emits multi-screen apps. NOTE: this is a general capability
+(any multi-step/guided/approval app — Ledgerly was just a sample), NOT a single product.
+Exit (acceptance):
+- **Wizard/stepper archetype**: new IR (`WizardStep[]` — step id, screen/form, per-step validation,
+  next/back/conditional-skip) + a composition `wizard` template with progress indicator.
+- **Flow state machine wired to the UI**: step-index state + `next()/back()/jumpTo()` actions bound
+  to the screens; transition guards sourced from `RuleModel` (evaluate a rule as "can advance?").
+- **Branching / role-gated / conditional steps**: transition conditions (role, policy verdict,
+  amount threshold) — the approval-pipeline pattern.
+- **Generic workflow sample** (e.g. request → review → approve, or a multi-step onboarding) that
+  proves it, with CDP flow tests + iPhone flow goldens.
+Slices: W1 wizard archetype + step IR; W2 flow state machine wired to UI (next/back/guards);
+W3 branching + role gates; W4 workflow sample + CDP flow tests + goldens.
+
 ### P3 — v1 closure (trust-boundary polish)
 Entry: P1–P2 done; v1 definition ("end of Phase 3") nearly met.
 Exit: DESIGN §9.5 approval routing 2×2 (Reversibility × Blast-radius: Tier R batched/deferrable, Tier I solo/blocking) implemented in `approve.ts`; §9.4 two-party confidence (second-party ReviewAgent + threshold) wired for business rules; **per-state strategy honored** (selection never lies) + **strategy-fidelity gate**.

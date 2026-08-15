@@ -15,6 +15,7 @@
 | **Policy `PolicyVerdict`** | ❌ | 🎯 L2 (severity warn/justify/block + waive, eval on save+submit, oracle-gated) | ✅ | — | — |
 | **Approvals + audit + CSV export** | ❌ | ❌ | 🎯 L3 (approve/reject state machine, append-only AuditEvent, idempotent CSV) | — | — |
 | **l10n AR/EN + RTL + seeded demo** | ❌ | ❌ | 🎯 L4 (.arb + RTL + mixed SAR/USD seed) | — | — |
+| **Multi-step workflow (wizard/approval)** | ❌ | ❌ | 🎯 P8-W1 wizard archetype + step IR | 🎯 P8-W2/W3 flow state machine wired to UI + branching/role gates | 🎯 P8-W4 generic workflow sample + CDP flow tests |
 | **Sealed-events state strategy** | ❌ | ❌ | 🎯 C3 (honor per-state sealed-events template; strategy-fidelity gate already live) | — | — |
 | **v1 closure (trust polish)** | ❌ | ❌ | 🎯 C1 approval routing 2×2 (Tier R/I) | ✅ C2 two-party confidence → **v1 reached** | — |
 | **Phase-2 gaps (determinism)** | ❌ | ❌ | ❌ | 🎯 D1 pagination/caching · D2 persistence validator · D3 3rd provider cell | — |
