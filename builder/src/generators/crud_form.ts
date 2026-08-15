@@ -1,6 +1,6 @@
 import { EntityModel, Field } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -15,8 +15,6 @@ import { CrudFormTarget, isMoneyField } from "../operations";
  * editable here (relational form UI is a later extension) — their value is carried forward from
  * the record being edited, or defaulted on create, so submitting never drops data silently.
  */
-
-const PRIMITIVE_TYPES = new Set(["String", "int", "double", "bool", "DateTime", "enum"]);
 
 function usesController(f: Field): boolean {
   return f.type === "String" || f.type === "int" || f.type === "double" || f.type === "DateTime";
@@ -52,7 +50,9 @@ function initStateLine(f: Field): string | null {
   switch (f.type) {
     case "String": return `    _${f.name}.text = i?.${f.name} ?? '';`;
     case "int": case "double": return `    _${f.name}.text = i?.${f.name}${chain}toString() ?? '';`;
-    case "DateTime": return `    _${f.name}.text = i?.${f.name}${chain}toIso8601String() ?? '';`;
+    // G2: stored as yyyy-MM-dd (matches what showDatePicker writes below) — not the full
+    // toIso8601String() timestamp, so the displayed text always matches the picker's own format.
+    case "DateTime": return `    _${f.name}.text = i?.${f.name} == null ? '' : i!.${f.name}${nullable(f) ? "!" : ""}.toIso8601String().split('T').first;`;
     case "bool": case "enum": return `    if (i != null) _${f.name} = i.${f.name};`;
     default: return null;
   }
@@ -72,8 +72,14 @@ function fieldWidget(f: Field): string {
       return `        TextField(controller: _${f.name}, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
     case "double":
       return `        TextField(controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
+    // G2: a real date picker, not free-typed text — read-only so the on-screen keyboard never
+    // opens; onTap drives showDatePicker and writes the pick back into the same controller (still
+    // yyyy-MM-dd), so valueExpr()'s DateTime.tryParse(_<f>.text) keeps working unchanged.
     case "DateTime":
-      return `        TextField(controller: _${f.name}, decoration: const InputDecoration(labelText: '${label}', hintText: 'YYYY-MM-DD')),`;
+      return `        TextField(controller: _${f.name}, readOnly: true, decoration: const InputDecoration(labelText: '${label}', hintText: 'YYYY-MM-DD'), onTap: () async {
+          final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_${f.name}.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
+          if (picked != null) setState(() => _${f.name}.text = picked.toIso8601String().split('T').first);
+        }),`;
     case "bool":
       return `        CheckboxListTile(title: const Text('${label}'), value: _${f.name}, onChanged: (v) => setState(() => _${f.name} = v ?? false)),`;
     case "enum": {
@@ -113,8 +119,9 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   const identityField = entity.identity?.field ?? "id";
   const identityFieldDef = entity.fields.find((f) => f.name === identityField);
   const identityType = identityFieldDef ? (identityFieldDef.semanticType ?? identityFieldDef.type) : "String";
-  const editable = entity.fields.filter((f) => f.name !== identityField && PRIMITIVE_TYPES.has(f.type));
-  const carried = entity.fields.filter((f) => f.name !== identityField && !PRIMITIVE_TYPES.has(f.type));
+  const editable = crudEditableFields(entity, identityField);
+  const editableNames = new Set(editable.map((f) => f.name));
+  const carried = entity.fields.filter((f) => f.name !== identityField && !editableNames.has(f.name));
 
   const collection = collectionField(target.entity);
   const sm = ctx?.sm ?? "bloc";

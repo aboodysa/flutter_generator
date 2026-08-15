@@ -97,6 +97,25 @@ function moneyCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// G2 ("real date picker, not free-typed text"): a DateTime field's editable input (CRUD form or
+// wizard step) must drive `showDatePicker`. The bug signature is precise and doesn't need to know
+// which field/file is which: a bare TextField/TextFormField date input is the only place the
+// generator ever emits `hintText: 'YYYY-MM-DD'` (list/detail's read-only display renders a Text,
+// never a hinted input) — so that hint surviving in a file with no `showDatePicker` alongside it
+// means some generator fell back to free-typed text instead of the picker.
+function datepickerCheck(ir: any, files: string[]): string[] {
+  const hasDateField = (ir.entities ?? []).some((e: any) => (e.fields ?? []).some((f: any) => f.type === "DateTime"));
+  if (!hasDateField) return [];
+  const issues: string[] = [];
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    if (src.includes("hintText: 'YYYY-MM-DD'") && !src.includes("showDatePicker")) {
+      issues.push(`[datepicker] bare TextField date input (no showDatePicker) in ${f}`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -106,6 +125,7 @@ export interface ValidationResult {
   oracle: number;    // count of business rules missing or with zero-case oracle coverage
   fidelity: number;  // count of state artifacts whose plan.json strategy doesn't match the emitted template
   money: number;     // count of money-declared fields emitted as double (P7-L1)
+  datepicker: number; // count of DateTime fields rendered as a bare TextField, no showDatePicker (G2)
   files: number;
   issues: string[];
 }
@@ -152,7 +172,12 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...moneyIssues);
   const money = moneyIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, files: files.length, issues };
+  // Real date picker, not free-typed text (G2).
+  const datepickerIssues = datepickerCheck(ir, files);
+  issues.push(...datepickerIssues);
+  const datepicker = datepickerIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, files: files.length, issues };
 }
 
 function main() {
@@ -167,7 +192,8 @@ function main() {
   console.log(`[oracle] ${r.oracle === 0 ? "PASS" : "FAIL (" + r.oracle + ")"}`);
   console.log(`[strategy-fidelity] ${r.fidelity === 0 ? "PASS" : "FAIL (" + r.fidelity + ")"}`);
   console.log(`[money] ${r.money === 0 ? "PASS" : "FAIL (" + r.money + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money > 0;
+  console.log(`[datepicker] ${r.datepicker === 0 ? "PASS" : "FAIL (" + r.datepicker + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
