@@ -72,6 +72,38 @@ Exit (acceptance):
 Slices: W1 wizard archetype + step IR; W2 flow state machine wired to UI (next/back/guards);
 W3 branching + role gates; W4 workflow sample + CDP flow tests + goldens.
 
+### P9 — NestJS backend generation (same IR → backend; full-stack from one spec)
+Entry: MF1 multi-feature IR landed; offline-first Flutter app + in-memory repos are the runtime
+path; remote datasource port exists (`DataSourceGenerator`). NOTE: same capability rule as P8 —
+this is a general "IR → REST backend" capability (Ledgerly, HR, CRM, work-auth all get it), not a
+single product. Fits the owner's "offline-first now, backend contract documented" state: this phase
+TURNS the documented backend contract into generated code.
+Exit (acceptance):
+- **NestJS modular monolith generated from the same IR**: one module per feature
+  (auth, expenses, approvals, …), matching the Flutter feature folders — entities become
+  `@Entity()`/`@nestjs/typeorm` models + `@Controller()` REST controllers.
+- **REST-shaped DTOs + routes**: `/expenses`, `/reports`, `/approvals`, `/policies`, `/budgets`,
+  `/card-transactions`, `/exports` (Ledgerly contract) — path + payload derive from the IR, not
+  hand-written.
+- **PostgreSQL + tenant scope**: `tenant_id` on every table (R1 RBAC convention) + a
+  `TenantContext` (JWT) guard on every controller; repository reads/writes require tenant scope —
+  mirrors the Flutter `tenantId + actorId` rule.
+- **Idempotency-Key** honored on create/submit/approve/export (409 on replay).
+- **FakeRemoteDataSource** in the generated Flutter app: in-memory fixtures shaped like the
+  backend's DTOs, so the app runs fully offline/demo AND against the real backend behind the same
+  repository interface (swap impl, not interface).
+- **Wire the live path**: generated Flutter repo impls can switch from in-memory to the NestJS
+  backend via the existing datasource port; offline-first remains the default (in-memory web
+  fallback, S1 outbox for sync).
+- Generated backend: `npm test` green, `tsc` clean, boots + serves, smoke-driven via CDP/HTTP.
+Slices: B1 IR→NestJS scaffold (module/entity/controller/DTO generators, project files, `main.ts`,
+CORS, validation pipe); B2 tenant context + idempotency middleware + `tenant_id` schema;
+B3 FakeRemoteDataSource in Flutter + repo-impl switch (in-memory ↔ HTTP behind one interface);
+B4 end-to-end sample (generate Ledgerly's backend + Flutter app from one IR, drive both in CDP:
+Flutter UI → HTTP → NestJS → Postgres-shaped in-memory store, golden the flow).
+Dependency note: B4 shines after MF6/S1 (outbox) so offline edits sync to the backend; B1–B3 do
+not need outbox.
+
 ### P3 — v1 closure (trust-boundary polish)
 Entry: P1–P2 done; v1 definition ("end of Phase 3") nearly met.
 Exit: DESIGN §9.5 approval routing 2×2 (Reversibility × Blast-radius: Tier R batched/deferrable, Tier I solo/blocking) implemented in `approve.ts`; §9.4 two-party confidence (second-party ReviewAgent + threshold) wired for business rules; **per-state strategy honored** (selection never lies) + **strategy-fidelity gate**.
@@ -103,4 +135,5 @@ LLM model = `opencode/deepseek-v4-pro`; agents read AGENTS.md + briefs in `~/tem
 3. Sample app: `flutter pub get && flutter analyze && flutter test` green.
 4. P2+: app builds to web, serves, and the CFT driver asserts boot + render + no console/network errors.
 5. P6+: the CDP flow test drives list → create → detail → update → delete, asserts each, captures an iPhone flow golden per step; test results feed RCA until green.
-6. One logical slice per commit; HANDOFF kept lean; history → `context_history.md`.
+6. P9+: generated NestJS backend — `npm test` green + `npx tsc --noEmit` clean; boots, serves, and an HTTP/CDP smoke drive asserts routes + tenant guard + idempotency.
+7. One logical slice per commit; HANDOFF kept lean; history → `context_history.md`.

@@ -21,6 +21,7 @@
 | **v1 closure (trust polish)** | ❌ | ❌ | 🎯 C1 approval routing 2×2 (Tier R/I) | 🎯 C2 two-party confidence → **v1 reached** | — |
 | **Phase-2 gaps (determinism)** | ❌ | ❌ | ❌ | 🎯 D1 pagination/caching · D2 persistence validator · D3 3rd provider cell | — |
 | **Offline outbox + sync + conflict** | ❌ | ❌ | ❌ | 🎯 S1 (Drift source-of-truth, outbox, server/client-wins, idempotency-key) | — |
+| **NestJS backend generation (same IR → backend)** | ❌ | ❌ | ❌ | 🎯 P9-B1/B2 (IR→NestJS scaffold, tenant guard + idempotency) | 🎯 P9-B3/B4 (FakeRemoteDataSource + live repo switch, full-stack Ledgerly from one IR) |
 | **Multi-feature IR (N features/app)** | ❌ | ❌ | ❌ | 🎯 MF1 (`FeatureModel` list; per-feature folders) | — |
 | **Audit immutability + void/clone** | ❌ | ❌ | ❌ | 🎯 AV1 (approved/exported immutable; corrections void+clone) | — |
 | **3-way merge + reverse extraction + full a11y** | ❌ | ❌ | ❌ | ❌ | 🎯 P5 (E1 merge · E2 a11y · E3 grammar reconciliation) |
@@ -33,5 +34,5 @@
 
 - **This week (Now→Near):** land CRUD + persistence (claude in flight), stand up the CDP flow-test harness + flow goldens, and start the feedback loop. **Result: a runnable CRUD app you can drive end-to-end over CDP and see persist (Drift/hive_ce) with in-memory web fallback.** Do not start L1 until F1/F2 are verified and committed.
 - **Weeks 2–4 (Short):** Ledgerly-MVP L1–L4, P8-W1 wizard IR, C3 sealed-events honor, C1 approval routing 2×2. **Result: a domain-serious single-feature expense app.** C4 stays done; it is not re-opened here.
-- **Months 1–3 (Mid):** C2 two-party confidence (**v1**), P8-W2/W3, D1–D3, S1 outbox/sync, MF1 multi-feature IR, AV1 void/clone. **Result: v1 (end of Phase 3) shipped; foundation for real enterprise features.**
-- **3+ months (Long):** P8-W4 workflow sample, P5 (E1–E3), R1 RBAC, PP1 platform ports, I1 accounting — the Ledgerly-class product (LX1).
+- **Months 1–3 (Mid):** C2 two-party confidence (**v1**), P8-W2/W3, D1–D3, S1 outbox/sync, MF1 multi-feature IR, AV1 void/clone, **P9-B1/B2 NestJS backend scaffold + tenant guard**. **Result: v1 (end of Phase 3) shipped; foundation for real enterprise features; offline-first app has a generated NestJS backend to point its datasource port at.**
+- **3+ months (Long):** P8-W4 workflow sample, **P9-B3/B4 (FakeRemoteDataSource + live repo switch, full-stack Ledgerly from one IR)**, P5 (E1–E3), R1 RBAC, PP1 platform ports, I1 accounting — the Ledgerly-class product (LX1).
