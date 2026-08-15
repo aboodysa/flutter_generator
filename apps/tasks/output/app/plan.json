@@ -1,0 +1,586 @@
+{
+  "schemaVersion": "1",
+  "generatorVersion": "1.0.0",
+  "artifactCount": 47,
+  "entries": [
+    {
+      "artifact": "enum:TaskStatus",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/tasks/domain/entities/task_status.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:Priority",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/tasks/domain/entities/priority.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:Task",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/tasks/domain/entities/task.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:FollowUp",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/tasks/domain/entities/follow_up.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:TaskRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/tasks/domain/repositories/task_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:FollowUpRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/tasks/domain/repositories/follow_up_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:ListTasks",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/list_tasks.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:GetTask",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/get_task.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:CreateTask",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/create_task.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:UpdateTask",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/update_task.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:DeleteTask",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/delete_task.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:ListFollowUps",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/list_follow_ups.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:GetFollowUp",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/get_follow_up.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:CreateFollowUp",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/create_follow_up.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:UpdateFollowUp",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/update_follow_up.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:DeleteFollowUp",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/tasks/domain/usecases/delete_follow_up.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "state:TaskList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/tasks/presentation/state/task_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:Task"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "state:FollowUpList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/tasks/presentation/state/follow_up_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:FollowUp"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:TaskListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/task_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Task",
+        "state:TaskList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:TaskDetailScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/task_detail_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Task",
+        "state:TaskList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:FollowUpListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/follow_up_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:FollowUp",
+        "state:FollowUpList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:FollowUpDetailScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/follow_up_detail_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:FollowUp",
+        "state:FollowUpList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "rule:HighPriority",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/tasks/domain/rules/high_priority.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Task"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "model:Task",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/tasks/data/models/task_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Task"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:FollowUp",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/tasks/data/models/follow_up_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:FollowUp"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:TaskRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/tasks/data/repositories/task_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:TaskRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:FollowUpRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/tasks/data/repositories/follow_up_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:FollowUpRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "screen:TaskFormScreen",
+      "generator": "CrudFormGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/task_form_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "state:TaskList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:FollowUpFormScreen",
+      "generator": "CrudFormGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/tasks/presentation/screens/follow_up_form_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "state:FollowUpList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "core:di",
+      "generator": "DIGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/di.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:router",
+      "generator": "RouteGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/router.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:components",
+      "generator": "ComponentRegistryGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/components.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:app_strings",
+      "generator": "LocalizationGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/app_strings.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:theme",
+      "generator": "ThemeGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/theme.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:config",
+      "generator": "ConfigGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/config.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:secrets",
+      "generator": "SecretsGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/secrets.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:observability",
+      "generator": "ObservabilityGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/observability.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:validator",
+      "generator": "ValidatorGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/validator.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:no_params",
+      "generator": "NoParamsGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/no_params.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:widget",
+      "generator": "WidgetTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/widget_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:unit",
+      "generator": "UnitTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/unit_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:flow",
+      "generator": "FlowTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/flow_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:golden",
+      "generator": "GoldenTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/golden_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:crud_flow",
+      "generator": "CrudFlowTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/crud_flow_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "oracle:HighPriority",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/high_priority_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:HighPriority"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "core:barrel",
+      "generator": "BarrelGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/generated.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:main",
+      "generator": "MainGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/main.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "core:barrel"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    }
+  ],
+  "scoring": {
+    "stateManagement": "bloc",
+    "di": "get_it",
+    "routing": "go_router",
+    "persistence": "none",
+    "coupledPair": "bloc × get_it",
+    "complexity": 8
+  }
+}

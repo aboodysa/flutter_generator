@@ -1,0 +1,12 @@
+{
+  "list_tasks.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "get_task.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "create_task.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "update_task.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "delete_task.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "list_follow_ups.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "get_follow_up.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "create_follow_up.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "update_follow_up.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "delete_follow_up.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac"
+}

@@ -1,0 +1,10 @@
+[determinism] PASS (byte-identical)
+[headers] PASS across 41 files
+[secrets] PASS
+[forbidden-idioms] PASS
+[architecture] PASS
+[oracle] PASS
+[strategy-fidelity] PASS
+[money] PASS
+
+VALIDATION PASSED

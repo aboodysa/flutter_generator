@@ -1,5 +1,5 @@
 import { RuleModel, RuleCondition, Field } from "../types";
-import { GenContext } from "../dart";
+import { GenContext, importsFromTypes } from "../dart";
 import { isMoneyField } from "../operations";
 
 /**
@@ -16,7 +16,10 @@ function conditionExpr(c: RuleCondition, fields: Field[]): string {
   const fieldDef = fields.find((x) => x.name === c.field);
   const money = fieldDef ? isMoneyField(fieldDef) : false;
   const f = money ? `e.${c.field}.minorUnits` : `e.${c.field}`;
-  const value = money ? String(Math.round(parseFloat(c.value) * 100)) : c.value;
+  // Enum fields compare against the qualified enum constant (`Priority.high`), never the bare
+  // IR value — the rule IR stores the member name, not a Dart expression.
+  const enumType = fieldDef && fieldDef.type === "enum" ? (fieldDef.of || fieldDef.name.charAt(0).toUpperCase() + fieldDef.name.slice(1)) : undefined;
+  const value = money ? String(Math.round(parseFloat(c.value) * 100)) : (enumType ? `${enumType}.${c.value}` : c.value);
   switch (c.operator) {
     case "contains": return `${f}.contains(${value})`;
     case "daysSince>": return `DateTime.now().difference(${f}).inDays > ${value}`;
@@ -31,9 +34,22 @@ export function generateRule(rule: RuleModel, ctx?: GenContext): string {
     ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(rule.entity)}';`
     : `import '${rule.entity.toLowerCase()}.dart';`;
 
+  // Enum fields actually referenced by conditions compare against their qualified constants
+  // (`Priority.high`) — only those enum files need importing (all-field import yields unused_import
+  // warnings for enums never compared).
+  const condFieldNames = new Set((rule.rows ?? []).flatMap((r: any) => (r.conditions ?? []).map((c: any) => c.field)));
+  (rule.conditions ?? []).forEach((c) => condFieldNames.add(c.field));
+  const enumTypes = entityFields
+    .filter((f: any) => f.type === "enum" && condFieldNames.has(f.name))
+    .map((f: any) => f.of || f.name.charAt(0).toUpperCase() + f.name.slice(1));
+  const enumImports = importsFromTypes(enumTypes, ctx)
+    .map((i) => `import '${i.replace(/^import '|';$/g, "")}';`)
+    .join("\n");
+
   const header = `// [generated] generator=BusinessRuleGenerator template=rule.v1 class=semantic ownership=generated
 // Do not hand-edit this file; regenerate from IR. Rule: ${rule.name}
 ${entityImport}
+${enumImports}
 `;
 
   // Decision-table form (§19): first matching row wins; `result` is the default outcome.

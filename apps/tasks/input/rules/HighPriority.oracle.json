@@ -1,0 +1,22 @@
+{
+  "rule": "HighPriority",
+  "entity": "Task",
+  "cases": [
+    {
+      "input": { "id": "t-1", "title": "Fix login bug", "description": null, "dueDate": null, "priority": "high", "status": "open" },
+      "expected": true
+    },
+    {
+      "input": { "id": "t-2", "title": "Write docs", "description": null, "dueDate": null, "priority": "high", "status": "closed" },
+      "expected": true
+    },
+    {
+      "input": { "id": "t-3", "title": "Water plants", "description": null, "dueDate": null, "priority": "medium", "status": "open" },
+      "expected": false
+    },
+    {
+      "input": { "id": "t-4", "title": "Plan retro", "description": null, "dueDate": null, "priority": "low", "status": "open" },
+      "expected": false
+    }
+  ]
+}

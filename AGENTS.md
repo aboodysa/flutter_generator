@@ -75,6 +75,35 @@ Sample IRs: `builder/samples/{expense.ir.json, expense.semantic.ir.json,
 inventory.ir.json, todo.ir.json, rasheed.ir.json, promo.ir.json}`.
 Oracle corpus: `builder/samples/rules/<rule>.oracle.json`.
 
+## Per-app artifact convention (`apps/<app>/`)
+
+Every generated app keeps ALL its artifacts in one app folder — input on one side, output on the
+other. Future audits and enhancements must follow this layout; never scatter an app's files across
+`builder/samples/`, `/tmp/`, and `docs/qa/`.
+
+```
+apps/<app>/
+  input/                     # everything the generator consumes
+    <app>.ir.json            # the IR
+    rules/<rule>.oracle.json # oracles live in input/rules/ (oracleDirFor = dirname(ir)+/rules)
+    brief.md                 # (optional) NL brief / spec the IR was derived from
+    notes.md                 # (optional) decisions, sample-specific context
+  output/                    # everything the generator produced + verification evidence
+    app/                     # the generated Flutter project (the <out> dir of index.ts)
+    goldens/                 # copy of iPhone-size golden PNGs (from test/goldens)
+    cdp/                     # CDP flow-driver screenshots + assertions (F3)
+    rca/                     # root-cause analyses of any generator bug found via this app
+    validation.txt           # output of validate.ts for this app
+    README.md                # how to run, demo personas, feature map
+```
+
+- Generate from `apps/<app>/input/<app>.ir.json` into `apps/<app>/output/app/`.
+- **Fix the generator, never the generated app** (`apps/<app>/output/app/` is disposable — always
+  regenerate). Any bug found while exercising an app gets an RCA (under `apps/<app>/output/rca/`
+  or `docs/qa/<app>/rca/`) and the fix lands in `builder/src`, then regenerate.
+- Existing legacy samples stay in `builder/samples/` (do not move — additive-only); new apps go in
+  `apps/<app>/`.
+
 ## Code graph (graphify)
 
 `builder/src/` is graphed via the `graphify` skill into `graphify-out/` (`graph.json`,
