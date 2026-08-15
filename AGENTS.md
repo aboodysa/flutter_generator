@@ -239,6 +239,28 @@ ask before deciding which.
 - After producing IR with LLM-inferred elements: run `approve.ts`, then
   generate, then validate. A rule without an oracle stays blocked.
 
+## RCA standard (mandatory for every bug/surprise)
+
+Every problem found while exercising an app or generator gets an RCA document, always with ALL of:
+1. **Symptom** — what the user/owner actually saw (verbatim where possible).
+2. **Investigation** — what was tried to reproduce, evidence (browser/CDP, widget tests, source).
+3. **Root cause** — the real mechanism, not the first hypothesis (e.g. "iOS Safari only opens the
+   keyboard when `.focus()` fires synchronously inside the tap; the lazy DOM-proxy creation pushes
+   it outside the gesture window").
+4. **Fix / solution** — the exact generator change (file + why). If investigated and NOT a code
+   defect, say so explicitly and still deliver a forward-looking regression test.
+5. **Logic / rationale** — WHY the fix is correct (the mechanism that makes it work), and what
+   alternatives were considered and rejected (and why — "would mask the real cause").
+6. **Verification** — exact commands + outputs (incl. stash-based before/after when the fix is a
+   generator change: test fails on pre-fix generator, passes after).
+7. **Prevention** — the guard that stops it recurring (validator gate, post-generation regression
+   test, IR-input guideline).
+
+RCA files: `apps/<app>/output/rca/RCA-NNN-<slug>.md` (or `docs/qa/<app>/rca/`). Numbered
+sequentially (RCA-001…). "Fix" never lands in the generated app — always in `builder/src`, then
+regenerate. When a slice ends with an investigated-but-unfixed item, it stays open in
+`LEFTOVER_NOTES.md` with the recommended next step.
+
 ## Verification workflow (required before reporting done)
 
 1. `npm run typecheck:builder`
