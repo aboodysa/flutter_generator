@@ -35,7 +35,7 @@ class TaskListScreen extends StatelessWidget {
                         child: AppListCard(
                           key: ValueKey(item.id),
                           card: true,
-                          leading: AppAvatar(label: item.title),
+                          leading: AppStatusDot(tone: AppChip.toneForStatus(item.status.name), semanticLabel: item.status.name),
                           title: Text(item.title),
                           subtitle: Text('${((item.dueDate?.toIso8601String() ?? '').split('T').first)} · ${item.priority.name}'),
                           trailing: const Icon(Icons.chevron_right),

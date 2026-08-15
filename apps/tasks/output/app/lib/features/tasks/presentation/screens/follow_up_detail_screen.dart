@@ -30,11 +30,18 @@ class FollowUpDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 
-              AppListCard(card: true, title: Text('Task Id'), trailing: Text(item.taskId)),
+              Row(children: [
+                const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: AppSpacing.xs),
+                Text('Created At', style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(width: AppSpacing.xs),
+                Text(((item.createdAt?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium),
+              ]),
               const SizedBox(height: 4.0),
-              AppListCard(card: true, title: Text('Note'), trailing: Text(item.note)),
-              const SizedBox(height: 4.0),
-              AppListCard(card: true, title: Text('Created At'), trailing: Text(((item.createdAt?.toIso8601String() ?? '').split('T').first))),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Note', style: Theme.of(context).textTheme.bodySmall),
+                Text(item.note, style: Theme.of(context).textTheme.bodyMedium),
+              ]),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               ],
