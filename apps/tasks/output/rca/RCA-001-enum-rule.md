@@ -35,3 +35,37 @@ convention the CRUD form / wizard inputs already use for enum dropdowns. Money h
 When writing a rule generator, every non-primitive field kind (money, enum, VO, DateTime) must be
 mapped to a valid Dart operand expression — a compile-check of a generated rule over each field
 kind is a cheap regression guard.
+
+# RCA-002 — detail screen had no navigation to child entities
+
+App: tasks (apps/tasks/). Date: 2026-08-15. Severity: p2 (usability/capability gap).
+
+## Symptom
+`TaskDetailScreen` had Edit/Delete actions but no way to reach the follow-ups of the task being
+viewed — `FollowUp` existed as its own list (`/follow-up`) but the parent→children relationship
+(`FollowUp.taskId` → `Task`) was invisible in the UI, and the follow-up form required typing the
+`taskId` by hand.
+
+## Root cause
+The screen generator emitted list/detail/form screens per entity with no cross-entity navigation:
+nothing detected a `camelize(parent)+"Id"` foreign-key field on another entity, so a parent detail
+screen never offered a link to its children.
+
+## Fix
+`builder/src/generators/screen.ts`:
+- `childLinks()` — finds every child entity carrying `<parent>Id` and emits a
+  `View <Child>s` `AppListCard` on the parent's detail screen, navigating to
+  `/kebab(child)?<fk>=$id`.
+- `listFilterExpr()` — child list screens read `?<fk>=<parentId>` from the route query params and
+  restrict rows to that parent's children (no param → unfiltered passthrough, so unrelated list
+  screens are byte-identical).
+
+## Verification
+- typecheck clean; tasks regenerated: detail now shows `View FollowUps`, follow-up list filters by
+  `taskId`; analyze clean; 10/10 tests; all 7 legacy samples still validate.
+- inventory (has `warehouseId`) gets the filter passthrough too — analyze clean.
+
+## Prevention
+Cross-entity navigation is now a general capability keyed off the IR's foreign-key naming
+convention (`<Parent>Id`), not per-app logic — future parent/child samples (projects→tickets,
+tenants→members) get it for free.

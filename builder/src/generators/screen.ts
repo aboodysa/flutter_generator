@@ -50,6 +50,38 @@ function heroExpr(s: ScreenModel): string | null {
   return `'${s.hero.replace(/'/g, "\\'")}'`;
 }
 
+// Parent→children navigation (general capability): a detail screen for entity X gains a row that
+// links to every other entity Y carrying a `camelize(X) + "Id"` foreign-key field — e.g.
+// `FollowUp.taskId` → Task. The child's list screen (see listFilterExpr) then reads the matching
+// `?<fk>=<id>` query param and filters to that parent's children only. Works for any app type
+// (tasks→follow-ups, projects→tickets, tenants→members, …), no per-app logic in the generator.
+function childLinks(entityName: string, entities: Array<{ name: string; fields?: Field[] }>): Array<{ child: string; fkField: string }> {
+  const me = camelize(entityName);
+  return entities
+    .filter((e) => e.name !== entityName)
+    .flatMap((e) => {
+      const fk = e.fields?.find((f) => f.name === `${me}Id`);
+      return fk ? [{ child: e.name, fkField: fk.name }] : [];
+    });
+}
+
+// Child list query-param filter: if this list screen's entity is a child (has `<Parent>Id` fields),
+// a matching `?<fk>=<parentId>` query param (arrived via the parent's detail-screen link) restricts
+// the visible rows to that parent's children. Null-safe (no param → no filter). Gated on the entity
+// actually carrying the field so unrelated list screens stay unchanged.
+function listFilterExpr(entity: EntityModel | undefined, collection: string): string {
+  const fk = entity?.fields.find((f) => f.name.endsWith("Id") && f.name !== "id");
+  if (!fk) {
+    return `    final items = state.${collection};
+`;
+  }
+  return `    final qp = GoRouterState.of(context).uri.queryParameters;
+    final items = qp.containsKey('${fk.name}')
+        ? state.${collection}.where((e) => e.${fk.name} == qp['${fk.name}']).toList()
+        : state.${collection};
+`;
+}
+
 // P8-W1: one wizard field's input widget — controller-less (TextFormField.initialValue, keyed
 // per field so Flutter remounts it on step change) since the value lives in wizard state, not
 // local widget state; onChanged writes straight back via the field's generated `set<Field>`
@@ -142,13 +174,21 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       const rowsBlock = rows
         .map((r, i) => (i === 0 ? `              ${r}` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${r}`))
         .join("\n");
+      // Parent→children navigation rows (general capability): one per child entity carrying
+      // `camelize(parent)+"Id"` (e.g. FollowUp.taskId under a Task detail). Links to the child's
+      // list with `?<fk>=<id>`; the child list screen filters on that query param (listFilterExpr).
+      const allEntities = (ctx?.ir?.entities ?? []) as Array<{ name: string; fields?: Field[] }>;
+      const children = childLinks(s.entity, allEntities);
+      const childRows = children.length
+        ? "\n" + children.map((c) => `              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go('/${kebab(c.child)}?${c.fkField}=\${id}')),`).join("\n")
+        : "";
       body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
             final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 ${heroBlock}
-${rowsBlock}
+${rowsBlock}${childRows}
               ],
             );`;
     } else {
@@ -278,16 +318,19 @@ ${contentCases}
     const trailingWidget = !hasDetailScreen && canDelete
       ? `IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
       : `const Icon(Icons.chevron_right)`;
-    body = `            return Column(
+    // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
+    // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
+    const listFilter = listFilterExpr(entity, collection);
+    body = `${listFilter}            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
 ${heroBlock}
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                    itemCount: state.${collection}.length,
+                    itemCount: items.length,
                     itemBuilder: (_, i) {
-                      final item = state.${collection}[i];
+                      final item = items[i];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
                         child: AppListCard(

@@ -19,6 +19,10 @@ class FollowUpListScreen extends StatelessWidget {
         builder: (context, state) {
         if (state.status == FollowUpListStatus.loading) return const LoadingState();
         if (state.status == FollowUpListStatus.failure) return ErrorState(message: state.errorMessage);
+    final qp = GoRouterState.of(context).uri.queryParameters;
+    final items = qp.containsKey('taskId')
+        ? state.followUps.where((e) => e.taskId == qp['taskId']).toList()
+        : state.followUps;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -26,9 +30,9 @@ class FollowUpListScreen extends StatelessWidget {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                    itemCount: state.followUps.length,
+                    itemCount: items.length,
                     itemBuilder: (_, i) {
-                      final item = state.followUps[i];
+                      final item = items[i];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: AppListCard(

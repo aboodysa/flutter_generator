@@ -41,6 +41,8 @@ class TaskDetailScreen extends StatelessWidget {
               AppListCard(card: true, title: Text('Priority'), trailing: Text(item.priority.name)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Status'), trailing: Text(item.status.name)),
+              const SizedBox(height: 4.0),
+              AppListCard(card: true, title: Text('View FollowUps'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go('/follow-up?taskId=${id}')),
               ],
             );
         },

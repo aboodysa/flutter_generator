@@ -19,6 +19,7 @@ class TaskListScreen extends StatelessWidget {
         builder: (context, state) {
         if (state.status == TaskListStatus.loading) return const LoadingState();
         if (state.status == TaskListStatus.failure) return ErrorState(message: state.errorMessage);
+    final items = state.tasks;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -26,9 +27,9 @@ class TaskListScreen extends StatelessWidget {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                    itemCount: state.tasks.length,
+                    itemCount: items.length,
                     itemBuilder: (_, i) {
-                      final item = state.tasks[i];
+                      final item = items[i];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: AppListCard(
