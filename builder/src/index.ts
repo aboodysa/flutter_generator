@@ -37,6 +37,7 @@ import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
 import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields } from "./operations";
+import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -154,6 +155,44 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
 // Widget/unit/flow/golden tests + (when an oracle corpus exists) business-rule oracle tests.
 // Note: only oracle-test file paths are pushed into the returned `files` — the standard 4 test
 // files, like plan.json/builder.lock.json/barrel/main/pubspec, are accounted for by generateApp's
+// G5: the web/ platform directory (index.html, manifest.json, icons) was never part of generator
+// output — only lib/+test/+pubspec were. A full `rm -rf <outDir> && regenerate` (the normal
+// clean-regen pattern) silently destroyed web/, forcing a manual `flutter create . --platforms
+// web` follow-up every time (documented as a workaround in AGENTS.md — now obsolete). Idempotent:
+// only writes web/ when it doesn't already exist, so a hand-customized web/ (custom icons, a
+// tuned index.html) is never clobbered on regen — same "region"-style non-destructive philosophy
+// the lib/ generators use for hand-edited code, applied to platform scaffold files instead.
+// Icons/favicon are static Flutter template assets (identical across every `flutter create` for a
+// given Flutter version) shipped once as generator assets (builder/assets/web-template/) and
+// copied, not regenerated per app — index.html/manifest.json are the only per-app-name text, so
+// those alone are true generator output (web.ts).
+//
+// Deliberately does NOT also emit analysis_options.yaml: doing so activates
+// `package:flutter_lints/flutter.yaml`, which surfaced 12 pre-existing info-level lints
+// (prefer_const_constructors, unnecessary_string_interpolations) that make `flutter analyze` exit
+// non-zero — a real regression against the "clean analyze" bar every sample has held all session,
+// and out of scope for "G5: emit web/". Tracked as a follow-up, not bundled into this fix.
+function writeWebScaffold(outDir: string, pkg: string): string[] {
+  const files: string[] = [];
+  const webDir = path.join(outDir, "web");
+  if (fs.existsSync(webDir)) return files;
+  fs.mkdirSync(path.join(webDir, "icons"), { recursive: true });
+  const indexFile = path.join(webDir, "index.html");
+  fs.writeFileSync(indexFile, generateWebIndexHtml(pkg));
+  files.push(indexFile);
+  const manifestFile = path.join(webDir, "manifest.json");
+  fs.writeFileSync(manifestFile, generateWebManifest(pkg));
+  files.push(manifestFile);
+  const assetDir = path.join(__dirname, "..", "assets", "web-template");
+  const assets = ["favicon.png", "icons/Icon-192.png", "icons/Icon-512.png", "icons/Icon-maskable-192.png", "icons/Icon-maskable-512.png"];
+  for (const rel of assets) {
+    const dest = path.join(webDir, rel);
+    fs.copyFileSync(path.join(assetDir, rel), dest);
+    files.push(dest);
+  }
+  return files;
+}
+
 // "+9" fileCount constant instead (preserved as-is from before this split).
 // MF1: `flowTestScope` (defaults to `ir` — single-feature callers pass nothing, unchanged
 // behavior) scopes generateFlowTest/generateCrudFlowTest separately from the rest. Those two scan
@@ -561,6 +600,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   fs.writeFileSync(mainFile, generateMain(ir, arch.stateManagement));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
+  files.push(...writeWebScaffold(outDir, pkg));
   const testDir = path.join(outDir, "test");
   const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg);
   files.push(...testsResult.files);
@@ -689,6 +729,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(merged, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
+  files.push(...writeWebScaffold(outDir, pkg));
   const testDir = path.join(outDir, "test");
   // flow/crud-flow tests are scoped to the first feature only (same "feature[0] is the app's
   // testable identity" convention initialLocation/generateMain/generateGoldenTest already use) —
