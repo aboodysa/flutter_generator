@@ -1,5 +1,5 @@
 import { FeatureModel, Field, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstAutofocusableField, findRepoForEntity } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity } from "../operations";
 import { kebab, collectionField, camelize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -296,14 +296,22 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
 }
 
 /**
- * FocusTestGenerator — structural, deterministic, 0% LLM (RCA-005 / Bug A regression guard).
+ * FocusTestGenerator — structural, deterministic, 0% LLM (RCA-005 / Bug A regression guard,
+ * updated for the keyboard-bypass follow-up — the owner still saw no keyboard on a real iOS
+ * device with autofocus alone, so the fix is now a gesture-bound `FocusNode.requestFocus()`
+ * wired to the first field's `onTap`, not `autofocus`; see crud_form.ts's own doc comment for
+ * the full RCA).
  * For every entity with a synthesized CRUD form, drives the real app straight to that entity's
- * create route via `appRouter.go(...)` (bypassing UI navigation — the create route can be several
- * hops deep, e.g. a child entity reached only through a parent's detail screen, so tapping through
- * would make this test's shape depend on each app's specific navigation graph) and asserts the
- * autofocus target field (operations.ts's firstAutofocusableField — the SAME field crud_form.ts
- * itself autofocuses) actually carries `autofocus: true`. A precise, deterministic check on the
- * rendered widget's own configuration — no reliance on FocusNode timing, so it can't be flaky.
+ * create AND edit routes via `appRouter.go(...)` (bypassing UI navigation — a route can be
+ * several hops deep, e.g. a child entity reached only through a parent's detail screen, so
+ * tapping through would make this test's shape depend on each app's specific navigation graph;
+ * the edit route's `orElse: () => state.<collection>.first` fallback — see screen.ts's detail
+ * body — means a made-up id still renders a real, fully-wired form). Asserts the bypass target
+ * field (operations.ts's firstFocusBypassField — the SAME field crud_form.ts itself wires)
+ * carries a non-null `focusNode`/`onTap` (the structural check: a generator that reverted to bare
+ * `autofocus` or dropped the bypass entirely has neither), AND that tapping it genuinely
+ * transitions the FocusNode to focused (the behavioral check — proves the wiring actually works,
+ * not just exists).
  */
 export function generateFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
   const targets = [...crudFormTargets(feature).values()];
@@ -313,22 +321,32 @@ export function generateFocusTest(feature: FeatureModel, sm: StateManagementProv
   const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
 
-  const cases = targets.map((t) => {
-    const entity = feature.entities.find((e) => e.name === t.entity);
-    const identityField = entity?.identity?.field ?? "id";
-    // An entity whose only editable fields are DateTime has no autofocus target at all (G2 made
-    // DateTime read-only) — skip rather than assert a property that was never meant to be set.
-    const hasFocusable = entity ? !!firstAutofocusableField(entity, identityField) : false;
-    if (!hasFocusable) return null;
-    return `  testWidgets('${t.entity}: create form autofocuses its first field', (tester) async {
+  const focusCase = (entityName: string, route: string, label: string) => `  testWidgets('${entityName}: ${label} form wires a focus-bypass FocusNode on its first field', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
-    appRouter.go('/${kebab(t.entity)}/new');
+    appRouter.go('${route}');
     await tester.pumpAndSettle();
     final field = tester.widget<TextField>(find.byType(TextField).first);
-    expect(field.autofocus, isTrue, reason: 'create form should autofocus its first field (RCA-005)');
+    expect(field.focusNode, isNotNull, reason: 'first field needs an explicit FocusNode for the gesture-bound requestFocus bypass (iOS Safari keyboard fix)');
+    expect(field.onTap, isNotNull, reason: 'onTap must call requestFocus() synchronously inside the tap gesture');
+    await tester.tap(find.byType(TextField).first);
+    await tester.pump();
+    expect(field.focusNode!.hasFocus, isTrue, reason: 'tapping the field must actually transition it to focused');
   });`;
-  }).filter((c): c is string => !!c);
+
+  const cases = targets.flatMap((t) => {
+    const entity = feature.entities.find((e) => e.name === t.entity);
+    const identityField = entity?.identity?.field ?? "id";
+    // An entity whose only editable fields are DateTime has no bypass target at all (G2 made
+    // DateTime read-only) — skip rather than assert a property that was never meant to be set.
+    const hasFocusable = entity ? !!firstFocusBypassField(entity, identityField) : false;
+    if (!hasFocusable) return [];
+    const base = `/${kebab(t.entity)}`;
+    return [
+      focusCase(t.entity, `${base}/new`, "create"),
+      focusCase(t.entity, `${base}/x/edit`, "edit"),
+    ];
+  });
   if (!cases.length) return null;
 
   // Each case independently boots the real app (setupDependencies() registers everything in

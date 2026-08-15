@@ -1,6 +1,6 @@
 import { EntityModel, Field } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstAutofocusableField } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -22,6 +22,10 @@ function usesController(f: Field): boolean {
 
 function controllerDecl(f: Field): string {
   return `  final _${f.name} = TextEditingController();`;
+}
+
+function focusNodeDecl(f: Field): string {
+  return `  final _${f.name}Focus = FocusNode();`;
 }
 
 // Field initializers run before `widget` is attached (Dart forbids referencing instance members —
@@ -68,29 +72,48 @@ function initStateLine(f: Field, roleCtx?: FieldRoleContext): string | null {
   }
 }
 
-// Bug A (create-form keyboard not showing on iOS Safari): the first non-DateTime controller field
-// gets `autofocus: widget.id == null` — create-only, never edit. Rationale (RCA-005): a fresh
-// create route has NO text-input DOM proxy yet (Flutter Web creates it lazily on first
-// interaction), while an edit route's pre-filled fields already have one at mount. iOS Safari
-// only opens the native keyboard when `.focus()` fires synchronously within the tap's own
-// event handler — on create, that tap ALSO has to trigger DOM-proxy creation first, an extra
-// hop that can fall outside Safari's synchronous-gesture window. Autofocusing forces Flutter to
-// build the proxy on the first frame, before the user ever taps, closing that gap.
-function fieldWidget(f: Field, roleCtx?: FieldRoleContext, autofocusEligible?: boolean): string {
+// Keyboard bypass for iOS Safari (create AND edit — supersedes RCA-005's autofocus-only fix,
+// which the owner confirmed was still not enough on a real device). RCA-005's diagnosis
+// (create's DOM `<input>` proxy doesn't exist until the first tap) was real but incomplete:
+// `autofocus` requests focus PROGRAMMATICALLY, not from a user gesture — iOS Safari doesn't
+// count that as a gesture, and once the field already reports itself as focused, Flutter's own
+// focus manager can treat the user's SUBSEQUENT real tap as a no-op (nothing changed) and never
+// re-issue the platform-level `.focus()` call the tap would otherwise trigger. Net effect:
+// autofocus can make the real bug WORSE, not better.
+//
+// Fix: remove autofocus entirely. The first real (non-readOnly) text field instead gets an
+// explicit `FocusNode` plus `onTap: () => node.requestFocus()` — a call WE control, fired
+// synchronously inside the tap's own gesture handler, exactly what iOS requires. Because the
+// field starts genuinely unfocused (no autofocus), this tap is always a real focus transition,
+// never a no-op — it drives both the DOM proxy creation AND the gesture-bound `.focus()` in one
+// synchronous step. Applies to both create and edit now (autofocus was create-only via
+// `widget.id == null`; this bypass doesn't need that guard — it only ever fires from an actual
+// tap, so there's no "stealing focus on mount" risk to avoid on edit).
+//
+// Rejected alternatives (RCA style):
+// - Keep autofocus AND add the tap-driven request: doesn't remove the actual suspect (autofocus
+//   itself), and the "already focused, tap is a no-op" failure mode would still apply on the
+//   very first tap after mount.
+// - A form-wide first-tap "priming" gesture (wrap the whole form, focus field 1 on ANY first
+//   tap): surprising UX — tapping field 2 first would silently steal focus into field 1 instead
+//   of focusing field 2. Rejected in favor of a per-field, gesture-accurate handler.
+// - `TextInput.finishAutofillContext()`-style hacks: unrelated to this failure mode (that API
+//   addresses autofill session cleanup, not focus/keyboard triggering) — evaluated and dropped.
+function fieldWidget(f: Field, roleCtx?: FieldRoleContext, focusBypassTarget?: boolean): string {
   const label = fieldLabel(f.name);
-  const autofocus = autofocusEligible ? "autofocus: widget.id == null, " : "";
+  const focusBypass = focusBypassTarget ? `focusNode: _${f.name}Focus, onTap: () => _${f.name}Focus.requestFocus(), ` : "";
   // P7-L1: same decimal-text UI as "double", plus a currency suffix; the typed value is parsed
   // into minor units in valueExpr(), never left as a raw double.
   if (isMoneyField(f)) {
-    return `        TextField(${autofocus}controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
+    return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
   }
   switch (f.type) {
     case "String":
-      return `        TextField(${autofocus}controller: _${f.name}, decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}decoration: const InputDecoration(labelText: '${label}')),`;
     case "int":
-      return `        TextField(${autofocus}controller: _${f.name}, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
     case "double":
-      return `        TextField(${autofocus}controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
     // G2: a real date picker, not free-typed text — read-only so the on-screen keyboard never
     // opens; onTap drives showDatePicker and writes the pick back into the same controller (still
     // yyyy-MM-dd), so valueExpr()'s DateTime.tryParse(_<f>.text) keeps working unchanged.
@@ -166,8 +189,8 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
     entityNames: ((ctx?.ir?.entities ?? []) as Array<{ name: string }>).map((e) => e.name),
   };
 
-  // Bug A: the autofocus target (create route only — see fieldWidget's own doc comment for why).
-  const firstFocusable = firstAutofocusableField(entity, identityField);
+  // Keyboard bypass target (create AND edit — see fieldWidget's own doc comment for why).
+  const firstFocusable = firstFocusBypassField(entity, identityField);
   // G6: only entities that actually carry a `<Parent>Id` field need the `queryParams` plumbing at
   // all — everything else stays exactly as before (no unused widget field, no dead parameter).
   const relationFields = editable.filter((f) => fieldRole(f, roleCtx) === "relation");
@@ -175,8 +198,12 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
 
   const controllerFields = editable.filter(usesController).map(controllerDecl).join("\n");
   const stateFields = editable.filter((f) => !usesController(f)).map(stateVarDecl).join("\n");
+  const focusNodeField = firstFocusable ? focusNodeDecl(firstFocusable) : "";
   const initLines = editable.map((f) => initStateLine(f, roleCtx)).filter((l): l is string => !!l).join("\n");
-  const disposeLines = editable.filter(usesController).map((f) => `    _${f.name}.dispose();`).join("\n");
+  const disposeLines = [
+    ...editable.filter(usesController).map((f) => `    _${f.name}.dispose();`),
+    ...(firstFocusable ? [`    _${firstFocusable.name}Focus.dispose();`] : []),
+  ].join("\n");
   const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, f === firstFocusable)).join("\n");
 
   const ctorArgs = [
@@ -201,6 +228,7 @@ ${queryParamsField}  final Future<void> Function(${entity.name}) onSubmit;
 class _${screenName}BodyState extends State<${bodyClass}> {
 ${controllerFields}
 ${stateFields}
+${focusNodeField}
 
   @override
   void initState() {

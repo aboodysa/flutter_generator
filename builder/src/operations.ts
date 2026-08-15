@@ -133,12 +133,13 @@ export function firstCrudTextField(entity: EntityModel, identityField: string): 
   return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type));
 }
 
-// Bug A / RCA-005: the field crud_form.ts autofocuses on the create route — the first editable
-// field that renders a REAL (non-readOnly) keyboard-invoking TextField. DateTime is excluded even
-// though it's controller-backed: G2 made it `readOnly: true` (opens a date picker on tap), so
-// autofocusing it would never actually show a keyboard. Shared with test.ts's generated focus
-// regression test so both agree on which field is expected to carry `autofocus` without drifting.
-export function firstAutofocusableField(entity: EntityModel, identityField: string): Field | undefined {
+// Bug A / RCA-005 / keyboard-bypass follow-up: the field crud_form.ts wires a gesture-bound
+// FocusNode.requestFocus() bypass onto — the first editable field that renders a REAL
+// (non-readOnly) keyboard-invoking TextField, on BOTH create and edit routes. DateTime is
+// excluded even though it's controller-backed: G2 made it `readOnly: true` (opens a date picker
+// on tap), so it never needs a keyboard at all. Shared with test.ts's generated focus regression
+// test so both agree on which field is expected to carry the bypass without drifting.
+export function firstFocusBypassField(entity: EntityModel, identityField: string): Field | undefined {
   const CONTROLLER_TYPES = new Set(["String", "int", "double", "DateTime"]);
   return crudEditableFields(entity, identityField).find((f) => CONTROLLER_TYPES.has(f.type) && f.type !== "DateTime");
 }
