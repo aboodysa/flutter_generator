@@ -55,6 +55,19 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
    `MaterialApp`, which renders Ahem boxes). **Break long content into multiple
    `sendMessage` calls** (one point/paragraph per message) — never one huge
    message; the owner reads on a phone.
+10. **Always inform the owner on Telegram.** Every status change, each commit,
+    each golden/photo, each bug/RCA, each slice start/finish goes to Telegram.
+    If you're about to act, the owner should already know. When in doubt, send
+    the message.
+11. **All code you write is saved under the project folder.** No throwaway work
+    in `/tmp` or the working tree without a copy in the repo. Anything worth
+    writing is worth keeping. This includes temp harnesses, RCA docs, scratch
+    generators, analysis scripts. Save them under the relevant `apps/<app>/`,
+    `docs/qa/`, or `design/flutter-app-builder/` (additive — never delete).
+12. **Maintain a code catalogue.** `design/flutter-app-builder/CODE_CATALOGUE.md`
+    lists every artifact written this session/round: path, what it is, why it
+    exists, status. Update it whenever you add or change code. It's the "what
+    and why" index the owner asked for.
 
 ## Commands (run from repo root unless noted)
 

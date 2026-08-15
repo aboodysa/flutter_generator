@@ -70,12 +70,19 @@ flutter:
 }
 
 export function generateMain(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
-  const screen = feature.screens?.[0];
   const entityNames = feature.entities.map((e) => e.name).join(", ");
 
-  if (screen) {
-    // bloc: BlocProvider wraps the router so both list + detail routes share the cubit;
-    // riverpod: ProviderScope (notifier.build() seeds data). Navigation via go_router appRouter.
+  // Every screen's state owns a cubit that must be available to its route — a single-feature
+  // app with one list screen only ever needed screens[0], but multi-entity samples (Task +
+  // FollowUp) render more than one list/detail route, each reading `context.read<XCubit>()` /
+  // `BlocBuilder<XCubit, ...>`. Failing to provide them all crashed at runtime with
+  // ProviderNotFoundException (RCA: main.dart only wrapped screens[0]). Nest one BlocProvider
+  // per distinct state so every route's cubit is in scope; riverpod self-builds via ProviderScope.
+  const distinctStates = [...new Set((feature.screens ?? []).map((s) => s.state))];
+
+  if (feature.screens?.length) {
+    // bloc: nest a BlocProvider per distinct state (each seeds via its use case + in-memory repo);
+    // riverpod: single ProviderScope (notifiers build + seed themselves). Navigation via appRouter.
     const buildReturn = sm === "riverpod"
       ? `    return ProviderScope(
       child: MaterialApp.router(
@@ -84,14 +91,13 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
         routerConfig: appRouter,
       ),
     );`
-      : `    return BlocProvider<${screen.state}Cubit>(
-      create: (_) => sl<${screen.state}Cubit>()..load(),
-      child: MaterialApp.router(
+      : `    return ${[...distinctStates]
+          .map((st, i) => `BlocProvider<${st}Cubit>(\n      create: (_) => sl<${st}Cubit>()..load(),\n      child: `)
+          .join("")}MaterialApp.router(
         title: 'Generated app',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
-      ),
-    );`;
+      )${distinctStates.map(() => ")").join("")};`;
     const providerImport = sm === "riverpod"
       ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
       : `import 'package:flutter_bloc/flutter_bloc.dart';`;
@@ -152,6 +158,67 @@ class ReplicaApp extends StatelessWidget {
         body: Center(child: Text('Entities: ${entityNames}')),
       ),
     );
+  }
+}
+`;
+}
+
+// MF1: main.dart for an app spanning multiple features. Each feature's FIRST screen gets a
+// route (route.ts, unchanged, already merges all features' screens); this only needs to make
+// each of those screens' Cubit available app-wide. For bloc that's a MultiBlocProvider with one
+// entry per feature (mirrors generateMain's single BlocProvider, just N of them); for riverpod
+// no extra wiring is needed at all — providers self-register on first `ref.watch`, so the body is
+// identical to generateMain's riverpod branch regardless of feature count.
+export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc"): string {
+  const primaryStates = Array.from(new Set(features.map((f) => f.screens?.[0]?.state).filter((s): s is string => !!s)));
+
+  const buildReturn = sm === "riverpod"
+    ? `    return ProviderScope(
+      child: MaterialApp.router(
+        title: 'Generated app',
+        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        routerConfig: appRouter,
+      ),
+    );`
+    : `    return MultiBlocProvider(
+      providers: [
+${primaryStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<${s}Cubit>()..load()),`).join("\n")}
+      ],
+      child: MaterialApp.router(
+        title: 'Generated app',
+        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        routerConfig: appRouter,
+      ),
+    );`;
+  const providerImport = sm === "riverpod"
+    ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+    : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+  const generatedImport = sm === "riverpod" ? "" : `import 'generated.dart';`;
+  const diImport = sm === "riverpod" ? "" : `import 'core/di.dart';`;
+  const setupDeps = sm === "riverpod" ? "" : `  setupDependencies();`;
+
+  return `// [generated] generator=ProjectGenerator template=main_multi.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+${providerImport}
+${generatedImport}import 'core/router.dart';
+${diImport}
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // A11y (§14.4): expose the semantics tree (aria/text) to the DOM on web so the app
+  // is screen-reader readable AND browser-testable (CFT/puppeteer) out of the box.
+  SemanticsBinding.instance.ensureSemantics();
+${setupDeps}
+  runApp(const ReplicaApp());
+}
+
+class ReplicaApp extends StatelessWidget {
+  const ReplicaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+${buildReturn}
   }
 }
 `;

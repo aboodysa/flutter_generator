@@ -21,11 +21,12 @@ class ReplicaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<TaskListCubit>(
       create: (_) => sl<TaskListCubit>()..load(),
+      child: BlocProvider<FollowUpListCubit>(
+      create: (_) => sl<FollowUpListCubit>()..load(),
       child: MaterialApp.router(
         title: 'Generated app',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
-      ),
-    );
+      )));
   }
 }
