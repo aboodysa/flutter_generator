@@ -154,16 +154,33 @@ export interface ScreenModel {
   steps?: WizardStep[]; // P8-W1: only meaningful when type === "wizard" (composition archetype "wizard")
 }
 
-// P8-W1: one step of a wizard screen. `field` (optional) names an entity field this step
-// collects; a step with no `field` is an info/confirm step (always advances). `validate`
-// (optional) names a RuleModel (§19) evaluated against the in-progress draft entity as the
-// "can advance from this step?" guard; absent `validate` on a field-collecting step defaults to
-// a required-filled check.
+// P8-W3: an inline branching condition — `field` names an entity/step field, compared against a
+// Dart-literal-ready `value` (same convention as RuleCondition.value, §19). Used by
+// `WizardStep.when` alongside the alternative "name a RuleModel" form.
+export interface WizardCondition {
+  field: string;
+  op: ">=" | "<" | "==";
+  value: string;
+}
+
+// P8-W1/W3: one step of a wizard screen.
+// `field` (optional) names a single entity field this step collects; `fields` (optional, P8-W4)
+// names several (a step can declare one or the other — `field` is a convenience shorthand for a
+// one-element `fields`). A step with neither is an info/review step: it renders a read-only
+// summary of every field collected so far and always advances.
+// `validate` (optional) names a RuleModel (§19) evaluated against the in-progress draft entity as
+// the "can advance from this step?" guard; absent `validate` on a field-collecting step defaults
+// to a required-filled check (all of its fields non-null/non-empty).
+// `when` (optional, P8-W3) gates whether the step is shown at all — either an inline
+// `WizardCondition` or the name of a RuleModel evaluated against the draft entity. A step whose
+// `when` doesn't hold is skipped automatically by next()/back()/jumpTo() — never a dead end.
 export interface WizardStep {
   id: string;
   title: string;
   field?: string;
+  fields?: string[];
   validate?: string;
+  when?: WizardCondition | string;
 }
 
 export interface TransitionModel {

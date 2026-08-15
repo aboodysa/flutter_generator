@@ -1,5 +1,5 @@
 import { EntityModel, Field } from "../types";
-import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes } from "../dart";
+import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
 import { CrudFormTarget } from "../operations";
 
 /**
@@ -91,10 +91,6 @@ function carryForwardExpr(f: Field): string {
   if (nullable(f)) return `widget.initial?.${f.name}`;
   if (hasDefault(f)) return `widget.initial?.${f.name} ?? ${defaultValue(f)}`;
   return `widget.initial?.${f.name} ?? ${sampleArgFor(f, [], [])}`;
-}
-
-function newIdExpr(identityType: string): string {
-  return identityType === "int" ? "DateTime.now().millisecondsSinceEpoch" : "DateTime.now().millisecondsSinceEpoch.toString()";
 }
 
 export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityModel, screenName: string, ctx?: GenContext): string {

@@ -1,6 +1,6 @@
 import { StateModel, StateField, EntityModel, ScreenModel, WizardStep } from "../types";
-import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, GenContext } from "../dart";
-import { crudOperations, findRepoForEntity, findWizardScreen } from "../operations";
+import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, newIdExpr, GenContext } from "../dart";
+import { crudOperations, findRepoForEntity, findWizardScreen, stepFields } from "../operations";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
@@ -258,14 +258,16 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
   const stateClass = `${name}State`;
   const sm = ctx?.sm ?? "bloc";
   const steps: WizardStep[] = wizardScreen.steps ?? [];
+  const lastStepIndex = Math.max(steps.length - 1, 0);
 
   const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity) as EntityModel | undefined;
   const enums = ctx?.ir?.enums ?? [];
   const valueObjects = ctx?.ir?.valueObjects ?? [];
   const fieldDef = (fieldName: string) => entityModel?.fields.find((f) => f.name === fieldName);
 
-  // One nullable state field per step that collects an entity field (not yet filled = null).
-  const stepFieldNames = Array.from(new Set(steps.map((st) => st.field).filter((f): f is string => !!f)));
+  // One nullable state field per step-collected entity field (not yet filled = null). `fields`
+  // (P8-W4, multi-field steps) wins over `field`; stepFields() normalizes both to a list.
+  const stepFieldNames = Array.from(new Set(steps.flatMap(stepFields)));
   const stepStateFields: StateField[] = stepFieldNames.map((fname) => {
     const f = fieldDef(fname);
     return { name: fname, type: `${f ? fieldDartType(f) : "String"}?`, default: undefined };
@@ -301,8 +303,10 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
   };
 
   // _draft: a full entity from whatever's been filled + a type-correct placeholder (sampleArgFor)
-  // for every other field, so `validate` rules always run against a real, constructible instance.
-  const needsDraft = steps.some((st) => st.validate);
+  // for every other field, so `validate`/`when` rules always run against a real, constructible
+  // instance. Needed whenever ANY step's advance-gate or visibility is rule-driven (a string
+  // `when` names a RuleModel, same as `validate`).
+  const needsDraft = steps.some((st) => st.validate || typeof st.when === "string");
   const draftArgs = (entityModel?.fields ?? [])
     .map((f) => (stepFieldNames.includes(f.name)
       ? `      ${f.name}: ${f.name} ?? ${sampleArgFor(f, enums, valueObjects)},`
@@ -311,13 +315,16 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
   const draftGetter = needsDraft && entityModel ? `\n  ${entity} get _draft => ${entity}(\n${draftArgs}\n      );\n` : "";
 
   const stepGuard = (st: WizardStep): string => {
+    const flds = stepFields(st);
     if (st.validate) {
-      const fieldCheck = st.field ? `${st.field} != null && ` : "";
-      return `${fieldCheck}${st.validate}().evaluate(_draft)`;
+      const fieldCheck = flds.map((f) => `${f} != null`).join(" && ");
+      return `${fieldCheck ? `${fieldCheck} && ` : ""}${st.validate}().evaluate(_draft)`;
     }
-    if (st.field) {
-      const f = fieldDef(st.field);
-      return f?.type === "String" ? `(${st.field} != null && ${st.field}!.isNotEmpty)` : `${st.field} != null`;
+    if (flds.length) {
+      return flds.map((fname) => {
+        const f = fieldDef(fname);
+        return f?.type === "String" ? `(${fname} != null && ${fname}!.isNotEmpty)` : `${fname} != null`;
+      }).join(" && ");
     }
     return "true";
   };
@@ -326,6 +333,46 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
 ${steps.map((st, i) => `      ${i} => ${stepGuard(st)},`).join("\n")}
       _ => true,
     };
+`;
+
+  // P8-W3 branching: a step's `when` (inline condition or RuleModel name) gates whether it's
+  // reachable at all. Unconditional steps are always visible; a false `when` skips the step
+  // automatically (next()/back()/jumpTo() below all route through _isVisible/_nextVisibleStep/
+  // _prevVisibleStep — a hidden step is never landed on, so there's no dead end).
+  const whenExpr = (st: WizardStep): string => {
+    if (!st.when) return "true";
+    if (typeof st.when === "string") return `${st.when}().evaluate(_draft)`;
+    const { field, op, value } = st.when;
+    const f = fieldDef(field);
+    const dflt = f?.type === "int" ? "0" : f?.type === "double" ? "0.0" : f?.type === "bool" ? "false" : "''";
+    return `(${field} ?? ${dflt}) ${op} ${value}`;
+  };
+  const hasBranching = steps.some((st) => st.when);
+  const visibilityMembers = hasBranching
+    ? `
+  bool _isVisible(int i) => switch (i) {
+${steps.map((st, i) => `      ${i} => ${whenExpr(st)},`).join("\n")}
+      _ => false,
+    };
+
+  int? get _nextVisibleStep {
+    for (var i = currentStep + 1; i <= ${lastStepIndex}; i++) {
+      if (_isVisible(i)) return i;
+    }
+    return null;
+  }
+
+  int? get _prevVisibleStep {
+    for (var i = currentStep - 1; i >= 0; i--) {
+      if (_isVisible(i)) return i;
+    }
+    return null;
+  }
+
+  bool get isLastStep => _nextVisibleStep == null;
+`
+    : `
+  bool get isLastStep => currentStep >= ${lastStepIndex};
 `;
 
   const stateBlock = `enum ${statusEnum} { ${statuses.join(", ")} }
@@ -342,7 +389,7 @@ ${fields.map(copyWithParam).join("\n")}
   }) => ${stateClass}(
 ${fields.map(copyWithAssign).join("\n")}
   );
-${draftGetter}${canAdvanceGetter}
+${draftGetter}${canAdvanceGetter}${visibilityMembers}
   @override
   List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
 }`;
@@ -352,33 +399,72 @@ ${draftGetter}${canAdvanceGetter}
     return `  void set${capitalize(fname)}(${f ? fieldDartType(f) : "String"}? value) => ${assign(`${fname}: value`)};`;
   }).join("\n\n");
 
-  const flowMethods = (assign: (expr: string) => string): string => `
+  // finish(): builds the final entity from every collected field (a fresh id for the identity
+  // field, type-correct placeholders — sampleArgFor — for anything never wizard-collected, e.g.
+  // a status field the flow itself doesn't set) and, when the entity is CRUD-capable (§5.2-F1 —
+  // findRepoForEntity/crudOperations, the same classifier the list/detail path uses), persists it
+  // through the create use case. Entities with no repository just mark the flow complete.
+  const repo = findRepoForEntity(ctx?.ir?.repositories, entity);
+  const kinds = repo ? crudOperations(repo, entity) : {};
+  const createUc = kinds.create && repo
+    ? (ctx?.ir?.useCases ?? []).find((u: any) => u.repository === repo!.name && u.operation === kinds.create!.name)
+    : undefined;
+  const identityFieldName = entityModel?.identity?.field;
+  // finish() runs inside the Cubit/Notifier, NOT the state class — unlike _draft (a getter ON
+  // the state class, where bare field names implicitly mean `this.field`), every reference here
+  // needs the explicit `state.` qualifier or it resolves to nothing and fails to compile.
+  const finishArgs = entityModel
+    ? entityModel.fields
+      .map((f) => {
+        if (f.name === identityFieldName) return `        ${f.name}: ${newIdExpr(f.semanticType ?? f.type)},`;
+        if (stepFieldNames.includes(f.name)) return `        ${f.name}: state.${f.name} ?? ${sampleArgFor(f, enums, valueObjects)},`;
+        return `        ${f.name}: ${sampleArgFor(f, enums, valueObjects)},`;
+      })
+      .join("\n")
+    : "";
+
+  const finishMethod = (assign: (expr: string) => string, useUseCase: boolean): string => {
+    // No persistence target: building the entity would be a genuinely unused local
+    // (`unused_local_variable`), so finish() just completes the flow.
+    if (!entityModel || !(useUseCase && createUc)) {
+      return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    ${assign(`status: ${statusEnum}.success`)};\n  }`;
+    }
+    const persistCall = `    if (_${camelize(createUc.name)} != null) await _${camelize(createUc.name)}!.call(result);\n`;
+    return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    final result = ${entity}(\n${finishArgs}\n      );\n${persistCall}    ${assign(`status: ${statusEnum}.success`)};\n  }`;
+  };
+
+  const flowMethods = (assign: (expr: string) => string, useUseCase: boolean): string => `
   // No-op: a wizard has nothing to fetch, but main.dart/test.ts's bloc bootstrap
   // unconditionally calls \`sl<XCubit>()..load()\` for every screen's state.
   Future<void> load() async {}
 
   void next() {
     if (!state.canAdvance) return;
-    if (state.currentStep < ${Math.max(steps.length - 1, 0)}) ${assign(`currentStep: state.currentStep + 1`)};
+    final n = ${hasBranching ? "state._nextVisibleStep" : `(state.currentStep < ${lastStepIndex} ? state.currentStep + 1 : null)`};
+    if (n != null) ${assign("currentStep: n")};
   }
 
   void back() {
-    if (state.currentStep > 0) ${assign(`currentStep: state.currentStep - 1`)};
+    final p = ${hasBranching ? "state._prevVisibleStep" : "(state.currentStep > 0 ? state.currentStep - 1 : null)"};
+    if (p != null) ${assign("currentStep: p")};
   }
 
   void jumpTo(int i) {
-    if (i >= 0 && i < ${steps.length}) ${assign("currentStep: i")};
+    if (i < 0 || i > ${lastStepIndex}) return;
+    ${hasBranching ? "if (!state._isVisible(i)) return;\n    " : ""}${assign("currentStep: i")};
   }
 
-  void finish() {
-    if (!state.canAdvance) return;
-    ${assign(`status: ${statusEnum}.success`)};
-  }
+${finishMethod(assign, useUseCase)}
 
 ${setterMethods(assign)}`;
 
   const blocAssign = (expr: string) => `emit(state.copyWith(${expr}))`;
   const riverpodAssign = (expr: string) => `state = state.copyWith(${expr})`;
+
+  // Bloc only: the create use case (if any) is an optional positional ctor param — same
+  // optional-positional convention the CRUD Cubit uses (di.ts mirrors it when wiring sl<...>()).
+  const requiredField = createUc && sm === "bloc" ? `  final ${createUc.name}? _${camelize(createUc.name)};` : "";
+  const ctorParams = createUc && sm === "bloc" ? `[this._${camelize(createUc.name)}]` : "";
 
   const container = sm === "riverpod"
     ? `final ${camelize(name)}Provider = NotifierProvider<${name}Notifier, ${stateClass}>(${name}Notifier.new);
@@ -386,20 +472,28 @@ ${setterMethods(assign)}`;
 class ${name}Notifier extends Notifier<${stateClass}> {
   @override
   ${stateClass} build() => const ${stateClass}();
-${flowMethods(riverpodAssign)}
+${flowMethods(riverpodAssign, false)}
 }`
     : `class ${name}Cubit extends Cubit<${stateClass}> {
-  ${name}Cubit() : super(const ${stateClass}());
-${flowMethods(blocAssign)}
+${requiredField ? `${requiredField}\n` : ""}  ${name}Cubit(${ctorParams}) : super(const ${stateClass}());
+${flowMethods(blocAssign, true)}
 }`;
 
+  // finish() references EVERY entity field (state value where step-collected, else a
+  // sampleArgFor placeholder) — so any enum field needs its type imported even when no step
+  // collects it directly (caught by an actual `flutter analyze` run — see the task report).
+  const importFieldNames = entityModel ? entityModel.fields.map((f) => f.name) : stepFieldNames;
   const refTypes: string[] = [entity];
-  for (const fname of stepFieldNames) {
+  for (const fname of importFieldNames) {
     const f = fieldDef(fname);
     if (f?.semanticType) refTypes.push(f.semanticType);
     else if (f?.type === "enum") refTypes.push(f.of || capitalize(f.name));
   }
-  for (const st of steps) if (st.validate) refTypes.push(st.validate);
+  for (const st of steps) {
+    if (st.validate) refTypes.push(st.validate);
+    if (typeof st.when === "string") refTypes.push(st.when);
+  }
+  if (createUc && sm === "bloc") refTypes.push(createUc.name);
   const imports = importsFromTypes(refTypes, ctx).join("\n");
 
   const stateLib = sm === "riverpod" ? "flutter_riverpod" : "flutter_bloc";

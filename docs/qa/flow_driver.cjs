@@ -38,9 +38,16 @@ const VIEWPORT = { width: 390, height: 844 }; // iPhone-size, matches the golden
 // createValue/updateValue are deliberately non-overlapping substrings of each other — the
 // "update" assertion checks the old value is GONE, and "X".includes("X-prefix") is a classic
 // false-negative trap (caught during verification: see the task report).
+// Wizard-mode configs (P8 Phase E): the reimbursement sample has no list/detail screen at all
+// (crudFormTargets only synthesizes a form alongside a "list" screen — see operations.ts), so
+// there's nothing to drive in the CRUD shape above. `mode: "wizard"` picks runWizardFlow()
+// instead, which walks Submit -> Manager Review -> (conditional) Finance Decision -> Result and
+// asserts the `largeClaim` (amount >= 1000) branching gate fires or skips as expected.
 const CONFIGS = {
   todo: { entity: "Task", field: "Title", createValue: "CDP Flow Alpha", updateValue: "Renamed Beta Value" },
   "expense.semantic": { entity: "Transaction", field: "Merchant", createValue: "CDP Flow Alpha", updateValue: "Renamed Beta Value" },
+  reimbursement: { mode: "wizard", employee: "Ada Lovelace", amount: "1500", category: "travel", expectFinanceStep: true },
+  "reimbursement-small": { mode: "wizard", employee: "Bea Cy", amount: "250", category: "meals", expectFinanceStep: false },
 };
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -114,31 +121,100 @@ async function screenshotStep(page, dir, step) {
   await page.screenshot({ path: path.join(dir, `${step}.png`) });
 }
 
-async function main() {
-  const cfgName = process.env.FLOW_CONFIG ?? "todo";
-  const cfg = process.env.FLOW_CONFIG_FILE
-    ? JSON.parse(fs.readFileSync(process.env.FLOW_CONFIG_FILE, "utf8"))
-    : CONFIGS[cfgName];
-  if (!cfg) throw new Error(`Unknown FLOW_CONFIG '${cfgName}'. Known: ${Object.keys(CONFIGS).join(", ")}`);
+// DropdownMenuItem semantics nodes DO carry aria-label directly (unlike buttons, which only
+// expose the label via textContent — see the module header) — verified empirically against this
+// build before writing this driver.
+async function findMenuItemBox(page, optionLabel) {
+  return waitForCond(() => page.evaluate((label) => {
+    const el = document.querySelector(`flt-semantics[role="menuitem"][aria-label="${label}"]`);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return null;
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  }, optionLabel), WAIT_MS, `menuitem[aria-label="${optionLabel}"]`);
+}
 
-  const browser = await puppeteer.connect({ browserURL: CDP, defaultViewport: VIEWPORT });
-  const page = await browser.newPage();
-  await page.setViewport(VIEWPORT);
-  const consoleErrors = [];
-  const failedRequests = [];
-  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
-  page.on("pageerror", (e) => consoleErrors.push("pageerror: " + e.message));
-  page.on("requestfailed", (r) => failedRequests.push(`${r.url()} :: ${r.failure()?.errorText}`));
+async function selectDropdown(page, buttonLabel, optionLabel) {
+  await clickButton(page, buttonLabel);
+  const box = await findMenuItemBox(page, optionLabel);
+  await page.mouse.click(box.x, box.y);
+}
 
-  const steps = {};
-  const record = (name, ok, extra) => {
-    steps[name] = { ok, ...extra };
-    console.log(`[flow] ${name}: ${ok ? "PASS" : "FAIL"}${extra ? " " + JSON.stringify(extra) : ""}`);
-  };
+async function findCheckboxBox(page, ariaLabel) {
+  return waitForCond(() => page.evaluate((label) => {
+    const el = document.querySelector(`flt-semantics[role="checkbox"][aria-label="${label}"]`);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return null;
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  }, ariaLabel), WAIT_MS, `checkbox[aria-label="${ariaLabel}"]`);
+}
 
-  // anti-throttle: the CFT launch flags (--disable-background-timer-throttling etc.) are the
-  // browser's responsibility (long-running CFT instance), not this driver's.
-  await page.goto(APP_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+async function clickCheckbox(page, ariaLabel) {
+  const box = await findCheckboxBox(page, ariaLabel);
+  await page.mouse.click(box.x, box.y);
+}
+
+// P8-W3/W4 wizard flow: Submit -> Manager Review -> (conditional) Finance Decision -> Result.
+// Unlike the CRUD flow above, there's no list/detail screen — the app boots straight onto the
+// wizard (see router.dart's initialLocation) — so every step is driven top-to-bottom in order,
+// and the assertion of interest is branching: does step 3 (Finance Decision, gated on the
+// `largeClaim` rule, amount >= 1000) appear or get skipped per cfg.expectFinanceStep.
+async function runWizardFlow(page, cfg, cfgName, record) {
+  await waitForCond(() => page.evaluate(() => !!document.querySelector("flt-semantics-host")), WAIT_MS, "flt-semantics-host (ensureSemantics on)");
+  await waitSemanticsStable(page);
+  await screenshotStep(page, OUT, "01-submit");
+
+  // step 1 - Submit: fill employee/amount, pick category from the dropdown.
+  await typeInto(page, "Employee", cfg.employee);
+  await typeInto(page, "Amount", cfg.amount);
+  await selectDropdown(page, "Category", cfg.category);
+  await waitSemanticsStable(page);
+  const step1Text = await page.evaluate(() => document.body.innerText || "");
+  record("step1-submit-filled", step1Text.includes(cfg.category), { step1Text });
+  await screenshotStep(page, OUT, "02-submit-filled");
+
+  await clickButton(page, "Next");
+  await waitSemanticsStable(page);
+  const step2Text = await page.evaluate(() => document.body.innerText || "");
+  record("step2-manager-review", /Manager Review/.test(step2Text) && step2Text.includes(cfg.employee) && step2Text.includes(cfg.category), { step2Text });
+  await screenshotStep(page, OUT, "03-manager-review");
+
+  await clickCheckbox(page, "Manager Approved");
+  await clickButton(page, "Next");
+  await waitSemanticsStable(page);
+  const step3Text = await page.evaluate(() => document.body.innerText || "");
+
+  if (cfg.expectFinanceStep) {
+    // large claim: branching gate must show Finance Decision, never skip it.
+    record("branching-finance-shown", /Finance Decision/.test(step3Text), { step3Text });
+    await screenshotStep(page, OUT, "04-finance-decision");
+    await clickCheckbox(page, "Finance Approved");
+    await clickButton(page, "Next");
+    await waitSemanticsStable(page);
+  } else {
+    // small claim: branching gate must skip Finance Decision and land straight on Result.
+    record("branching-finance-skipped", /Result/.test(step3Text) && !/Finance Decision/.test(step3Text), { step3Text });
+  }
+
+  const resultText = await page.evaluate(() => document.body.innerText || "");
+  record("result-step", /Result/.test(resultText), { resultText });
+  await screenshotStep(page, OUT, cfg.expectFinanceStep ? "05-result" : "04-result");
+
+  await clickButton(page, "Finish");
+  await waitForCond(async () => {
+    const t = await page.evaluate(() => document.body.innerText || "");
+    return /All done!/.test(t) ? t : null;
+  }, WAIT_MS, "success screen after Finish");
+  await waitSemanticsStable(page);
+  record("finish-success", true, {});
+  await screenshotStep(page, OUT, cfg.expectFinanceStep ? "06-finish" : "05-finish");
+}
+
+// The original list -> create -> detail -> update -> delete walk (P8 Phase A / F3), unchanged —
+// extracted to its own function so main() can dispatch to runWizardFlow() instead for
+// `mode: "wizard"` configs without duplicating the connect/record/console-net-clean scaffolding.
+async function runCrudFlow(page, cfg, record) {
   await waitForCond(() => page.evaluate(() => !!document.querySelector("flt-semantics-host")), WAIT_MS, "flt-semantics-host (ensureSemantics on)");
   await waitSemanticsStable(page);
   await screenshotStep(page, OUT, "01-list-visible");
@@ -202,6 +278,39 @@ async function main() {
     seedRowsPresent: /Sample item/.test(finalText),
   });
   await screenshotStep(page, OUT, "08-list-final");
+}
+
+async function main() {
+  const cfgName = process.env.FLOW_CONFIG ?? "todo";
+  const cfg = process.env.FLOW_CONFIG_FILE
+    ? JSON.parse(fs.readFileSync(process.env.FLOW_CONFIG_FILE, "utf8"))
+    : CONFIGS[cfgName];
+  if (!cfg) throw new Error(`Unknown FLOW_CONFIG '${cfgName}'. Known: ${Object.keys(CONFIGS).join(", ")}`);
+
+  const browser = await puppeteer.connect({ browserURL: CDP, defaultViewport: VIEWPORT });
+  const page = await browser.newPage();
+  await page.setViewport(VIEWPORT);
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+  page.on("pageerror", (e) => consoleErrors.push("pageerror: " + e.message));
+  page.on("requestfailed", (r) => failedRequests.push(`${r.url()} :: ${r.failure()?.errorText}`));
+
+  const steps = {};
+  const record = (name, ok, extra) => {
+    steps[name] = { ok, ...extra };
+    console.log(`[flow] ${name}: ${ok ? "PASS" : "FAIL"}${extra ? " " + JSON.stringify(extra) : ""}`);
+  };
+
+  // anti-throttle: the CFT launch flags (--disable-background-timer-throttling etc.) are the
+  // browser's responsibility (long-running CFT instance), not this driver's.
+  await page.goto(APP_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+  if (cfg.mode === "wizard") {
+    await runWizardFlow(page, cfg, cfgName, record);
+  } else {
+    await runCrudFlow(page, cfg, record);
+  }
 
   const netErrors = failedRequests.filter((u) => !/favicon/i.test(u));
   record("console-clean", consoleErrors.length === 0, { consoleErrors });

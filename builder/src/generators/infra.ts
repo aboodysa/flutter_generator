@@ -9,6 +9,17 @@ function hdr(gen: string, tpl: string): string {
   return `// [generated] generator=${gen} template=${tpl} class=structural ownership=generated\n// Do not hand-edit this file; regenerate from IR.\n`;
 }
 
+// Shared no-arg use-case params (§ use cases whose paramType is "NoParams", e.g. a plain list
+// fetch) — emitted only when an IR actually declares one (index.ts gates the call), so apps that
+// never use it don't carry a dead file.
+export function generateNoParams(_f: FeatureModel): string {
+  return `${hdr("NoParamsGenerator", "no_params.v1")}
+class NoParams {
+  const NoParams();
+}
+`;
+}
+
 export function generateLocalization(_f: FeatureModel): string {
   return `${hdr("LocalizationGenerator", "localization.v1")}
 class AppStrings {

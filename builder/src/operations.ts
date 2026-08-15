@@ -1,7 +1,7 @@
 // Repository-operation classification — shared, deterministic, dependency-free (types.ts only).
 // Single source of truth for "what CRUD kind is this operation" so scoring.ts (persistence
 // selection) and repository_impl.ts (CRUD codegen) never drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep } from "./types";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
 export function listEntityName(repo: RepositoryModel | undefined): string | null {
@@ -88,4 +88,12 @@ export function crudFormTargets(ir: FeatureModel): Map<string, CrudFormTarget> {
 // agree on "is this state a wizard" without re-deriving the check.
 export function findWizardScreen(ir: FeatureModel, stateName: string): ScreenModel | undefined {
   return (ir.screens ?? []).find((s) => s.state === stateName && s.type === "wizard" && !!s.steps?.length);
+}
+
+// A wizard step's collected fields (P8-W1/W4) — `fields` (multi-field) wins if present, else
+// `field` (single) as a one-element list, else none (info/review step). Shared by state.ts
+// (state shape + canAdvance) and screen.ts (rendering + the review-step summary) so both agree
+// on what a step actually collects.
+export function stepFields(st: WizardStep): string[] {
+  return st.fields ?? (st.field ? [st.field] : []);
 }

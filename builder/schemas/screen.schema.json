@@ -45,8 +45,45 @@
           "field": {
             "type": "string"
           },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "validate": {
             "type": "string"
+          },
+          "when": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "field",
+                  "op",
+                  "value"
+                ],
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      ">=",
+                      "<",
+                      "=="
+                    ]
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "additionalProperties": false

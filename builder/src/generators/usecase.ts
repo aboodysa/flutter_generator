@@ -11,12 +11,16 @@ import { USER_MARKER_START, USER_MARKER_END } from "../region";
 export function generateUseCase(uc: UseCaseModel, ctx?: GenContext): string {
   const params = uc.paramType === "NoParams" ? "NoParams params" : `${uc.paramType} params`;
 
-  // Look up the repository operation to match its param naming (named vs positional).
+  // Look up the repository operation to match its param naming (named vs positional vs none —
+  // a NoParams use case may wrap a zero-arg repo op, which takes nothing at the call site even
+  // though `call()` itself still accepts the NoParams token).
   let call = `repository.${uc.operation}(params)`;
   const repo = (ctx?.ir?.repositories ?? []).find((r: any) => r.name === uc.repository);
   const op = repo?.operations?.find((o: any) => o.name === uc.operation);
   const firstParam = op?.params?.[0];
-  if (firstParam && firstParam.named) {
+  if (op && !firstParam) {
+    call = `repository.${uc.operation}()`;
+  } else if (firstParam && firstParam.named) {
     call = `repository.${uc.operation}(${firstParam.name}: params)`;
   }
 

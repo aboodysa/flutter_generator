@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
-import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize } from "../dart";
+import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets } from "../operations";
+import { crudFormTargets, stepFields } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -47,14 +47,14 @@ function heroExpr(s: ScreenModel): string | null {
   return `'${s.hero.replace(/'/g, "\\'")}'`;
 }
 
-// P8-W1: the current wizard step's input widget — controller-less (TextFormField.initialValue,
-// keyed per step so Flutter remounts it on step change) since the value lives in wizard state,
-// not local widget state; onChanged writes straight back via the field's generated `set<Field>`
+// P8-W1: one wizard field's input widget — controller-less (TextFormField.initialValue, keyed
+// per field so Flutter remounts it on step change) since the value lives in wizard state, not
+// local widget state; onChanged writes straight back via the field's generated `set<Field>`
 // mutator (state.ts).
-function wizardFieldWidget(step: WizardStep, field: Field | undefined, setterCall: (valueExpr: string) => string): string {
-  const label = fieldLabel(step.field ?? step.title);
-  const key = `const ValueKey('step-${step.id}')`;
-  if (!field) return `Text('${step.title}')`;
+function wizardFieldInput(fieldName: string, field: Field | undefined, setterCall: (valueExpr: string) => string): string {
+  const label = fieldLabel(fieldName);
+  const key = `const ValueKey('field-${fieldName}')`;
+  if (!field) return `Text('${label} — unknown field')`;
   switch (field.type) {
     case "String":
       return `TextFormField(key: ${key}, initialValue: state.${field.name} ?? '', decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("v")})`;
@@ -73,6 +73,19 @@ function wizardFieldWidget(step: WizardStep, field: Field | undefined, setterCal
     default:
       return `Text('${label} — unsupported step field type')`;
   }
+}
+
+// A field's current value as read-only display text — reused by the review/result step summary
+// below (P8-W4: an info step with no fields of its own shows what earlier steps collected).
+function wizardFieldSummaryLine(fieldName: string, field: Field | undefined): string {
+  const label = fieldLabel(fieldName);
+  if (!field) return `Text('${label}: —')`;
+  const display = field.type === "bool"
+    ? `(state.${field.name} == null ? '—' : (state.${field.name}! ? 'yes' : 'no'))`
+    : field.type === "enum"
+      ? `(state.${field.name}?.name ?? '—')`
+      : `(state.${field.name}?.toString() ?? '—')`;
+  return `Text('${label}: \${${display}}')`;
 }
 
 export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
@@ -108,6 +121,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
     : "";
 
   let body: string;
+  let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
       const rows = entity.fields.map((f) => {
@@ -131,22 +145,53 @@ ${rowsBlock}
       body = `            return Center(child: Text(state.toString()));`;
     }
   } else if (comp.layout === "wizard") {
-    // P8-W1/W2: step header (progress + title) + current step's field + Next/Back footer,
-    // gated by state.canAdvance (state.ts). No local widget state — the current step's value
-    // lives in wizard state (via TextFormField.initialValue, keyed per step) so it survives
-    // rebuilds without a StatefulWidget.
+    // P8-W1/W2/W3/W4: step header (progress + title) + current step's field(s) + Next/Back/
+    // Finish footer, gated by state.canAdvance and state.isLastStep (state.ts — the latter is
+    // dynamic once branching is involved, never a compile-time index). No local widget state —
+    // each field's value lives in wizard state (via TextFormField.initialValue, keyed per field)
+    // so it survives rebuilds without a StatefulWidget.
     const steps: WizardStep[] = s.steps ?? [];
-    const lastIndex = Math.max(steps.length - 1, 0);
-    const fieldDef = (name: string | undefined) => (name && entity ? entity.fields.find((f) => f.name === name) : undefined);
-    const setterCall = (step: WizardStep) => (valueExpr: string) =>
-      step.field ? readMutator(`set${capitalize(step.field)}`, valueExpr) : "";
+    const fieldDef = (name: string) => (entity ? entity.fields.find((f) => f.name === name) : undefined);
+    const setterCall = (fieldName: string) => (valueExpr: string) => readMutator(`set${capitalize(fieldName)}`, valueExpr);
 
     const titleCases = steps
       .map((st, i) => `                      ${i} => '${st.title.replace(/'/g, "\\'")}',`)
       .join("\n");
+    // A field-collecting step renders its input(s) (one or many — P8-W4); an info/review step
+    // renders a read-only summary of every field collected by EARLIER steps (generic — this is
+    // what makes a plain "review this before continuing" step useful without any per-app logic
+    // in the generator).
+    const stepContent = (st: WizardStep, index: number): string => {
+      const flds = stepFields(st);
+      // Every step shows a read-only summary of whatever earlier steps collected, ABOVE its own
+      // input(s) if any — a generic "here's what's been entered so far" breadcrumb. This is what
+      // makes a plain info step (no fields) double as a review/result screen (P8-W4's "Manager
+      // review"/"Result" steps) without any bespoke per-app logic in the generator: a step with
+      // its own field(s) gets the summary PLUS an editable input; a step with none is pure review.
+      const collectedSoFar = Array.from(new Set(steps.slice(0, index).flatMap(stepFields)));
+      const summaryLines = collectedSoFar.map((f) => `                        ${wizardFieldSummaryLine(f, fieldDef(f))},`).join("\n");
+      if (flds.length) {
+        const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f))},`).join("\n");
+        const body = summaryLines ? `${summaryLines}\n${widgets}` : widgets;
+        return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
+      }
+      if (!collectedSoFar.length) return `Text('${st.title.replace(/'/g, "\\'")}')`;
+      return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${summaryLines}\n                      ])`;
+    };
     const contentCases = steps
-      .map((st, i) => `                      ${i} => ${wizardFieldWidget(st, fieldDef(st.field), setterCall(st))},`)
+      .map((st, i) => `                      ${i} => ${stepContent(st, i)},`)
       .join("\n");
+
+    // Every step's field is rendered somewhere (either as an editable input or a summary line),
+    // so any enum field bound to ANY step needs its type imported — the wizard body writes the
+    // enum type name literally (`DropdownButton<Priority>`, `Priority.values`), unlike the
+    // list/detail bodies which only ever access `.name` on an already-typed expression.
+    const allStepFieldNames = Array.from(new Set(steps.flatMap(stepFields)));
+    const enumTypeNames = allStepFieldNames
+      .map(fieldDef)
+      .filter((f): f is Field => !!f && f.type === "enum")
+      .map((f) => f.of || capitalize(f.name));
+    wizardTypeImports = importsFromTypes(enumTypeNames, ctx).join("\n");
 
     body = `            if (state.status == ${statusEnum}.success) return const Center(child: Text('All done!'));
             return Column(
@@ -180,9 +225,15 @@ ${contentCases}
                         TextButton(onPressed: () => ${readMutator("back", "")}, child: const Text('Back')),
                       const Spacer(),
                       PrimaryButton(
-                        label: state.currentStep == ${lastIndex} ? 'Finish' : 'Next',
+                        label: state.isLastStep ? 'Finish' : 'Next',
                         onPressed: state.canAdvance
-                            ? () => state.currentStep == ${lastIndex} ? ${readMutator("finish", "")} : ${readMutator("next", "")}
+                            ? () {
+                                if (state.isLastStep) {
+                                  ${readMutator("finish", "")};
+                                } else {
+                                  ${readMutator("next", "")};
+                                }
+                              }
                             : null,
                       ),
                     ],
@@ -319,6 +370,7 @@ ${routerImport}${stateLibImport}
 ${componentsImport}
 ${themeImport}
 ${stateImport}
+${wizardTypeImports}
 
 ${widgetBody}
 `;

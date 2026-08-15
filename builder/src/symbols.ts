@@ -41,5 +41,6 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   for (const sm of ir.stateMachines ?? []) add(`${sm.name}StateMachine`, "domain/state_machines", fileName(`${sm.name}StateMachine`));
   for (const f of ir.forms ?? []) add(f.name, "presentation/forms", fileName(f.name));
   for (const r of ir.businessRules ?? []) add(r.name, "domain/rules", fileName(r.name));
+  if ((ir.useCases ?? []).some((u) => u.paramType === "NoParams")) m.set("NoParams", "core/no_params.dart");
   return m;
 }

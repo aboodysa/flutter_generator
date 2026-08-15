@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "1",
+  "name": "reimbursement",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "Currency",
+      "values": ["usd", "eur", "gbp"]
+    },
+    {
+      "name": "ExpenseCategory",
+      "values": ["travel", "meals", "supplies", "other"]
+    },
+    {
+      "name": "ClaimStatus",
+      "values": ["submitted", "approved", "rejected"]
+    }
+  ],
+  "entities": [
+    {
+      "name": "ExpenseClaim",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "employee", "type": "String", "required": true, "nullable": false },
+        { "name": "amount", "type": "double", "required": true, "nullable": false },
+        { "name": "currency", "type": "enum", "required": true, "nullable": false, "of": "Currency" },
+        { "name": "category", "type": "enum", "required": true, "nullable": false, "of": "ExpenseCategory" },
+        { "name": "managerApproved", "type": "bool", "required": true, "nullable": false, "default": "false" },
+        { "name": "financeApproved", "type": "bool", "required": false, "nullable": true },
+        { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "ClaimStatus", "default": "submitted" }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "LargeClaim",
+      "entity": "ExpenseClaim",
+      "result": "true",
+      "conditions": [
+        { "field": "amount", "operator": ">=", "value": "1000" }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "ExpenseClaimRepository",
+      "operations": [
+        {
+          "name": "listExpenseClaims",
+          "returns": "Future<List<ExpenseClaim>>",
+          "params": []
+        },
+        {
+          "name": "getExpenseClaim",
+          "returns": "Future<ExpenseClaim>",
+          "params": [
+            { "name": "id", "type": "String", "named": false }
+          ]
+        },
+        {
+          "name": "createExpenseClaim",
+          "returns": "Future<ExpenseClaim>",
+          "params": [
+            { "name": "claim", "type": "ExpenseClaim", "named": false }
+          ]
+        },
+        {
+          "name": "updateExpenseClaim",
+          "returns": "Future<void>",
+          "params": [
+            { "name": "claim", "type": "ExpenseClaim", "named": false }
+          ]
+        },
+        {
+          "name": "deleteExpenseClaim",
+          "returns": "Future<void>",
+          "params": [
+            { "name": "id", "type": "String", "named": false }
+          ]
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "name": "ExpenseClaimWizard",
+      "entity": "ExpenseClaim"
+    }
+  ],
+  "screens": [
+    {
+      "name": "ExpenseClaimWizardScreen",
+      "entity": "ExpenseClaim",
+      "type": "wizard",
+      "state": "ExpenseClaimWizard",
+      "steps": [
+        {
+          "id": "submit",
+          "title": "Submit Expense Claim",
+          "fields": ["employee", "amount", "category"]
+        },
+        {
+          "id": "manager-review",
+          "title": "Manager Review",
+          "field": "managerApproved"
+        },
+        {
+          "id": "finance-decision",
+          "title": "Finance Decision",
+          "field": "financeApproved",
+          "when": "LargeClaim"
+        },
+        {
+          "id": "result",
+          "title": "Result"
+        }
+      ]
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListExpenseClaims",
+      "repository": "ExpenseClaimRepository",
+      "operation": "listExpenseClaims",
+      "paramType": "NoParams",
+      "returnType": "List<ExpenseClaim>"
+    },
+    {
+      "name": "GetExpenseClaim",
+      "repository": "ExpenseClaimRepository",
+      "operation": "getExpenseClaim",
+      "paramType": "String",
+      "returnType": "ExpenseClaim"
+    },
+    {
+      "name": "CreateExpenseClaim",
+      "repository": "ExpenseClaimRepository",
+      "operation": "createExpenseClaim",
+      "paramType": "ExpenseClaim",
+      "returnType": "ExpenseClaim"
+    },
+    {
+      "name": "UpdateExpenseClaim",
+      "repository": "ExpenseClaimRepository",
+      "operation": "updateExpenseClaim",
+      "paramType": "ExpenseClaim",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteExpenseClaim",
+      "repository": "ExpenseClaimRepository",
+      "operation": "deleteExpenseClaim",
+      "paramType": "String",
+      "returnType": "void"
+    }
+  ]
+}

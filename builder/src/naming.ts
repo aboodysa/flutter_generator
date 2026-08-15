@@ -30,3 +30,9 @@ export function collectionField(entity: string): string {
 export function fieldLabel(name: string): string {
   return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+// A fresh identity value for a newly-created entity — shared by crud_form.ts (create form
+// submit) and state.ts (wizard finish()) so both entities get a real, unique id the same way.
+export function newIdExpr(identityType: string): string {
+  return identityType === "int" ? "DateTime.now().millisecondsSinceEpoch" : "DateTime.now().millisecondsSinceEpoch.toString()";
+}

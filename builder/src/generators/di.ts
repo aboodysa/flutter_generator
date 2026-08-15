@@ -1,7 +1,7 @@
 import { FeatureModel } from "../types";
 import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
-import { crudOperations, findRepoForEntity } from "../operations";
+import { crudOperations, findRepoForEntity, findWizardScreen } from "../operations";
 
 /**
  * DIGenerator — structural, deterministic, 0% LLM.
@@ -33,16 +33,23 @@ void setupDependencies() {}
     lines.push(`  sl.registerLazySingleton<${u.name}>(() => ${u.name}(sl<${u.repository}>()));`);
   }
   for (const s of feature.states ?? []) {
-    const uc = (feature.useCases ?? []).find((u) => u.returnType === `List<${s.entity}>`);
-    // Create/update/delete use cases (§5.2-F1) — same crudOperations() classification state.ts
-    // uses, so the arg list here always matches the optional-positional params state.ts emits.
     const repo = findRepoForEntity(feature.repositories, s.entity);
     const kinds = repo ? crudOperations(repo, s.entity) : {};
     const findUc = (opName: string | undefined) =>
       opName && repo ? (feature.useCases ?? []).find((u) => u.repository === repo.name && u.operation === opName) : undefined;
-    const args = [uc, findUc(kinds.create?.name), findUc(kinds.update?.name), findUc(kinds.delete?.name)]
-      .filter((u): u is NonNullable<typeof u> => !!u)
-      .map((u) => `sl<${u.name}>()`);
+    // §5.2-P8-W4: a wizard state's Cubit only ever takes an optional create use case (finish()
+    // persists the built entity) — its constructor shape is narrower than the list/detail Cubit's
+    // (which also takes list/update/delete), so it needs its own, shorter arg list here.
+    const isWizard = !!findWizardScreen(feature, s.name);
+    const args = (isWizard
+      ? [findUc(kinds.create?.name)]
+      : [
+        (feature.useCases ?? []).find((u) => u.returnType === `List<${s.entity}>`),
+        findUc(kinds.create?.name),
+        findUc(kinds.update?.name),
+        findUc(kinds.delete?.name),
+      ]
+    ).filter((u): u is NonNullable<typeof u> => !!u).map((u) => `sl<${u.name}>()`);
     lines.push(`  sl.registerFactory<${s.name}Cubit>(() => ${s.name}Cubit(${args.join(", ")}));`);
   }
   lines.push("}");
