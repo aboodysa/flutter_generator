@@ -123,7 +123,12 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
       for (const f of paramQuery.fields as any[]) {
         if (!String(f.type).endsWith("?")) refTypes.push(f.type);
       }
-    } else if (listUseCase.paramType !== "NoParams") {
+    } else {
+      // L1b: NoParams is a real generated class (core/no_params.dart, symbols.ts) — it needs the
+      // same import as any other paramType, not a special exemption (this state's load() writes
+      // `NoParams()` as a constructor call either way; the old exclusion left it unimported,
+      // resolving as an undefined method instead of a class — caught by a NoParams-typed list use
+      // case on a non-wizard state, never exercised before moneycrud.ir.json).
       refTypes.push(listUseCase.paramType);
     }
   }

@@ -69,6 +69,18 @@ export interface FeatureModel {
   attributes?: AppAttributes;
 }
 
+// MF1: an app-level IR spanning multiple features, each rooted at its own
+// `lib/features/<feature.name>/` folder — the single-feature `FeatureModel` above stays the only
+// shape most samples ever need; this is additive, detected by index.ts via `"features" in ir`.
+// A feature's own `attributes` (if set) plays no role here — only the app-level `attributes` feed
+// architecture scoring (one shared stateManagement/DI/routing/persistence decision for the app).
+export interface AppModel {
+  schemaVersion: string;
+  name: string;
+  attributes?: AppAttributes;
+  features: FeatureModel[];
+}
+
 /** Explicit IR attributes consumed by the §5.2 pattern-selection scoring function. */
 export interface AppAttributes {
   refreshCadence?: "static" | "occasional" | "frequent" | "realtime";

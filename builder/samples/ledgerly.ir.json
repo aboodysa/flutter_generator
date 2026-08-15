@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1",
+  "name": "ledgerly",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "features": [
+    {
+      "name": "auth",
+      "enums": [
+        { "name": "UserRole", "values": ["employee", "manager", "finance"] }
+      ],
+      "entities": [
+        {
+          "name": "User",
+          "identity": { "field": "id" },
+          "fields": [
+            { "name": "id", "type": "String", "required": true, "nullable": false },
+            { "name": "name", "type": "String", "required": true, "nullable": false },
+            { "name": "email", "type": "String", "required": true, "nullable": false },
+            { "name": "role", "type": "enum", "required": true, "nullable": false, "of": "UserRole" }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "UserRepository",
+          "operations": [
+            { "name": "listUsers", "returns": "Future<List<User>>", "params": [] }
+          ]
+        }
+      ],
+      "states": [
+        { "name": "UserList", "entity": "User" }
+      ],
+      "screens": [
+        { "name": "UserListScreen", "entity": "User", "type": "list", "state": "UserList" }
+      ],
+      "useCases": [
+        { "name": "ListUsers", "repository": "UserRepository", "operation": "listUsers", "paramType": "NoParams", "returnType": "List<User>" }
+      ]
+    },
+    {
+      "name": "expenses",
+      "enums": [
+        { "name": "ClaimStatus", "values": ["pending", "approved", "rejected"] }
+      ],
+      "entities": [
+        {
+          "name": "ExpenseClaim",
+          "identity": { "field": "id" },
+          "fields": [
+            { "name": "id", "type": "String", "required": true, "nullable": false },
+            { "name": "employee", "type": "String", "required": true, "nullable": false },
+            { "name": "amount", "type": "double", "required": true, "nullable": false },
+            { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "ClaimStatus", "default": "pending" }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "ExpenseClaimRepository",
+          "operations": [
+            { "name": "listExpenseClaims", "returns": "Future<List<ExpenseClaim>>", "params": [] },
+            { "name": "createExpenseClaim", "returns": "Future<ExpenseClaim>", "params": [{ "name": "claim", "type": "ExpenseClaim", "named": false }] },
+            { "name": "updateExpenseClaim", "returns": "Future<void>", "params": [{ "name": "claim", "type": "ExpenseClaim", "named": false }] },
+            { "name": "deleteExpenseClaim", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+          ]
+        }
+      ],
+      "states": [
+        { "name": "ExpenseClaimList", "entity": "ExpenseClaim" }
+      ],
+      "screens": [
+        { "name": "ExpenseClaimListScreen", "entity": "ExpenseClaim", "type": "list", "state": "ExpenseClaimList" },
+        { "name": "ExpenseClaimDetailScreen", "entity": "ExpenseClaim", "type": "detail", "state": "ExpenseClaimList" }
+      ],
+      "useCases": [
+        { "name": "ListExpenseClaims", "repository": "ExpenseClaimRepository", "operation": "listExpenseClaims", "paramType": "NoParams", "returnType": "List<ExpenseClaim>" },
+        { "name": "CreateExpenseClaim", "repository": "ExpenseClaimRepository", "operation": "createExpenseClaim", "paramType": "ExpenseClaim", "returnType": "ExpenseClaim" },
+        { "name": "UpdateExpenseClaim", "repository": "ExpenseClaimRepository", "operation": "updateExpenseClaim", "paramType": "ExpenseClaim", "returnType": "void" },
+        { "name": "DeleteExpenseClaim", "repository": "ExpenseClaimRepository", "operation": "deleteExpenseClaim", "paramType": "String", "returnType": "void" }
+      ]
+    },
+    {
+      "name": "approvals",
+      "enums": [
+        { "name": "ApprovalDecision", "values": ["pending", "approved", "rejected"] }
+      ],
+      "entities": [
+        {
+          "name": "Approval",
+          "identity": { "field": "id" },
+          "fields": [
+            { "name": "id", "type": "String", "required": true, "nullable": false },
+            { "name": "approver", "type": "String", "required": true, "nullable": false },
+            { "name": "decision", "type": "enum", "required": true, "nullable": false, "of": "ApprovalDecision", "default": "pending" }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "ApprovalRepository",
+          "operations": [
+            { "name": "listApprovals", "returns": "Future<List<Approval>>", "params": [] }
+          ]
+        }
+      ],
+      "states": [
+        { "name": "ApprovalList", "entity": "Approval" }
+      ],
+      "screens": [
+        { "name": "ApprovalListScreen", "entity": "Approval", "type": "list", "state": "ApprovalList" }
+      ],
+      "useCases": [
+        { "name": "ListApprovals", "repository": "ApprovalRepository", "operation": "listApprovals", "paramType": "NoParams", "returnType": "List<Approval>" }
+      ]
+    }
+  ]
+}

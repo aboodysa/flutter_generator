@@ -1,5 +1,5 @@
 import { FeatureModel, Field, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField } from "../operations";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -226,14 +226,31 @@ ${nav}
  * delete (via the detail AppBar action) -> gone. Only emitted when an entity has a synthesized
  * form (crudFormTargets — create+update), a delete operation, AND a detail screen to land on
  * (today: entities with a "list" + "detail" screen pair whose repository is full-CRUD). Targets
- * the first rendered TextField, which is the entity's first non-identity field in IR order — the
- * common "title/name first" shape (documented assumption, not a general-purpose heuristic).
+ * the first rendered TextField (firstCrudTextField, shared with crud_form.ts's own field order —
+ * the common "title/name first" shape, documented assumption not a general-purpose heuristic).
+ *
+ * L1b: when that first TextField is money-typed (crud_form.ts parses it as decimal -> minor
+ * units), typing a plain string like a non-money field would silently produce
+ * `Money(minorUnits: 0, ...)` — the assertion would then pass for the wrong reason (an empty/zero
+ * amount, not the typed value). So a money field types a decimal string and asserts the rendered
+ * `Money.format()` output instead of the raw typed text.
  */
 export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
   const target = [...crudFormTargets(feature).values()].find(
     (t) => t.delete && (feature.screens ?? []).some((s) => s.entity === t.entity && s.type === "detail"),
   );
   if (!target) return null;
+
+  const entity = feature.entities.find((e) => e.name === target.entity);
+  const identityField = entity?.identity?.field ?? "id";
+  const firstField = entity ? firstCrudTextField(entity, identityField) : undefined;
+  const money = !!firstField && isMoneyField(firstField);
+  const currency = firstField?.currency ?? "SAR";
+
+  const createValue = money ? "1250.50" : "Widget test value";
+  const updateValue = money ? "1999.25" : "Widget test value updated";
+  const createExpect = money ? `1,250.50 ${currency}` : createValue;
+  const updateExpect = money ? `1,999.25 ${currency}` : updateValue;
 
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
   const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
@@ -253,23 +270,23 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     // create (list FAB -> form -> submit -> lands on detail)
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Widget test value');
+    await tester.enterText(find.byType(TextField).first, '${createValue}');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
-    expect(find.text('Widget test value'), findsOneWidget);
+    expect(find.text('${createExpect}'), findsOneWidget);
 
     // edit (detail AppBar action -> form, prefilled -> submit -> back on detail)
     await tester.tap(find.byIcon(Icons.edit));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Widget test value updated');
+    await tester.enterText(find.byType(TextField).first, '${updateValue}');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Widget test value updated'), findsOneWidget);
+    expect(find.text('${updateExpect}'), findsOneWidget);
 
     // delete (detail AppBar action -> back on the list, row gone)
     await tester.tap(find.byIcon(Icons.delete));
     await tester.pumpAndSettle();
-    expect(find.text('Widget test value updated'), findsNothing);
+    expect(find.text('${updateExpect}'), findsNothing);
   });
 }
 `;

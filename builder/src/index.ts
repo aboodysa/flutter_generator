@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import Ajv from "ajv";
-import { FeatureModel } from "./types";
+import { FeatureModel, AppModel } from "./types";
 import { fileName, GenContext } from "./dart";
 import { pkgName, buildSymbols } from "./symbols";
 import { enforceWriteAcl } from "./acl";
@@ -25,7 +25,7 @@ import { generateRoutes } from "./generators/route";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
-import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
+import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
 import { scoreStateStrategy } from "./scoring";
 import { decideArchitecture, ArchitectureDecision } from "./arch";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
@@ -155,7 +155,15 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
 // Note: only oracle-test file paths are pushed into the returned `files` — the standard 4 test
 // files, like plan.json/builder.lock.json/barrel/main/pubspec, are accounted for by generateApp's
 // "+9" fileCount constant instead (preserved as-is from before this split).
-function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string): { files: string[]; planEntries: PlanEntry[] } {
+// MF1: `flowTestScope` (defaults to `ir` — single-feature callers pass nothing, unchanged
+// behavior) scopes generateFlowTest/generateCrudFlowTest separately from the rest. Those two scan
+// the WHOLE screens/repository array for "a detail screen"/"a CRUD target" and assume it's
+// reachable from the app's home screen — true for one feature, false for a merged multi-feature
+// model where the home screen (feature[0]'s) and some OTHER feature's detail/CRUD screen have no
+// navigational relationship. generateWidgetTest/generateUnitTest/generateGoldenTest don't have
+// this problem (they only ever look at `entities[0]`/`screens[0]`, which for a merged model is
+// already feature[0]'s own — no scoping needed there).
+function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string, flowTestScope: FeatureModel = ir): { files: string[]; planEntries: PlanEntry[] } {
   fs.mkdirSync(testDir, { recursive: true });
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -163,7 +171,7 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
   const testFiles: [string, string, string][] = [
     ["widget_test.dart", generateWidgetTest(ir), "WidgetTestGenerator"],
     ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
-    ["flow_test.dart", generateFlowTest(ir), "FlowTestGenerator"],
+    ["flow_test.dart", generateFlowTest(flowTestScope), "FlowTestGenerator"],
     ["golden_test.dart", generateGoldenTest(ir, arch.stateManagement), "GoldenTestGenerator"],
   ];
   for (const [f, content, generator] of testFiles) {
@@ -184,7 +192,7 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
   // CRUD flow test (§5.2-F1 proof) — only when an entity actually has the full create/edit/
   // delete + detail-screen shape this test drives; unlike the four above, it's conditional so it
   // IS pushed into `files` (the "+9" constant only covers the always-emitted set).
-  const crudFlow = generateCrudFlowTest(ir, arch.stateManagement);
+  const crudFlow = generateCrudFlowTest(flowTestScope, arch.stateManagement);
   if (crudFlow) {
     const f = path.join(testDir, "crud_flow_test.dart");
     fs.writeFileSync(f, crudFlow);
@@ -295,6 +303,125 @@ function writeCrudExtras(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDe
   return { files, planEntries };
 }
 
+const loadSchema = (n: string) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "schemas", `${n}.schema.json`), "utf8"));
+
+// MF1: the registry-driven artifact loop (entities/repos/usecases/screens/...) + models +
+// in-memory repo impls + CRUD extras (form screens, persistence schema) for ONE feature, rooted
+// at featureRoot. Shared by the single-feature path (called once, artifactPrefix="") and the
+// multi-feature path (called once per feature, artifactPrefix=`feature:<name>:`) — extracted so
+// the two paths run the exact same logic instead of drifting two copies of it (single-feature
+// output must stay byte-identical: artifactPrefix="" makes every prefixed string a no-op).
+function writeFeatureArtifacts(
+  feature: FeatureModel,
+  ctx: GenContext,
+  arch: ArchitectureDecision,
+  featureRoot: string,
+  outDir: string,
+  ajv: Ajv,
+  validators: Record<string, any>,
+  check: (label: string, v: any, value: any) => void,
+  existingUseCases: Map<string, string>,
+  lastKnownHashes: Record<string, string>,
+  conflicts: RegionConflict[],
+  nextHashes: Record<string, string>,
+  artifactPrefix = "",
+): { files: string[]; planEntries: PlanEntry[] } {
+  const files: string[] = [];
+  const planEntries: PlanEntry[] = [];
+
+  for (const entry of registry) {
+    const tag = tagForIrKey(entry.irKey);
+    const items = (feature as any)[entry.irKey] ?? [];
+    for (const item of items) {
+      check(`${entry.schema}:${entry.label(item)}`, validators[entry.schema], item);
+      const dir = path.join(featureRoot, entry.layer);
+      fs.mkdirSync(dir, { recursive: true });
+      const f = path.join(dir, entry.file(item));
+      const generated = entry.generate(item, ctx);
+      let written = generated;
+      if (entry.irKey === "useCases") {
+        const fileName = entry.file(item);
+        const existing = existingUseCases.get(fileName);
+        if (existing !== undefined) {
+          const conflict = checkOverwrite(existing, lastKnownHashes[fileName] ?? null, path.relative(outDir, f));
+          if (conflict) {
+            conflicts.push(conflict);
+            written = existing; // preserve the user's hand-edited region
+          }
+        }
+        const h = userRegionHash(written);
+        if (h !== null) nextHashes[fileName] = h;
+      }
+      fs.writeFileSync(f, written);
+      files.push(f);
+      planEntries.push({
+        artifact: `${artifactPrefix}${tag}:${item.name}`,
+        generator: entry.generator,
+        schema: entry.schema,
+        layer: entry.layer,
+        file: path.relative(outDir, f),
+        strategy: tag === "state" ? arch.perStateStrategy.get(item.name) ?? "enum-status" : "default",
+        dependsOn: dependsOnFor(entry.irKey, item).map((d) => `${artifactPrefix}${d}`),
+        mode: entry.class === "semantic" ? "semantic" : "deterministic",
+        class: entry.class,
+      });
+    }
+  }
+
+  for (const entity of feature.entities) {
+    const override = (feature.models ?? []).find((m) => m.entity === entity.name);
+    if (override) check(`model:${entity.name}`, ajv.compile(loadSchema("model")), override);
+    const dir = path.join(featureRoot, "data/models");
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, fileName(entity.name).replace(/\.dart$/, "_model.dart"));
+    fs.writeFileSync(f, generateModel(entity, override, ctx));
+    files.push(f);
+    planEntries.push({
+      artifact: `${artifactPrefix}model:${entity.name}`,
+      generator: "ModelGenerator",
+      schema: "model",
+      layer: "data/models",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`${artifactPrefix}entity:${entity.name}`],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+
+  // In-memory repository impls for contracts with no declared impl (deterministic demo data).
+  for (const repo of feature.repositories ?? []) {
+    const declared = (feature.repositoryImpls ?? []).some((ri) => ri.contract === repo.name);
+    if (declared) continue;
+    const dir = path.join(featureRoot, "data", "repositories");
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, fileName(`${repo.name}InMemoryImpl`));
+    fs.writeFileSync(f, generateInMemoryRepository(repo, ctx));
+    files.push(f);
+    planEntries.push({
+      artifact: `${artifactPrefix}repository_impl:${repo.name}InMemoryImpl`,
+      generator: "RepositoryImplGenerator",
+      schema: "repository_impl",
+      layer: "data/repositories",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`${artifactPrefix}repository:${repo.name}`],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+
+  const crudExtras = writeCrudExtras(feature, ctx, arch, featureRoot, outDir);
+  files.push(...crudExtras.files);
+  planEntries.push(...crudExtras.planEntries.map((e) => ({
+    ...e,
+    artifact: `${artifactPrefix}${e.artifact}`,
+    dependsOn: e.dependsOn.map((d) => `${artifactPrefix}${d}`),
+  })));
+
+  return { files, planEntries };
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
 function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>): void {
   const plan: GenerationPlan = {
@@ -313,8 +440,18 @@ function writePlan(irVersion: string, planEntries: PlanEntry[], arch: Architectu
 /**
  * Core generation — the only function that writes files. CLI + web server share this.
  * Pure upstream (generators are (IR, ctx) → string); I/O is confined here.
+ * MF1: dispatches to the multi-feature path when the IR is app-level (`"features" in ir`,
+ * additive detection — a single-feature `FeatureModel` never has that key); otherwise runs the
+ * existing single-feature path, untouched in shape (same steps, same order).
  */
-export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
+export function generateApp(ir: FeatureModel | AppModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
+  if (Array.isArray((ir as AppModel).features)) {
+    return generateMultiFeatureApp(ir as AppModel, outDir, irVersion, oracleDir);
+  }
+  return generateSingleFeatureApp(ir as FeatureModel, outDir, irVersion, oracleDir);
+}
+
+function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
   // Write-ACL (DESIGN §9.3): human-only fields require an attested human actor.
   const aclViolations = enforceWriteAcl(ir);
   if (aclViolations.length) throw new Error(aclViolations.join("\n"));
@@ -342,7 +479,6 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   const planEntries: PlanEntry[] = [];
 
   const ajv = new Ajv({ allErrors: true, strict: false });
-  const loadSchema = (n: string) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "schemas", `${n}.schema.json`), "utf8"));
   const validators: Record<string, any> = {};
   for (const entry of registry) validators[entry.schema] = ajv.compile(loadSchema(entry.schema));
   const check = (label: string, v: any, value: any) => {
@@ -370,95 +506,12 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
 
   fs.rmSync(path.join(outDir, "lib"), { recursive: true, force: true }); // clean stale output
   fs.mkdirSync(coreDir, { recursive: true });
-  const files: string[] = [];
 
   bundleFonts(outDir);
 
-  for (const entry of registry) {
-    const tag = tagForIrKey(entry.irKey);
-    const items = (ir as any)[entry.irKey] ?? [];
-    for (const item of items) {
-      check(`${entry.schema}:${entry.label(item)}`, validators[entry.schema], item);
-      const dir = path.join(featureRoot, entry.layer);
-      fs.mkdirSync(dir, { recursive: true });
-      const f = path.join(dir, entry.file(item));
-      const generated = entry.generate(item, ctx);
-      let written = generated;
-      if (entry.irKey === "useCases") {
-        const fileName = entry.file(item);
-        const existing = existingUseCases.get(fileName);
-        if (existing !== undefined) {
-          const conflict = checkOverwrite(existing, lastKnownHashes[fileName] ?? null, path.relative(outDir, f));
-          if (conflict) {
-            conflicts.push(conflict);
-            written = existing; // preserve the user's hand-edited region
-          }
-        }
-        const h = userRegionHash(written);
-        if (h !== null) nextHashes[fileName] = h;
-      }
-      fs.writeFileSync(f, written);
-      files.push(f);
-      planEntries.push({
-        artifact: `${tag}:${item.name}`,
-        generator: entry.generator,
-        schema: entry.schema,
-        layer: entry.layer,
-        file: path.relative(outDir, f),
-        strategy: tag === "state" ? arch.perStateStrategy.get(item.name) ?? "enum-status" : "default",
-        dependsOn: dependsOnFor(entry.irKey, item),
-        mode: entry.class === "semantic" ? "semantic" : "deterministic",
-        class: entry.class,
-      });
-    }
-  }
-
-  for (const entity of ir.entities) {
-    const override = (ir.models ?? []).find((m) => m.entity === entity.name);
-    if (override) check(`model:${entity.name}`, ajv.compile(loadSchema("model")), override);
-    const dir = path.join(featureRoot, "data/models");
-    fs.mkdirSync(dir, { recursive: true });
-    const f = path.join(dir, fileName(entity.name).replace(/\.dart$/, "_model.dart"));
-    fs.writeFileSync(f, generateModel(entity, override, ctx));
-    files.push(f);
-    planEntries.push({
-      artifact: `model:${entity.name}`,
-      generator: "ModelGenerator",
-      schema: "model",
-      layer: "data/models",
-      file: path.relative(outDir, f),
-      strategy: "default",
-      dependsOn: [`entity:${entity.name}`],
-      mode: "deterministic",
-      class: "structural",
-    });
-  }
-
-  // In-memory repository impls for contracts with no declared impl (deterministic demo data).
-  for (const repo of ir.repositories ?? []) {
-    const declared = (ir.repositoryImpls ?? []).some((ri) => ri.contract === repo.name);
-    if (declared) continue;
-    const dir = path.join(featureRoot, "data", "repositories");
-    fs.mkdirSync(dir, { recursive: true });
-    const f = path.join(dir, fileName(`${repo.name}InMemoryImpl`));
-    fs.writeFileSync(f, generateInMemoryRepository(repo, ctx));
-    files.push(f);
-    planEntries.push({
-      artifact: `repository_impl:${repo.name}InMemoryImpl`,
-      generator: "RepositoryImplGenerator",
-      schema: "repository_impl",
-      layer: "data/repositories",
-      file: path.relative(outDir, f),
-      strategy: "default",
-      dependsOn: [`repository:${repo.name}`],
-      mode: "deterministic",
-      class: "structural",
-    });
-  }
-
-  const crudExtras = writeCrudExtras(ir, ctx, arch, featureRoot, outDir);
-  files.push(...crudExtras.files);
-  planEntries.push(...crudExtras.planEntries);
+  const featureResult = writeFeatureArtifacts(ir, ctx, arch, featureRoot, outDir, ajv, validators, check, existingUseCases, lastKnownHashes, conflicts, nextHashes, "");
+  const files: string[] = [...featureResult.files];
+  planEntries.push(...featureResult.planEntries);
 
   const coreResult = writeCore(ir, ctx, arch, coreDir, outDir);
   files.push(...coreResult.files);
@@ -472,6 +525,139 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   const testDir = path.join(outDir, "test");
   const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg);
+  files.push(...testsResult.files);
+  planEntries.push(...testsResult.planEntries);
+  planEntries.push(
+    { artifact: "core:barrel", generator: "BarrelGenerator", schema: "core", layer: "core", file: path.relative(outDir, barrelFile), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural" },
+    { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
+  );
+
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes);
+
+  return { outDir, fileCount: files.length + 9, scoring, conflicts };
+}
+
+// MF1: app-level IR spanning multiple features. Reuses every existing generator unchanged — the
+// only new logic here is (a) merging each feature's symbol table into one app-wide table so
+// cross-feature imports resolve to the right `features/<name>/...` path, (b) building ONE merged
+// pseudo-FeatureModel (concatenated arrays) so the core generators that already read a whole
+// FeatureModel (di.ts, route.ts, project.ts's barrel/pubspec) see every feature's content without
+// any changes to those generators, and (c) calling writeFeatureArtifacts once per feature so each
+// one's own domain/data/presentation lands under its own features/<name>/ folder.
+function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
+  if (!app.features.length) throw new Error("[pipeline] multi-feature IR declares zero features");
+
+  for (const f of app.features) {
+    const aclViolations = enforceWriteAcl(f);
+    if (aclViolations.length) throw new Error(aclViolations.join("\n"));
+    const unapproved = unapprovedElements(f);
+    if (unapproved.length) {
+      throw new Error(
+        `[approval] feature '${f.name}': ${unapproved.length} element(s) require human approval before generation:\n` +
+          unapproved.map((u) => `  - ${u}`).join("\n") +
+          `\nRun builder/src/approve.ts to attest them (actor=human:attested).`,
+      );
+    }
+  }
+
+  const pkg = pkgName(app.name);
+  const symbols = new Map<string, string>();
+  for (const f of app.features) for (const [k, v] of buildSymbols(f)) symbols.set(k, v);
+
+  // One merged pseudo-FeatureModel — concatenated arrays, app-level attributes/name — so every
+  // generator that reads a whole FeatureModel (di.ts, route.ts, barrel/pubspec/tests) produces
+  // ONE shared di.dart/router.dart/generated.dart/pubspec.yaml covering all features, with zero
+  // changes to those generators themselves.
+  const merged: FeatureModel = {
+    name: app.name,
+    attributes: app.attributes,
+    entities: app.features.flatMap((f) => f.entities),
+    enums: app.features.flatMap((f) => f.enums ?? []),
+    valueObjects: app.features.flatMap((f) => f.valueObjects ?? []),
+    repositories: app.features.flatMap((f) => f.repositories ?? []),
+    models: app.features.flatMap((f) => f.models ?? []),
+    states: app.features.flatMap((f) => f.states ?? []),
+    queries: app.features.flatMap((f) => f.queries ?? []),
+    wrappers: app.features.flatMap((f) => f.wrappers ?? []),
+    useCases: app.features.flatMap((f) => f.useCases ?? []),
+    datasources: app.features.flatMap((f) => f.datasources ?? []),
+    repositoryImpls: app.features.flatMap((f) => f.repositoryImpls ?? []),
+    screens: app.features.flatMap((f) => f.screens ?? []),
+    stateMachines: app.features.flatMap((f) => f.stateMachines ?? []),
+    forms: app.features.flatMap((f) => f.forms ?? []),
+    businessRules: app.features.flatMap((f) => f.businessRules ?? []),
+  };
+
+  const arch = decideArchitecture(merged);
+  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };
+
+  const scoring: string[] = [];
+  for (const s of merged.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
+  scoring.push(`app → ${arch.stateManagement} (${arch.coupledPair})`);
+  scoring.push(`persistence → ${arch.persistence}`);
+
+  const planEntries: PlanEntry[] = [];
+
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  const validators: Record<string, any> = {};
+  for (const entry of registry) validators[entry.schema] = ajv.compile(loadSchema(entry.schema));
+  const check = (label: string, v: any, value: any) => {
+    if (!v(value)) throw new Error(`[validator] ${label}: INVALID\n${ajv.errorsText(v.errors)}`);
+  };
+
+  const coreDir = path.join(outDir, "lib", "core");
+
+  // Region detection (§11.1), app-wide: scan every feature's use-case dir BEFORE cleaning, so a
+  // drifted user region in ANY feature survives regeneration (same mechanism as single-feature,
+  // just looped — keyed by filename, matching the existing single-feature scoping).
+  const regionManifestPath = path.join(outDir, "regions.json");
+  const lastKnownHashes: Record<string, string> = fs.existsSync(regionManifestPath)
+    ? JSON.parse(fs.readFileSync(regionManifestPath, "utf8"))
+    : {};
+  const existingUseCases = new Map<string, string>();
+  for (const f of app.features) {
+    const useCaseDir = path.join(outDir, "lib", "features", f.name, "domain", "usecases");
+    if (fs.existsSync(useCaseDir)) {
+      for (const e of fs.readdirSync(useCaseDir)) {
+        if (e.endsWith(".dart")) existingUseCases.set(e, fs.readFileSync(path.join(useCaseDir, e), "utf8"));
+      }
+    }
+  }
+  const conflicts: RegionConflict[] = [];
+  const nextHashes: Record<string, string> = {};
+
+  fs.rmSync(path.join(outDir, "lib"), { recursive: true, force: true }); // clean stale output
+  fs.mkdirSync(coreDir, { recursive: true });
+
+  bundleFonts(outDir);
+
+  const files: string[] = [];
+  for (const f of app.features) {
+    const featureRoot = path.join(outDir, "lib", "features", f.name);
+    const result = writeFeatureArtifacts(f, ctx, arch, featureRoot, outDir, ajv, validators, check, existingUseCases, lastKnownHashes, conflicts, nextHashes, `feature:${f.name}:`);
+    files.push(...result.files);
+    planEntries.push(...result.planEntries);
+  }
+
+  // lib/core/ once, shared across all features — di.ts/route.ts see the merged repos/usecases/
+  // states/screens, the rest (theme/components/localization/...) ignore feature content entirely.
+  const coreResult = writeCore(merged, ctx, arch, coreDir, outDir);
+  files.push(...coreResult.files);
+  planEntries.push(...coreResult.planEntries);
+
+  const barrelFile = path.join(outDir, "lib", "generated.dart");
+  fs.writeFileSync(barrelFile, generateBarrel(merged, ctx));
+  const mainFile = path.join(outDir, "lib", "main.dart");
+  fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement));
+  fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(merged, arch));
+  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
+  const testDir = path.join(outDir, "test");
+  // flow/crud-flow tests are scoped to the first feature only (same "feature[0] is the app's
+  // testable identity" convention initialLocation/generateMain/generateGoldenTest already use) —
+  // `name` overridden to the app's own pkg name since generateFlowTest/generateCrudFlowTest derive
+  // their `package:...` imports from `feature.name` internally.
+  const flowTestScope: FeatureModel = { ...app.features[0]!, name: app.name };
+  const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope);
   files.push(...testsResult.files);
   planEntries.push(...testsResult.planEntries);
   planEntries.push(
@@ -499,7 +685,7 @@ function main() {
     throw new Error(`[pipeline] IR missing schemaVersion (DESIGN §2.1) at ${irPath}`);
   }
 
-  const result = generateApp(raw as FeatureModel, outDir, raw.schemaVersion, oracleDirFor(irPath));
+  const result = generateApp(raw as FeatureModel | AppModel, outDir, raw.schemaVersion, oracleDirFor(irPath));
   console.log(`[context] generator=1.0.0 irVersion=${raw.schemaVersion}`);
   result.scoring.forEach((s) => console.log(`[scoring] ${s}`));
   console.log(`Generated ${result.fileCount} file(s) → ${outDir}`);

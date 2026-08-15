@@ -1,7 +1,7 @@
 // Repository-operation classification — shared, deterministic, dependency-free (types.ts only).
 // Single source of truth for "what CRUD kind is this operation" so scoring.ts (persistence
 // selection) and repository_impl.ts (CRUD codegen) never drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field } from "./types";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
 export function listEntityName(repo: RepositoryModel | undefined): string | null {
@@ -110,4 +110,23 @@ export function isMoneyField(f: { semanticType?: string }): boolean {
 // core/money.dart value object (index.ts/symbols.ts) so apps with no money never carry a dead file.
 export function hasMoneyFields(ir: FeatureModel): boolean {
   return (ir.entities ?? []).some((e) => e.fields.some(isMoneyField));
+}
+
+// §5.2-F1/L1b: the entity fields crud_form.ts renders as editable inputs — excludes the identity
+// field (generated on create, immutable on edit); only primitive-shaped types get a widget
+// (reference/List are carried forward, not edited — see crud_form.ts's own doc comment). Shared
+// with test.ts's generateCrudFlowTest so both agree on field order without drifting.
+const CRUD_EDITABLE_TYPES = new Set(["String", "int", "double", "bool", "DateTime", "enum"]);
+export function crudEditableFields(entity: EntityModel, identityField: string): Field[] {
+  return entity.fields.filter((f) => f.name !== identityField && CRUD_EDITABLE_TYPES.has(f.type));
+}
+
+// Of the editable fields, the first one crud_form.ts renders as a `TextField` (String/int/
+// double/Money/DateTime) — bool renders as a Checkbox, enum as a Dropdown, so a widget test's
+// `find.byType(TextField).first` skips over those. L1b: test.ts needs this to know whether that
+// first TextField is money-typed (decimal text -> minor units), since typing a plain string into
+// it would silently produce `Money(minorUnits: 0, ...)` instead of the intended amount.
+const CRUD_TEXT_FIELD_TYPES = new Set(["String", "int", "double", "DateTime"]);
+export function firstCrudTextField(entity: EntityModel, identityField: string): Field | undefined {
+  return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type));
 }

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1",
+  "name": "moneycrud",
+  "entities": [
+    {
+      "name": "LineItem",
+      "identity": { "field": "id" },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "amount", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "SAR" },
+        { "name": "title", "type": "String", "required": true, "nullable": false }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "LineItemRepository",
+      "operations": [
+        { "name": "listLineItems", "returns": "Future<List<LineItem>>", "params": [] },
+        { "name": "createLineItem", "returns": "Future<LineItem>", "params": [{ "name": "item", "type": "LineItem", "named": false }] },
+        { "name": "updateLineItem", "returns": "Future<void>", "params": [{ "name": "item", "type": "LineItem", "named": false }] },
+        { "name": "deleteLineItem", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
+    }
+  ],
+  "states": [
+    { "name": "LineItemList", "entity": "LineItem" }
+  ],
+  "screens": [
+    { "name": "LineItemListScreen", "entity": "LineItem", "type": "list", "state": "LineItemList" },
+    { "name": "LineItemDetailScreen", "entity": "LineItem", "type": "detail", "state": "LineItemList" }
+  ],
+  "useCases": [
+    { "name": "ListLineItems", "repository": "LineItemRepository", "operation": "listLineItems", "paramType": "NoParams", "returnType": "List<LineItem>" },
+    { "name": "CreateLineItem", "repository": "LineItemRepository", "operation": "createLineItem", "paramType": "LineItem", "returnType": "LineItem" },
+    { "name": "UpdateLineItem", "repository": "LineItemRepository", "operation": "updateLineItem", "paramType": "LineItem", "returnType": "void" },
+    { "name": "DeleteLineItem", "repository": "LineItemRepository", "operation": "deleteLineItem", "paramType": "String", "returnType": "void" }
+  ]
+}

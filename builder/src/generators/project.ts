@@ -163,14 +163,18 @@ class ReplicaApp extends StatelessWidget {
 `;
 }
 
-// MF1: main.dart for an app spanning multiple features. Each feature's FIRST screen gets a
-// route (route.ts, unchanged, already merges all features' screens); this only needs to make
-// each of those screens' Cubit available app-wide. For bloc that's a MultiBlocProvider with one
-// entry per feature (mirrors generateMain's single BlocProvider, just N of them); for riverpod
-// no extra wiring is needed at all — providers self-register on first `ref.watch`, so the body is
-// identical to generateMain's riverpod branch regardless of feature count.
+// MF1: main.dart for an app spanning multiple features. Every feature's screens get routes
+// (route.ts, unchanged, already merges all features' screens); this must make EVERY one of those
+// screens' Cubits available app-wide, not just each feature's first screen — RCA-003 found the
+// single-feature equivalent of this exact bug (generateMain wrapping only screens[0]; a second
+// list/detail route in the same feature crashed with ProviderNotFoundException). A feature with
+// more than one screen state is just as possible across features as within one, so the fix is the
+// same: derive the state set from ALL screens of ALL features. For bloc that's a MultiBlocProvider
+// with one entry per distinct state; for riverpod no extra wiring is needed at all — providers
+// self-register on first `ref.watch`, so the body is identical to generateMain's riverpod branch
+// regardless of feature or screen count.
 export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc"): string {
-  const primaryStates = Array.from(new Set(features.map((f) => f.screens?.[0]?.state).filter((s): s is string => !!s)));
+  const distinctStates = Array.from(new Set(features.flatMap((f) => (f.screens ?? []).map((s) => s.state))));
 
   const buildReturn = sm === "riverpod"
     ? `    return ProviderScope(
@@ -182,7 +186,7 @@ export function generateMultiMain(features: FeatureModel[], sm: StateManagementP
     );`
     : `    return MultiBlocProvider(
       providers: [
-${primaryStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<${s}Cubit>()..load()),`).join("\n")}
+${distinctStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<${s}Cubit>()..load()),`).join("\n")}
       ],
       child: MaterialApp.router(
         title: 'Generated app',
