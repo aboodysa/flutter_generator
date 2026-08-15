@@ -1,7 +1,9 @@
-// Repository-operation classification — shared, deterministic, dependency-free (types.ts only).
-// Single source of truth for "what CRUD kind is this operation" so scoring.ts (persistence
-// selection) and repository_impl.ts (CRUD codegen) never drift on the same heuristic.
+// Repository-operation classification — shared, deterministic, depends only on types.ts and
+// naming.ts (both dependency-free themselves). Single source of truth for "what CRUD kind is this
+// operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
+// drift on the same heuristic.
 import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field } from "./types";
+import { capitalize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
 export function listEntityName(repo: RepositoryModel | undefined): string | null {
@@ -129,4 +131,40 @@ export function crudEditableFields(entity: EntityModel, identityField: string): 
 const CRUD_TEXT_FIELD_TYPES = new Set(["String", "int", "double", "DateTime"]);
 export function firstCrudTextField(entity: EntityModel, identityField: string): Field | undefined {
   return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type));
+}
+
+// UIX Slice C: deterministic field-role inference — the single source of truth every layout
+// generator (screen.ts today; crud_form.ts/future widgets later) consults instead of re-deriving
+// its own "what kind of field is this" heuristic. Rejects a client-side FieldPresentation schema
+// (see design/flutter-app-builder/UIX_ENHANCEMENTS.md) in favor of inferring from field names +
+// semanticType — 0% LLM, no new IR config surface, same input always yields the same role.
+export type FieldRole = "title" | "description" | "identifier" | "date" | "status" | "priority" | "money" | "relation" | "plain";
+
+const TITLE_FIELD_NAMES = ["title", "name", "merchant", "label", "subject"];
+const DESCRIPTION_FIELD_NAMES = ["description", "notes", "details"];
+
+export interface FieldRoleContext {
+  identityField?: string; // this entity's own identity field name (usually "id")
+  entityNames?: string[]; // every entity name known to the IR, for FK ("relation") detection
+}
+
+// Checked in a fixed priority order so a field only ever matches ONE role even when it could
+// structurally satisfy more than one heuristic (e.g. an identity field named "title" is still
+// "identifier" first — structural facts about the entity outrank name-based guesses).
+export function fieldRole(field: Field, ctx: FieldRoleContext = {}): FieldRole {
+  if (ctx.identityField && field.name === ctx.identityField) return "identifier";
+  if (isMoneyField(field)) return "money";
+  if (field.type === "enum" && field.name === "status") return "status";
+  if (field.type === "enum" && field.name === "priority") return "priority";
+  if (field.type === "DateTime") return "date";
+  if (TITLE_FIELD_NAMES.includes(field.name)) return "title";
+  if (field.type === "String" && DESCRIPTION_FIELD_NAMES.includes(field.name)) return "description";
+  // A `<lowerEntityName>Id` field is a foreign key only when that entity actually exists in this
+  // IR — a field that merely LOOKS like an FK (no matching entity) falls through to "plain"
+  // instead of silently misrendering as a relation with nothing to link to.
+  if (field.name.endsWith("Id") && field.name !== "id") {
+    const target = capitalize(field.name.slice(0, -2));
+    if (ctx.entityNames?.includes(target)) return "relation";
+  }
+  return "plain";
 }

@@ -117,6 +117,33 @@ export const COMPONENT_REGISTRY: ComponentDef[] = [
     responsive: false,
     examples: ["AppListCard(card: true, title: Text(item.name), trailing: const Icon(Icons.chevron_right))"],
   },
+  {
+    name: "AppChip",
+    tier: "atom",
+    purpose: "UIX Slice C: a small colored label for a role-inferred status/priority enum value — "
+      + "replaces a bare Text(value.name) with a tone-colored pill so state is scannable at a glance.",
+    inputs: ["label", "tone"],
+    variants: ["neutral", "info", "warning", "danger", "success"],
+    states: [],
+    tokens: ["AppColors.info", "AppColors.warning", "AppColors.danger", "AppColors.success", "AppSpacing.sm", "AppRadius.control"],
+    semanticContract: { role: "text", accessibleName: "{source: label}", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppChip(label: item.status.name, tone: AppChip.toneForStatus(item.status.name))"],
+  },
+  {
+    name: "AppStatusDot",
+    tier: "atom",
+    purpose: "UIX Slice C: a small tone-colored dot — replaces the generic initial-letter AppAvatar "
+      + "as a list row's leading glyph when the entity has a status/priority field (a color-coded "
+      + "state is more meaningful than an arbitrary initial).",
+    inputs: ["tone", "semanticLabel?"],
+    variants: ["neutral", "info", "warning", "danger", "success"],
+    states: [],
+    tokens: ["AppColors.info", "AppColors.warning", "AppColors.danger", "AppColors.success"],
+    semanticContract: { role: "image", accessibleName: "{source: semanticLabel}", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppStatusDot(tone: AppChip.toneForStatus(item.status.name), semanticLabel: item.status.name)"],
+  },
 ];
 
 /**
@@ -129,6 +156,7 @@ export function generateComponents(_f: FeatureModel): string {
 // Do not hand-edit this file; regenerate from IR.
 // Component registry (DESIGN §8): Tokens → Atoms → Molecules.
 import 'package:flutter/material.dart';
+import 'theme.dart';
 
 abstract final class AppTokens {
   static const spacing = 16.0;
@@ -223,6 +251,76 @@ class AppListCard extends StatelessWidget {
       onTap: onTap,
     );
     return card ? Card(child: tile) : tile;
+  }
+}
+
+// UIX Slice C: tone vocabulary shared by AppChip and AppStatusDot — a role-inferred status/
+// priority value maps to one of these, never a raw hex color chosen ad hoc per screen.
+enum AppChipTone { neutral, info, warning, danger, success }
+
+Color _appChipToneColor(BuildContext context, AppChipTone tone) => switch (tone) {
+  AppChipTone.info => AppColors.info,
+  AppChipTone.warning => AppColors.warning,
+  AppChipTone.danger => AppColors.danger,
+  AppChipTone.success => AppColors.success,
+  AppChipTone.neutral => Theme.of(context).colorScheme.outline,
+};
+
+/// semanticContract: { role: text, accessibleName: {source: label}, states: [] }
+class AppChip extends StatelessWidget {
+  const AppChip({super.key, required this.label, this.tone = AppChipTone.neutral});
+  final String label;
+  final AppChipTone tone;
+
+  // Deterministic, vocabulary-based (not per-app config): recognizes the common status/priority
+  // words apps actually use ("open", "in progress", "done", "high priority", ...) and falls back
+  // to a neutral/info tone for anything unrecognized, so an unfamiliar enum value never crashes —
+  // it just renders undecorated instead of mis-colored.
+  static AppChipTone toneForStatus(String value) {
+    final v = value.toLowerCase();
+    if (v.contains('done') || v.contains('closed') || v.contains('approved') || v.contains('complete')) return AppChipTone.success;
+    if (v.contains('reject') || v.contains('fail') || v.contains('cancel') || v.contains('block')) return AppChipTone.danger;
+    if (v.contains('progress') || v.contains('pending') || v.contains('review')) return AppChipTone.warning;
+    return AppChipTone.info;
+  }
+
+  static AppChipTone toneForPriority(String value) {
+    final v = value.toLowerCase();
+    if (v.contains('high') || v.contains('urgent') || v.contains('critical')) return AppChipTone.danger;
+    if (v.contains('medium') || v.contains('moderate')) return AppChipTone.warning;
+    return AppChipTone.neutral;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _appChipToneColor(context, tone);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.control)),
+      ),
+      child: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color)),
+    );
+  }
+}
+
+/// semanticContract: { role: image, accessibleName: {source: semanticLabel}, states: [] }
+class AppStatusDot extends StatelessWidget {
+  const AppStatusDot({super.key, required this.tone, this.semanticLabel});
+  final AppChipTone tone;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: semanticLabel,
+      child: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: _appChipToneColor(context, tone), shape: BoxShape.circle),
+      ),
+    );
   }
 }
 `;

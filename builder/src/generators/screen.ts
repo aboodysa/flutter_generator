@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -42,6 +42,25 @@ function pickTitle(entity: EntityModel): Field | undefined {
   if (idField) return idField;
   const str = entity.fields.find((x) => x.type === "String");
   return str ?? entity.fields[0];
+}
+
+// UIX Slice C: the FieldRoleContext (identity field + every known entity name, for "relation"/FK
+// detection) is the same for every field of a given entity — computed once per screen instead of
+// re-deriving it per field.
+function roleContextFor(entity: EntityModel, ctx?: GenContext): FieldRoleContext {
+  return {
+    identityField: entity.identity?.field ?? "id",
+    entityNames: ((ctx?.ir?.entities ?? []) as Array<{ name: string }>).map((e) => e.name),
+  };
+}
+
+// A status/priority enum field rendered as a tone-colored AppChip/AppStatusDot — both the detail
+// chip row and the list-row leading glyph consume the same value+tone expression (fieldValue()
+// already handles a nullable enum's `?.name ?? '—'` fallback, so the chip never crashes on null,
+// it just renders the neutral/info default tone for that fallback text).
+function chipToneExpr(field: Field, toneFn: "toneForStatus" | "toneForPriority"): { value: string; tone: string } {
+  const value = fieldValue(field, "item");
+  return { value, tone: `AppChip.${toneFn}(${value})` };
 }
 
 // Hero = IR-declared literal headline (focal point). Field-based heroes are a later extension.
@@ -181,22 +200,54 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
-      // UIX Slice B: the identity field is de-emphasized — rendered LAST in a muted "Additional
-      // details" row, never first with equal weight (users scan title/status/date, not the id).
+      // UIX Slice C: role-aware layout — every field is rendered by its INFERRED ROLE (title,
+      // description, status/priority, date, money, plain, identifier), not the same uniform
+      // AppListCard for everything (design/flutter-app-builder/UIX_ENHANCEMENTS.md). Fixed render
+      // order: heading → status/priority chips → date → description → money → plain → id (last,
+      // muted — UIX Slice B, unchanged). `relation` (FK) fields are never rendered as raw text —
+      // the parent→children nav rows below already surface that relationship.
       const identityFieldName = entity.identity?.field ?? "id";
-      const rows = entity.fields
-        .filter((f) => f.name !== identityFieldName)
-        .map((f) => {
-          const label = fieldLabel(f.name);
-          return `AppListCard(card: ${cardSurface}, title: Text('${label}'), trailing: Text(${fieldValue(f, "item")})),`;
-        });
+      const roleCtx = roleContextFor(entity, ctx);
+      const byRole = (role: FieldRole) => entity.fields.filter((f) => fieldRole(f, roleCtx) === role);
+
+      const titleField = byRole("title")[0];
+      const statusField = byRole("status")[0];
+      const priorityField = byRole("priority")[0];
+
+      const blocks: string[] = [];
+      if (titleField) {
+        blocks.push(`Text(${fieldValue(titleField, "item")}, style: Theme.of(context).textTheme.headlineMedium)`);
+      }
+      if (statusField || priorityField) {
+        const chips = [
+          statusField ? chipToneExpr(statusField, "toneForStatus") : null,
+          priorityField ? chipToneExpr(priorityField, "toneForPriority") : null,
+        ].filter((c): c is { value: string; tone: string } => !!c);
+        const chipWidgets = chips.map((c) => `AppChip(label: ${c.value}, tone: ${c.tone})`);
+        const chipRow = chipWidgets.join(",\n                const SizedBox(width: AppSpacing.sm),\n                ");
+        blocks.push(`Row(children: [\n                ${chipRow},\n              ])`);
+      }
+      for (const f of byRole("date")) {
+        blocks.push(`Row(children: [\n                const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),\n                const SizedBox(width: AppSpacing.xs),\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                const SizedBox(width: AppSpacing.xs),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium),\n              ])`);
+      }
+      for (const f of byRole("description")) {
+        blocks.push(`Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium)`);
+      }
+      for (const f of byRole("money")) {
+        blocks.push(`Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.labelMedium),\n              ])`);
+      }
+      for (const f of byRole("plain")) {
+        blocks.push(`Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium),\n              ])`);
+      }
+      // UIX Slice B (preserved): the identity field is de-emphasized — rendered LAST in a muted
+      // row, never first with equal weight (users scan title/status/date, not the id).
+      if (entity.fields.some((f) => f.name === identityFieldName)) {
+        blocks.push(`AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall))`);
+      }
       // itemGap (registry rhythm field) separates rows via a SizedBox, not a hardcoded constant.
-      const rowsBlock = rows
-        .map((r, i) => (i === 0 ? `              ${r}` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${r}`))
+      const rowsBlock = blocks
+        .map((b, i) => (i === 0 ? `              ${b},` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${b},`))
         .join("\n");
-      const idRow = entity.fields.some((f) => f.name === identityFieldName)
-        ? `\n              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall)),`
-        : "";
       // Parent→children navigation rows (general capability): one per child entity carrying
       // `camelize(parent)+"Id"` (e.g. FollowUp.taskId under a Task detail). Links to the child's
       // list with `?<fk>=<id>`; the child list screen filters on that query param (listFilterExpr).
@@ -211,7 +262,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 ${heroBlock}
-${rowsBlock}${idRow}${childRows}
+${rowsBlock}${childRows}
               ],
             );`;
     } else {
@@ -344,6 +395,18 @@ ${contentCases}
     // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
     // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
     const listFilter = listFilterExpr(entity, collection);
+    // UIX Slice C: a status/priority-colored dot is more meaningful than a generic initial-letter
+    // avatar — replaces AppAvatar when the entity has either role (status wins if it has both,
+    // since "is this done" is the row's primary at-a-glance fact); AppAvatar is the fallback for
+    // every other entity, unchanged.
+    const roleCtx = entity ? roleContextFor(entity, ctx) : undefined;
+    const statusField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "status") : undefined;
+    const priorityField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "priority") : undefined;
+    const leadingWidget = statusField
+      ? (() => { const c = chipToneExpr(statusField, "toneForStatus"); return `AppStatusDot(tone: ${c.tone}, semanticLabel: ${c.value})`; })()
+      : priorityField
+        ? (() => { const c = chipToneExpr(priorityField, "toneForPriority"); return `AppStatusDot(tone: ${c.tone}, semanticLabel: ${c.value})`; })()
+        : `AppAvatar(label: ${titleExpr})`;
     body = `${listFilter}            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -359,7 +422,7 @@ ${heroBlock}
                         child: AppListCard(
                           key: ValueKey(item.${identity}),
                           card: ${cardSurface},
-                          leading: AppAvatar(label: ${titleExpr}),
+                          leading: ${leadingWidget},
                           title: Text(${titleExpr}),
                           subtitle: Text(${subtitleExpr}),
                           trailing: ${trailingWidget},
