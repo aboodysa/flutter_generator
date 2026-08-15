@@ -63,7 +63,13 @@ function readExpr(f: Field, override: ModelModel | undefined): string {
     case "DateTime":
       return isNull ? `(${raw} as String?) != null ? DateTime.parse(${raw} as String) : null` : `DateTime.parse(${raw} as String)`;
     case "enum":
-      return `${f.of || capitalize(f.name)}.values.byName(${raw} as String)`;
+      // Bug (found by IR audit, rasheed.ir.json's nullable paymentMethod): every other case here
+      // guards on isNull before casting — this one didn't, so a nullable enum field with no value
+      // in the JSON threw "type 'Null' is not a subtype of type 'String'" instead of yielding null.
+      // persistence.ts's hiveReadExpr has always guarded its own enum case the same way.
+      return isNull
+        ? `(${raw} as String?) != null ? ${f.of || capitalize(f.name)}.values.byName(${raw} as String) : null`
+        : `${f.of || capitalize(f.name)}.values.byName(${raw} as String)`;
     case "reference":
       return isNull
         ? `(${raw}) != null ? ${f.of}Model.fromJson(${raw} as Map<String, dynamic>) : null`

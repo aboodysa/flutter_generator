@@ -24,5 +24,29 @@
         { "outcome": "upcoming", "conditions": [ { "field": "startDate", "operator": "daysSince<", "value": "0" } ] }
       ]
     }
+  ],
+  "repositories": [
+    {
+      "name": "PromotionRepository",
+      "operations": [
+        { "name": "listPromotions", "returns": "Future<List<Promotion>>", "params": [] },
+        { "name": "createPromotion", "returns": "Future<Promotion>", "params": [{ "name": "promotion", "type": "Promotion", "named": false }] },
+        { "name": "updatePromotion", "returns": "Future<void>", "params": [{ "name": "promotion", "type": "Promotion", "named": false }] },
+        { "name": "deletePromotion", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
+    }
+  ],
+  "states": [
+    { "name": "PromotionList", "entity": "Promotion" }
+  ],
+  "screens": [
+    { "name": "PromotionListScreen", "entity": "Promotion", "type": "list", "state": "PromotionList" },
+    { "name": "PromotionDetailScreen", "entity": "Promotion", "type": "detail", "state": "PromotionList" }
+  ],
+  "useCases": [
+    { "name": "ListPromotions", "repository": "PromotionRepository", "operation": "listPromotions", "paramType": "NoParams", "returnType": "List<Promotion>" },
+    { "name": "CreatePromotion", "repository": "PromotionRepository", "operation": "createPromotion", "paramType": "Promotion", "returnType": "Promotion" },
+    { "name": "UpdatePromotion", "repository": "PromotionRepository", "operation": "updatePromotion", "paramType": "Promotion", "returnType": "void" },
+    { "name": "DeletePromotion", "repository": "PromotionRepository", "operation": "deletePromotion", "paramType": "String", "returnType": "void" }
   ]
 }

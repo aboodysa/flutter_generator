@@ -107,8 +107,9 @@
         },
         {
           "name": "paymentMethod",
-          "type": "String",
-          "nullable": true
+          "type": "enum",
+          "nullable": true,
+          "of": "PaymentMethod"
         },
         {
           "name": "paymentMethodMap",

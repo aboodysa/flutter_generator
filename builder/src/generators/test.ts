@@ -3,6 +3,7 @@ import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassFiel
 import { kebab, collectionField, camelize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
+import { nullable } from "../nullability";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -47,9 +48,18 @@ void main() {
     }
   };
 
+  // Every optional-and-nullable field gets an explicit `null` entry — not just omitted from the
+  // JSON — so the round-trip test deliberately exercises each field type's null-handling path in
+  // Model.fromJson (caught a real bug: the enum case in model.ts's readExpr didn't null-check,
+  // unlike every other type, so a nullable enum field crashed instead of yielding null).
   const jsonEntries = entity.fields
     .filter((f) => f.required)
     .map((f) => `        '${f.name}': ${jsonSample(f)},`)
+    .concat(
+      entity.fields
+        .filter((f) => !f.required && nullable(f))
+        .map((f) => `        '${f.name}': null,`)
+    )
     .join("\n");
 
   const dartSample = (f: Field): string => {
