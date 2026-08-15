@@ -2,6 +2,7 @@ import { FeatureModel, Field, StateManagementProvider } from "../types";
 import { crudFormTargets, isMoneyField, firstCrudTextField, firstAutofocusableField, findRepoForEntity } from "../operations";
 import { kebab, collectionField, camelize } from "../naming";
 import { variantSampleArgs } from "../sampling";
+import { childLinks } from "./screen";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -483,6 +484,96 @@ ${cases.map((c) => c.decl).join("\n\n")}
 
 void main() {
 ${cases.map((c) => c.test).join("\n\n")}
+}
+`;
+}
+
+/**
+ * BackTestGenerator — structural, deterministic, 0% LLM (G3 regression guard).
+ * Every navigation that ARRIVES at a detail/edit/create screen or a parent-linked child list now
+ * uses `context.push` (screen.ts), which is what gives go_router's AppBar its automatic back
+ * chevron — see G3's `context.push` change. This test proves the resulting back stack actually
+ * works, for two shapes:
+ *   (1) a list→detail pair: push the entity's own list, then its detail (the SAME two-hop shape a
+ *       real row tap produces), tap the back button, assert the list screen reappears.
+ *   (2) a parent→child-list pair (childLinks — the same FK convention screen.ts's own
+ *       parent→children nav rows use): push the parent's detail, then the child's list, tap back,
+ *       assert the parent's detail reappears.
+ * `appRouter.push(...)` drives navigation directly (not tapping through the real UI) — the exact
+ * same reasoning as generateFocusTest: it works uniformly regardless of which entity is the app's
+ * home screen, instead of assuming a specific navigation-graph topology. The detail screen's own
+ * `orElse: () => state.<collection>.first` fallback (screen.ts) means a made-up id ('x') still
+ * renders real seeded data, so no real record id is needed here.
+ */
+export function generateBackTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+
+  const cases: string[] = [];
+  const screens = feature.screens ?? [];
+
+  // (1) detail screens: push list -> push detail -> back -> list screen reappears.
+  for (const s of screens) {
+    if (s.type !== "detail") continue;
+    const listScreen = screens.find((ls) => ls.entity === s.entity && ls.type === "list");
+    if (!listScreen) continue;
+    cases.push(`  testWidgets('${s.entity}: detail screen back button returns to the list', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.push('/${kebab(s.entity)}');
+    await tester.pumpAndSettle();
+    appRouter.push('/${kebab(s.entity)}/x');
+    await tester.pumpAndSettle();
+    expect(find.byType(${s.name}), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(${listScreen.name}), findsOneWidget);
+  });`);
+  }
+
+  // (2) child list reached via a parent's detail link: push parent detail -> push child list ->
+  // back -> parent detail reappears.
+  for (const entity of feature.entities) {
+    const parentDetail = screens.find((s) => s.entity === entity.name && s.type === "detail");
+    if (!parentDetail) continue;
+    for (const c of childLinks(entity.name, feature.entities)) {
+      const childListScreen = screens.find((s) => s.entity === c.child && s.type === "list");
+      if (!childListScreen) continue;
+      cases.push(`  testWidgets('${c.child}: child list (via ${entity.name}) back button returns to parent detail', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.push('/${kebab(entity.name)}/x');
+    await tester.pumpAndSettle();
+    expect(find.byType(${parentDetail.name}), findsOneWidget);
+    appRouter.push('/${kebab(c.child)}?${c.fkField}=x');
+    await tester.pumpAndSettle();
+    expect(find.byType(${childListScreen.name}), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(${parentDetail.name}), findsOneWidget);
+  });`);
+    }
+  }
+
+  if (!cases.length) return null;
+
+  // Each case independently boots the real app (setupDependencies() registers everything in
+  // get_it's global singleton) — same reset needed as generateFocusTest whenever this file has
+  // more than one case.
+  const getItReset = sm === "bloc" ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
+
+  return `// [generated] generator=BackTestGenerator template=back_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/generated.dart';
+${diImport}
+void main() {
+${getItReset}${cases.join("\n\n")}
 }
 `;
 }

@@ -74,7 +74,7 @@ function heroExpr(s: ScreenModel): string | null {
 // `FollowUp.taskId` → Task. The child's list screen (see listFilterExpr) then reads the matching
 // `?<fk>=<id>` query param and filters to that parent's children only. Works for any app type
 // (tasks→follow-ups, projects→tickets, tenants→members, …), no per-app logic in the generator.
-function childLinks(entityName: string, entities: Array<{ name: string; fields?: Field[] }>): Array<{ child: string; fkField: string }> {
+export function childLinks(entityName: string, entities: Array<{ name: string; fields?: Field[] }>): Array<{ child: string; fkField: string }> {
   const me = camelize(entityName);
   return entities
     .filter((e) => e.name !== entityName)
@@ -270,7 +270,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       const allEntities = (ctx?.ir?.entities ?? []) as Array<{ name: string; fields?: Field[] }>;
       const children = childLinks(s.entity, allEntities);
       const childRows = children.length
-        ? "\n" + children.map((c) => `              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go('/${kebab(c.child)}?${c.fkField}=\${id}')),`).join("\n")
+        ? "\n" + children.map((c) => `              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')),`).join("\n")
         : "";
       body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
             final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
@@ -406,6 +406,11 @@ ${contentCases}
     // navigates straight to the edit form and a trailing delete icon replaces the chevron —
     // there's nowhere else for those affordances to live without a detail screen.
     const onTapTarget = !hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`;
+    // G3: `push` (not `go`) so the detail/edit screen this row leads to gets a real back stack
+    // entry — go_router renders the AppBar's back chevron automatically once Navigator.canPop is
+    // true, no explicit `leading:` needed. `go` REPLACES the current entry, which is why the
+    // owner's report ("no back affordance" + "browser back behaves oddly") traced to every arrival
+    // navigation in this file using `go`.
     const trailingWidget = !hasDetailScreen && canDelete
       ? `IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
       : `const Icon(Icons.chevron_right)`;
@@ -455,7 +460,7 @@ ${heroBlock}
                               title: Text(${titleExpr}),
                               subtitle: Text(${subtitleExpr}),
                               trailing: ${trailingWidget},
-                              onTap: () => context.go('${onTapTarget}'),
+                              onTap: () => context.push('${onTapTarget}'),
                             ),
                           );
                         },
@@ -490,7 +495,7 @@ ${heroBlock}
   // drivers (research/cdp_flow_test.json) to locate them by aria-label, not just a11y hygiene.
   const appBarActions = comp.layout === "detail" && (canEditCreate || canDelete)
     ? `,\n      actions: [\n` +
-      (canEditCreate ? `        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('${formPath}/\${id}/edit')),\n` : "") +
+      (canEditCreate ? `        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('${formPath}/\${id}/edit')),\n` : "") +
       (canDelete ? `        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
       `      ]`
     : "";
@@ -500,8 +505,8 @@ ${heroBlock}
   // create form — otherwise "New FollowUp" from a filtered list loses which parent it belongs to,
   // and crud_form.ts's own query-param prefill (below) never gets an id to prefill with.
   const fabOnPressed = childFk
-    ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.go(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
-    : `() => context.go('${formPath}/new')`;
+    ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.push(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
+    : `() => context.push('${formPath}/new')`;
   const fab = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate
     ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'New ${s.entity}',\n        onPressed: ${fabOnPressed},\n        child: const Icon(Icons.add),\n      )`
     : "";
