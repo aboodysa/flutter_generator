@@ -143,12 +143,14 @@ ${fontLoader}
       child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`
     : `    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
-      create: (_) => ${screen.state}Cubit()..load(),
+      create: (_) => sl<${screen.state}Cubit>()..load(),
       child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
     ));`;
   const libImport = sm === "riverpod"
     ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
     : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+  const diImport = sm === "riverpod" ? "" : `import 'package:${pkg}/core/di.dart';`;
+  const setupDi = sm === "riverpod" ? "" : `    setupDependencies();`;
 
   // iPhone-size viewport so goldens reflect a real phone screen, not the 800×600 test default.
   const surface = `    tester.view.physicalSize = const Size(390, 844);
@@ -160,7 +162,7 @@ ${fontLoader}
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 ${libImport}
-import 'package:${pkg}/generated.dart';
+${diImport}import 'package:${pkg}/generated.dart';
 import 'package:${pkg}/core/theme.dart';
 import 'package:flutter/material.dart';
 
@@ -168,6 +170,7 @@ void main() {
 ${fontLoader}
 
   testWidgets('${screen.name} renders (golden)', (tester) async {
+${setupDi}
 ${surface}
 ${pumpWidget}
     await tester.pumpAndSettle();
@@ -197,11 +200,13 @@ export function generateFlowTest(feature: FeatureModel): string {
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/di.dart';
 import 'package:flutter/material.dart';
 ${generatedImport}
 
 void main() {
   testWidgets('app boots and navigates', (tester) async {
+    setupDependencies();
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     expect(find.byType(Scaffold), findsWidgets);

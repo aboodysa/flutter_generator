@@ -26,6 +26,11 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   for (const u of ir.useCases ?? []) add(u.name, "domain/usecases", fileName(u.name));
   for (const d of ir.datasources ?? []) add(d.name, "data/datasources", fileName(d.name));
   for (const ri of ir.repositoryImpls ?? []) add(ri.name, "data/repositories", fileName(ri.name));
+  for (const repo of ir.repositories ?? []) {
+    if (!(ir.repositoryImpls ?? []).some((ri) => ri.contract === repo.name)) {
+      add(`${repo.name}InMemoryImpl`, "data/repositories", fileName(`${repo.name}InMemoryImpl`));
+    }
+  }
   for (const s of ir.states ?? []) add(s.name, "presentation/state", fileName(s.name));
   for (const sc of ir.screens ?? []) add(sc.name, "presentation/screens", fileName(sc.name));
   for (const sm of ir.stateMachines ?? []) add(`${sm.name}StateMachine`, "domain/state_machines", fileName(`${sm.name}StateMachine`));

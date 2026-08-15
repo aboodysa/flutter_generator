@@ -15,7 +15,7 @@ import { generateQuery } from "./generators/query";
 import { generateWrapper } from "./generators/wrapper";
 import { generateUseCase } from "./generators/usecase";
 import { generateDatasource } from "./generators/datasource";
-import { generateRepositoryImpl } from "./generators/repository_impl";
+import { generateRepositoryImpl, generateInMemoryRepository } from "./generators/repository_impl";
 import { generateScreen } from "./generators/screen";
 import { generateStateMachine } from "./generators/state_machine";
 import { generateForm } from "./generators/form";
@@ -201,6 +201,28 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
       file: path.relative(outDir, f),
       strategy: "default",
       dependsOn: [`entity:${entity.name}`],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+
+  // In-memory repository impls for contracts with no declared impl (deterministic demo data).
+  for (const repo of ir.repositories ?? []) {
+    const declared = (ir.repositoryImpls ?? []).some((ri) => ri.contract === repo.name);
+    if (declared) continue;
+    const dir = path.join(featureRoot, "data", "repositories");
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, fileName(`${repo.name}InMemoryImpl`));
+    fs.writeFileSync(f, generateInMemoryRepository(repo, ctx));
+    files.push(f);
+    planEntries.push({
+      artifact: `repository_impl:${repo.name}InMemoryImpl`,
+      generator: "RepositoryImplGenerator",
+      schema: "repository_impl",
+      layer: "data/repositories",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`repository:${repo.name}`],
       mode: "deterministic",
       class: "structural",
     });

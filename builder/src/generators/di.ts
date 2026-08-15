@@ -22,22 +22,35 @@ void setupDependencies() {}
   for (const d of feature.datasources ?? []) {
     lines.push(`  sl.registerLazySingleton<${d.name}>(() => ${d.name}(sl<Dio>()));`);
   }
-  for (const ri of feature.repositoryImpls ?? []) {
-    lines.push(`  sl.registerLazySingleton<${ri.contract}>(() => ${ri.name}(sl<${ri.datasource}>()));`);
+  // Repository impls: declared impl, else an auto-generated in-memory impl (demo data).
+  for (const repo of feature.repositories ?? []) {
+    const declared = (feature.repositoryImpls ?? []).find((ri) => ri.contract === repo.name);
+    const impl = declared ? declared.name : `${repo.name}InMemoryImpl`;
+    lines.push(`  sl.registerLazySingleton<${repo.name}>(() => ${impl}());`);
   }
   for (const u of feature.useCases ?? []) {
     lines.push(`  sl.registerLazySingleton<${u.name}>(() => ${u.name}(sl<${u.repository}>()));`);
   }
   for (const s of feature.states ?? []) {
-    lines.push(`  sl.registerFactory<${s.name}Cubit>(() => ${s.name}Cubit());`);
+    const uc = (feature.useCases ?? []).find((u) => u.returnType === `List<${s.entity}>`);
+    lines.push(uc
+      ? `  sl.registerFactory<${s.name}Cubit>(() => ${s.name}Cubit(sl<${uc.name}>()));`
+      : `  sl.registerFactory<${s.name}Cubit>(() => ${s.name}Cubit());`);
   }
   lines.push("}");
 
+  const implNames = (feature.repositories ?? []).map((repo) => {
+    const declared = (feature.repositoryImpls ?? []).find((ri) => ri.contract === repo.name);
+    return declared ? declared.name : `${repo.name}InMemoryImpl`;
+  });
+  const stateUseCases = (feature.states ?? []).map((s) => (feature.useCases ?? []).find((u) => u.returnType === `List<${s.entity}>`)?.name).filter((n): n is string => !!n);
   const names = Array.from(new Set([
     ...(feature.datasources ?? []).map((d) => d.name),
-    ...(feature.repositoryImpls ?? []).flatMap((r) => [r.name, r.contract]),
+    ...implNames,
+    ...(feature.repositories ?? []).map((r) => r.name),
     ...(feature.useCases ?? []).flatMap((u) => [u.name, u.repository]),
-    ...(feature.states ?? []).map((s) => s.name), // state file also holds the cubit
+    ...(feature.states ?? []).map((s) => s.name),
+    ...stateUseCases,
   ]));
   const refs = names.map((n) => (ctx?.symbols.get(n) ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(n)}';` : `import '${n.toLowerCase()}.dart';`));
   const imports = [

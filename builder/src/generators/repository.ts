@@ -5,7 +5,7 @@ function paramStr(p: OperationParam): string {
   if (p.named === false) return `${p.type} ${p.name}`;
   if (p.required) return `required ${p.type} ${p.name}`;
   if (p.default !== undefined) return `${p.type} ${p.name} = ${p.default}`;
-  return `${p.type} ${p.name}`;
+  return `${p.type}? ${p.name}`; // optional named → nullable (non-nullable needs required/default)
 }
 
 function operationStr(op: OperationModel): string {

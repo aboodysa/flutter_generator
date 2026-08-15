@@ -80,7 +80,7 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
       ),
     );`
       : `    return BlocProvider<${screen.state}Cubit>(
-      create: (_) => ${screen.state}Cubit()..load(),
+      create: (_) => sl<${screen.state}Cubit>()..load(),
       child: MaterialApp.router(
         title: 'Generated app',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
@@ -90,8 +90,10 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
     const providerImport = sm === "riverpod"
       ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
       : `import 'package:flutter_bloc/flutter_bloc.dart';`;
-    // bloc references the cubit from generated.dart; riverpod only needs appRouter.
+    // bloc references the cubit from generated.dart + get_it DI; riverpod only needs appRouter.
     const generatedImport = sm === "riverpod" ? "" : `import 'generated.dart';`;
+    const diImport = sm === "riverpod" ? "" : `import 'core/di.dart';`;
+    const setupDeps = sm === "riverpod" ? "" : `  setupDependencies();`;
 
     return `// [generated] generator=ProjectGenerator template=main.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
@@ -99,12 +101,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 ${providerImport}
 ${generatedImport}import 'core/router.dart';
-
+${diImport}
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // A11y (§14.4): expose the semantics tree (aria/text) to the DOM on web so the app
   // is screen-reader readable AND browser-testable (CFT/puppeteer) out of the box.
   SemanticsBinding.instance.ensureSemantics();
+${setupDeps}
   runApp(const ReplicaApp());
 }
 
@@ -182,9 +185,11 @@ export function generateWidgetTest(feature: FeatureModel): string {
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/di.dart';
 
 void main() {
   testWidgets('generated app renders', (tester) async {
+    setupDependencies();
     await tester.pumpWidget(const ReplicaApp());
     expect(find.byType(Scaffold), findsWidgets);
   });

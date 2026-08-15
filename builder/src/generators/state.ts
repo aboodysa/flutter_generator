@@ -12,6 +12,17 @@ function builtinFields(entity: string): StateField[] {
   ];
 }
 
+// Neutral Dart literal for a query (DataField) type — used to construct a use-case param.
+function queryArgLiteral(type: string, ir: any): string {
+  if (type.endsWith("?")) return "null"; // nullable field → null
+  if (type === "bool") return "false";
+  if (type === "int") return "0";
+  if (type === "double") return "0.0";
+  if (type === "String") return "''";
+  if ((ir?.enums ?? []).some((e: any) => e.name === type)) return `${type}.values.first`;
+  return "null";
+}
+
 /**
  * StateGenerator — structural, deterministic, 0% LLM (enum-status strategy).
  * IR StateModel → enum Status + state class + Cubit.
@@ -56,17 +67,40 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
     ? [0, 1, 2].map((i) => `${entity}(${variantSampleArgs(entityModel, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [], i)})`).join(", ")
     : "null";
 
-  // Imports: entity + extra field types + enum/VO types referenced by the sample construction.
+  // List use case backing this state (data flow: cubit → use case → repository → in-memory impl).
+  const listUseCase = (ctx?.ir?.useCases ?? []).find((u: any) => u.returnType === `List<${entity}>`);
+  const paramQuery = listUseCase ? (ctx?.ir?.queries ?? []).find((q: any) => q.name === listUseCase.paramType) : undefined;
+  const ucParamExpr = listUseCase
+    ? (paramQuery
+      ? `${listUseCase.paramType}(${paramQuery.fields.map((f: any) => `${f.name}: ${queryArgLiteral(f.type, ctx?.ir)}`).join(", ")})`
+      : listUseCase.paramType === "NoParams" ? "NoParams()" : `const ${listUseCase.paramType}()`)
+    : "";
+
+  // Imports: entity + extra field types; demo-construction types (enum/VO) only when the
+  // provider seeds demo in the state file; use-case/query types only when bloc uses the repo.
+  const sm = ctx?.sm ?? "bloc";
+  const usesRepo = sm === "bloc" && !!listUseCase;
+  const usesDemo = !usesRepo;
   const refTypes: string[] = [entity, ...(s.extraFields ?? []).map((f) => f.type)];
-  if (entityModel) {
+  if (usesDemo && entityModel) {
     for (const f of entityModel.fields as any[]) {
       if (f.semanticType) refTypes.push(f.semanticType);
       else if (f.type === "enum") refTypes.push(f.of || f.name.charAt(0).toUpperCase() + f.name.slice(1));
     }
   }
+  if (usesRepo && listUseCase) {
+    refTypes.push(listUseCase.name);
+    if (paramQuery) {
+      refTypes.push(paramQuery.name);
+      for (const f of paramQuery.fields as any[]) {
+        if (!String(f.type).endsWith("?")) refTypes.push(f.type);
+      }
+    } else if (listUseCase.paramType !== "NoParams") {
+      refTypes.push(listUseCase.paramType);
+    }
+  }
   const imports = importsFromTypes(refTypes, ctx).join("\n");
 
-  const sm = ctx?.sm ?? "bloc";
   const stateBlock = `enum ${statusEnum} { ${statuses.join(", ")} }
 
 class ${stateClass} extends Equatable {
@@ -108,14 +142,18 @@ class ${name}Notifier extends Notifier<${stateClass}> {
   }
 }`
     : `class ${name}Cubit extends Cubit<${stateClass}> {
-  ${name}Cubit() : super(const ${stateClass}());
+  ${listUseCase ? `final ${listUseCase.name} _${camelize(listUseCase.name)};` : ""}
+  ${name}Cubit(${listUseCase ? `this._${camelize(listUseCase.name)}` : ""}) : super(const ${stateClass}());
 
   Future<void> load() async {
     emit(state.copyWith(status: ${statusEnum}.loading));
     try {
       // [user] region:user — replace with real repository call.
-      // Deterministic demo data so the app renders rows out of the box:
-      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]));
+      ${listUseCase
+        ? `final items = await _${camelize(listUseCase.name)}.call(${ucParamExpr});
+      emit(state.copyWith(status: ${statusEnum}.success, transactions: items));`
+        : `// Deterministic demo data so the app renders rows out of the box:
+      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]));`}
     } catch (e) {
       emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
     }
