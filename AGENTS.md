@@ -89,6 +89,26 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
     - Telegram: send the iPhone URL exactly as
       `IPHONE_URL=https://macbook-air-m4-1.taild16060.ts.net/<app>/` (+ tailscale
       IP + how-to-open), and re-send it on every subsequent expose of that app.
+14. **Developing a CDP driver fast (mall-session pattern).** When the owner says
+    "drive/test the app", reuse the existing infra instead of writing a browser
+    from scratch:
+    - Infra: CFT headless on `:9222` (`/Users/username/temp/opencode/cft/chrome-*
+      *`), shared `CdpSession` at `/Users/username/Documents/cto/new_chrome_ext/
+      tools/cdp_driver.py` (boot, `activate_semantics`, `ax()`, `click_node`,
+      `click_button`, `screenshot`, `drain_errors`), lessons in `new_chrome_ext/
+      tools/FLUTTER_TESTING_LESSONS.md` and overflow scanner in `tools/overflow/
+      overflow_scan.py`.
+    - New tab: `PUT http://127.0.0.1:9222/json/new?<url>`; close via
+      `/json/close/<id>`. Flutter semantics need activation (1×1 placeholder —
+      click it via DOM, not coordinates). Verify with GET, not HEAD.
+    - Probe checklist for a generated app: boot → semantics → full AX tree (roles/
+      labels → a11y) → console+network errors → exercise every route (tap list
+      card → detail, edit icon → form, parent→child link) → input kinds (date/
+      enum dropdowns) → tap-to-focus + typing (keyboard) → overflow scan across
+      320/390/768/1280 → screenshots at each step into `apps/<app>/output/qa/`.
+    - Findings go to `apps/<app>/output/qa/PROBE_FINDINGS.md` (G1/G2 style:
+      symptom, root cause, location, severity) + Telegram. Fixes land in the
+      generator (never the generated app), then regenerate + rebuild web + re-probe.
 
 ## Commands (run from repo root unless noted)
 

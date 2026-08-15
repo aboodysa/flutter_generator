@@ -6,7 +6,7 @@ import 'package:rasheed_replica_tasks/features/tasks/domain/repositories/follow_
 import 'package:rasheed_replica_tasks/features/tasks/domain/entities/follow_up.dart';
 
 class FollowUpRepositoryInMemoryImpl implements FollowUpRepository {
-  final List<FollowUp> _items = [FollowUp(id: 'x', taskId: 'x', note: 'x', createdAt: DateTime(2024)), FollowUp(id: 'Sample item 1', taskId: 'Sample item 1', note: 'Sample item 1', createdAt: DateTime(2025)), FollowUp(id: 'Sample item 2', taskId: 'Sample item 2', note: 'Sample item 2', createdAt: DateTime(2025))];
+  final List<FollowUp> _items = [FollowUp(id: 'x', taskId: 'x', note: 'x', createdAt: DateTime(2024)), FollowUp(id: 'follow-up-1', taskId: 'Sample item 1', note: 'Sample item 1', createdAt: DateTime(2025)), FollowUp(id: 'follow-up-2', taskId: 'Sample item 2', note: 'Sample item 2', createdAt: DateTime(2025))];
 
   @override
   Future<List<FollowUp>> listFollowUps() async => List.unmodifiable(_items);

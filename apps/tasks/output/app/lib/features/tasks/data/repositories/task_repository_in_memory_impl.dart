@@ -8,7 +8,7 @@ import 'package:rasheed_replica_tasks/features/tasks/domain/entities/task.dart';
 import 'package:rasheed_replica_tasks/features/tasks/domain/entities/task_status.dart';
 
 class TaskRepositoryInMemoryImpl implements TaskRepository {
-  final List<Task> _items = [Task(id: 'x', title: 'x', dueDate: DateTime(2024), priority: Priority.values.first, status: TaskStatus.values.first), Task(id: 'Sample item 1', title: 'Sample item 1', description: 'Sample item 1', dueDate: DateTime(2025), priority: Priority.values.first, status: TaskStatus.values.first), Task(id: 'Sample item 2', title: 'Sample item 2', description: 'Sample item 2', dueDate: DateTime(2025), priority: Priority.values.first, status: TaskStatus.values.first)];
+  final List<Task> _items = [Task(id: 'x', title: 'Sample Task', dueDate: DateTime(2024), priority: Priority.values.first, status: TaskStatus.values.first), Task(id: 'task-1', title: 'Sample Task 1', description: 'Sample item 1', dueDate: DateTime(2025), priority: Priority.values.first, status: TaskStatus.values.first), Task(id: 'task-2', title: 'Sample Task 2', description: 'Sample item 2', dueDate: DateTime(2025), priority: Priority.values.first, status: TaskStatus.values.first)];
 
   @override
   Future<List<Task>> listTasks() async => List.unmodifiable(_items);
