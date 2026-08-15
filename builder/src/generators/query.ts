@@ -1,11 +1,11 @@
 import { QueryModel, DataField } from "../types";
-import { importsFromTypes, GenContext } from "../dart";
+import { importsFromTypes, PkgContext } from "../dart";
 
 /**
  * QueryGenerator — structural, deterministic, 0% LLM.
  * IR QueryModel → plain query VO class with copyWith + optional wire-param mapping.
  */
-export function generateQuery(q: QueryModel, ctx?: GenContext): string {
+export function generateQuery(q: QueryModel, ctx?: PkgContext): string {
   const ctorParams = q.fields
     .map((f) => {
       if (f.default !== undefined) return `    this.${f.name} = ${f.default},`;

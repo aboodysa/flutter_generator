@@ -91,6 +91,32 @@ export const COMPONENT_REGISTRY: ComponentDef[] = [
     responsive: false,
     examples: ["const EmptyState()"],
   },
+  {
+    name: "AppAvatar",
+    tier: "atom",
+    purpose: "Leading avatar rendering the first-letter initial of a label (list-row identity glyph).",
+    inputs: ["label"],
+    variants: [],
+    states: [],
+    tokens: [],
+    semanticContract: { role: "image", accessibleName: "{source: label}", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppAvatar(label: item.name)"],
+  },
+  {
+    name: "AppListCard",
+    tier: "molecule",
+    purpose: "A list/detail row (leading/title/subtitle/trailing/onTap) with a switchable surface — "
+      + "Card-wrapped or a plain ListTile — driven by the composition registry's `surface` field "
+      + "(§8: the vocabulary ScreenGenerator selects from instead of hardcoding raw Card/ListTile).",
+    inputs: ["title", "subtitle?", "leading?", "trailing?", "onTap?", "card"],
+    variants: ["card", "plain"],
+    states: ["enabled"],
+    tokens: ["AppTokens.radius"],
+    semanticContract: { role: "none", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppListCard(card: true, title: Text(item.name), trailing: const Icon(Icons.chevron_right))"],
+  },
 ];
 
 /**
@@ -148,6 +174,56 @@ class EmptyState extends StatelessWidget {
   final String? message;
   @override
   Widget build(BuildContext context) => Center(child: Text(message ?? 'No items'));
+}
+
+/// semanticContract: { role: image, accessibleName: {source: label}, states: [] }
+class AppAvatar extends StatelessWidget {
+  const AppAvatar({super.key, required this.label});
+  final String label;
+
+  String get _initial => label.isEmpty ? '?' : label[0].toUpperCase();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      child: CircleAvatar(child: Text(_initial)),
+    );
+  }
+}
+
+/// semanticContract: { role: none, states: [] } — semantics come from the child ListTile.
+/// Surface (composition registry \`CompositionSpec.surface\`): card = elevated Card row,
+/// plain = bare ListTile. ScreenGenerator selects this instead of hardcoding raw Card/ListTile
+/// (§8: "generated screens select components by semantic requirement").
+class AppListCard extends StatelessWidget {
+  const AppListCard({
+    super.key,
+    required this.card,
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.onTap,
+  });
+  final bool card;
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = ListTile(
+      leading: leading,
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      onTap: onTap,
+    );
+    return card ? Card(child: tile) : tile;
+  }
 }
 `;
 }

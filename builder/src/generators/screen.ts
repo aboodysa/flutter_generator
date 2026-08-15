@@ -1,11 +1,14 @@
 import { ScreenModel, EntityModel, Field } from "../types";
-import { GenContext, nullable } from "../dart";
+import { GenContext, nullable, kebab, collectionField } from "../dart";
 import { compositionFor } from "../composition";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
  * IR ScreenModel → a provider-bound screen rendering the entity's declared fields.
- * Composition (hero, rhythm, surface) is driven by the composition registry (extendable).
+ * Composition (hero, rhythm, surface) is driven by the composition registry — `comp.surface`,
+ * `comp.hasHero`, `comp.heroGap`, `comp.itemGap` all actually drive the emitted layout (SOLID
+ * review #2: they used to be computed and ignored). Rows are built from the Component Registry's
+ * `AppListCard`/`AppAvatar` (components.ts), never raw `Card`/`ListTile`/`CircleAvatar` (#3).
  */
 
 const TITLE_PRIORITY = ["name", "title", "merchant", "label", "subject"];
@@ -53,15 +56,19 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const statusEnum = `${s.state}Status`;
   const sm = ctx?.sm ?? "bloc";
   const comp = compositionFor(s.type);
+  const collection = collectionField(s.entity);
+  const cardSurface = comp.surface !== "plain"; // Dart bool literal driving AppListCard(card: ...)
 
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
   const identityField = entity?.identity?.field ?? "id";
 
-  // Hero block (rendered when the archetype has a hero or the IR declares one).
+  // Hero block: gated by the archetype (comp.hasHero) AND an IR-declared headline — an archetype
+  // with hasHero:false never renders one even if `s.hero` is set, and vice versa. heroGap (the
+  // registry's rhythm field) drives the padding below the hero.
   const hero = heroExpr(s);
-  const heroBlock = hero
+  const heroBlock = comp.hasHero && hero
     ? `        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${comp.heroGap}.0),
           child: Text(${hero}, style: Theme.of(context).textTheme.headlineMedium),
         ),`
     : "";
@@ -69,26 +76,29 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   let body: string;
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
-      const rows = entity.fields
-        .map((f) => {
-          const label = fieldLabel(f.name);
-          return `              Card(child: ListTile(title: Text('${label}'), trailing: Text(${fieldValue(f, "item")}))),`;
-        })
+      const rows = entity.fields.map((f) => {
+        const label = fieldLabel(f.name);
+        return `AppListCard(card: ${cardSurface}, title: Text('${label}'), trailing: Text(${fieldValue(f, "item")})),`;
+      });
+      // itemGap (registry rhythm field) separates rows via a SizedBox, not a hardcoded constant.
+      const rowsBlock = rows
+        .map((r, i) => (i === 0 ? `              ${r}` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${r}`))
         .join("\n");
-      body = `            if (state.transactions.isEmpty) return const Center(child: Text('No data'));
+      body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
             final id = GoRouterState.of(context).pathParameters['id'];
-            final item = state.transactions.firstWhere((e) => e.${identityField} == id, orElse: () => state.transactions.first);
+            final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-${rows}
+${heroBlock}
+${rowsBlock}
               ],
             );`;
     } else {
       body = `            return Center(child: Text(state.toString()));`;
     }
   } else {
-    // list (default): card rows + optional hero.
+    // list (default): AppListCard rows (surface driven by comp.surface) + optional hero.
     const title = entity ? pickTitle(entity) : undefined;
     const subtitleFields = entity
       ? entity.fields.filter((f) => f !== title && SUBTITLE_TYPES.includes(f.type)).slice(0, 2)
@@ -100,6 +110,10 @@ ${rows}
     const subtitleExpr = subtitleFields.length
       ? `'${subtitleFields.map((f) => `\${${fieldValue(f)}}`).join(" · ")}'`
       : "'—'";
+    // Detail route target (routing.ts's screenPath() is the source of truth for the router
+    // itself; this is the same no-collision formula screen.ts uses for the common case — see
+    // AGENTS/DESIGN note in route.ts).
+    const detailPath = `/${kebab(s.entity)}`;
     body = `            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -107,20 +121,19 @@ ${heroBlock}
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                    itemCount: state.transactions.length,
+                    itemCount: state.${collection}.length,
                     itemBuilder: (_, i) {
-                      final item = state.transactions[i];
+                      final item = state.${collection}[i];
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: Card(
-                          child: ListTile(
-                            key: ValueKey(item.${identity}),
-                            leading: CircleAvatar(child: Text((${titleExpr}).isEmpty ? '?' : (${titleExpr})[0].toUpperCase())),
-                            title: Text(${titleExpr}),
-                            subtitle: Text(${subtitleExpr}),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.go('/detail/\${item.${identity}}'),
-                          ),
+                        padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
+                        child: AppListCard(
+                          key: ValueKey(item.${identity}),
+                          card: ${cardSurface},
+                          leading: AppAvatar(label: ${titleExpr}),
+                          title: Text(${titleExpr}),
+                          subtitle: Text(${subtitleExpr}),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.go('${detailPath}/\${item.${identity}}'),
                         ),
                       );
                     },

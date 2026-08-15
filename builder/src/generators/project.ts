@@ -1,5 +1,5 @@
 import { FeatureModel, StateManagementProvider } from "../types";
-import { GenContext } from "../dart";
+import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 
@@ -152,7 +152,7 @@ class ReplicaApp extends StatelessWidget {
 `;
 }
 
-export function generateBarrel(feature: FeatureModel, ctx?: GenContext): string {
+export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string {
   const files: string[] = [];
   const names: string[] = [];
   for (const e of feature.enums ?? []) names.push(e.name);

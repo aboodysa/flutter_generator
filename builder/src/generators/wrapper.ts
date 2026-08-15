@@ -1,11 +1,11 @@
 import { WrapperModel } from "../types";
-import { importsFromTypes, GenContext } from "../dart";
+import { importsFromTypes, PkgContext } from "../dart";
 
 /**
  * WrapperGenerator — structural, deterministic, 0% LLM.
  * IR WrapperModel → plain immutable result wrapper class (e.g. TransactionsPage).
  */
-export function generateWrapper(w: WrapperModel, ctx?: GenContext): string {
+export function generateWrapper(w: WrapperModel, ctx?: PkgContext): string {
   const ctorParams = w.fields
     .map((f) => {
       if (f.default !== undefined) return `    this.${f.name} = ${f.default},`;

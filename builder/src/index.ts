@@ -27,7 +27,7 @@ import { generateLocalization, generateTheme, generateConfig, generateSecrets, g
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
 import { scoreStateStrategy } from "./scoring";
-import { decideArchitecture } from "./arch";
+import { decideArchitecture, ArchitectureDecision } from "./arch";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
 import { buildLockfile } from "./context";
@@ -72,6 +72,149 @@ export interface GenerateResult {
   fileCount: number;
   scoring: string[];
   conflicts: RegionConflict[];
+}
+
+// --- generateApp() steps (SOLID review #11) --------------------------------------------------
+// generateApp() is the documented composition root (§6.4: "I/O confined to index.ts") — that
+// role is legitimate, but the *function* used to interleave write-ACL/approval gating, schema
+// validation, per-artifact writes, region-conflict detection, font bundling, and plan-building
+// in one 300+ line body. Split into named steps below; I/O stays exclusively in index.ts (these
+// are private, unexported helpers — generateApp() is still the only *public* entry that writes).
+
+// Bundle the Roboto + MaterialIcons fonts so `flutter test` golden runs render real text/icons,
+// not the default test font's solid boxes.
+function bundleFonts(outDir: string): void {
+  const fontsSrc = path.join(__dirname, "..", "templates", "fonts");
+  const fontsDst = path.join(outDir, "assets", "fonts");
+  if (fs.existsSync(fontsSrc)) {
+    fs.mkdirSync(fontsDst, { recursive: true });
+    for (const f of fs.readdirSync(fontsSrc)) {
+      if (f.endsWith(".ttf") || f.endsWith(".otf")) fs.copyFileSync(path.join(fontsSrc, f), path.join(fontsDst, f));
+    }
+  }
+}
+
+// Core (non-feature-scoped) files: DI, router, component registry, localization, theme, config,
+// secrets, observability, validator.
+function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision, coreDir: string, outDir: string): { files: string[]; planEntries: PlanEntry[] } {
+  const core: [string, string][] = [
+    ["di.dart", generateDi(ir, ctx, arch)],
+    ["router.dart", generateRoutes(ir, ctx, arch)],
+    ["components.dart", generateComponents(ir)],
+    ["app_strings.dart", generateLocalization(ir)],
+    ["theme.dart", generateTheme(ir)],
+    ["config.dart", generateConfig(ir)],
+    ["secrets.dart", generateSecrets(ir)],
+    ["observability.dart", generateObservability(ir)],
+    ["validator.dart", generateValidator(ir)],
+  ];
+  const coreGenerator: Record<string, string> = {
+    "di.dart": "DIGenerator",
+    "router.dart": "RouteGenerator",
+    "components.dart": "ComponentRegistryGenerator",
+    "app_strings.dart": "LocalizationGenerator",
+    "theme.dart": "ThemeGenerator",
+    "config.dart": "ConfigGenerator",
+    "secrets.dart": "SecretsGenerator",
+    "observability.dart": "ObservabilityGenerator",
+    "validator.dart": "ValidatorGenerator",
+  };
+  const files: string[] = [];
+  const planEntries: PlanEntry[] = [];
+  for (const [f, content] of core) {
+    const p = path.join(coreDir, f);
+    fs.writeFileSync(p, content);
+    files.push(p);
+    planEntries.push({
+      artifact: `core:${f.replace(/\.dart$/, "")}`,
+      generator: coreGenerator[f] ?? "CoreGenerator",
+      schema: "core",
+      layer: "core",
+      file: path.relative(outDir, p),
+      strategy: "default",
+      dependsOn: [],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+  return { files, planEntries };
+}
+
+// Widget/unit/flow/golden tests + (when an oracle corpus exists) business-rule oracle tests.
+// Note: only oracle-test file paths are pushed into the returned `files` — the standard 4 test
+// files, like plan.json/builder.lock.json/barrel/main/pubspec, are accounted for by generateApp's
+// "+9" fileCount constant instead (preserved as-is from before this split).
+function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string): { files: string[]; planEntries: PlanEntry[] } {
+  fs.mkdirSync(testDir, { recursive: true });
+  const files: string[] = [];
+  const planEntries: PlanEntry[] = [];
+
+  const testFiles: [string, string, string][] = [
+    ["widget_test.dart", generateWidgetTest(ir), "WidgetTestGenerator"],
+    ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
+    ["flow_test.dart", generateFlowTest(ir), "FlowTestGenerator"],
+    ["golden_test.dart", generateGoldenTest(ir, arch.stateManagement), "GoldenTestGenerator"],
+  ];
+  for (const [f, content, generator] of testFiles) {
+    fs.writeFileSync(path.join(testDir, f), content);
+    planEntries.push({
+      artifact: `test:${f.replace(/\.dart$/, "").replace(/_test$/, "")}`,
+      generator,
+      schema: "test",
+      layer: "test",
+      file: path.relative(outDir, path.join(testDir, f)),
+      strategy: "default",
+      dependsOn: [],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+
+  // Oracle tests (§9.4): for each business rule with a non-empty oracle corpus, compile its
+  // example/expected pairs into a Dart test. A rule with no (or empty) oracle stays unverified —
+  // caught by validate.ts's oracle-coverage gate, not silently generated as "tested".
+  if (oracleDir) {
+    const rulesTestDir = path.join(testDir, "rules");
+    for (const rule of ir.businessRules ?? []) {
+      const oracle = loadOracle(rule.name, oracleDir);
+      if (!oracle || oracle.cases.length === 0) continue;
+      const entity = ir.entities.find((e) => e.name === rule.entity);
+      if (!entity) continue;
+      fs.mkdirSync(rulesTestDir, { recursive: true });
+      const oracleFileName = fileName(rule.name).replace(/\.dart$/, "_oracle_test.dart");
+      const f = path.join(rulesTestDir, oracleFileName);
+      fs.writeFileSync(f, generateOracleTest(rule, oracle, entity, ir, pkg));
+      files.push(f);
+      planEntries.push({
+        artifact: `oracle:${rule.name}`,
+        generator: "RuleOracleTestGenerator",
+        schema: "rule",
+        layer: "test/rules",
+        file: path.relative(outDir, f),
+        strategy: "default",
+        dependsOn: [`rule:${rule.name}`],
+        mode: "semantic",
+        class: "semantic",
+      });
+    }
+  }
+
+  return { files, planEntries };
+}
+
+// Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>): void {
+  const plan: GenerationPlan = {
+    schemaVersion: irVersion,
+    generatorVersion: "1.0.0",
+    artifactCount: planEntries.length,
+    entries: planEntries,
+    scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, coupledPair: arch.coupledPair, complexity: arch.complexity },
+  };
+  const planIssues = validatePlanReferences(plan);
+  if (planIssues.length) throw new Error(planIssues.join("\n"));
+  fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
+  fs.writeFileSync(regionManifestPath, JSON.stringify(nextHashes, null, 2));
 }
 
 /**
@@ -135,16 +278,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   fs.mkdirSync(coreDir, { recursive: true });
   const files: string[] = [];
 
-  // Bundle the Roboto font so `flutter test` golden runs render real text, not the
-  // default test font's solid boxes (same approach the payment pilot uses with Tajawal).
-  const fontsSrc = path.join(__dirname, "..", "templates", "fonts");
-  const fontsDst = path.join(outDir, "assets", "fonts");
-  if (fs.existsSync(fontsSrc)) {
-    fs.mkdirSync(fontsDst, { recursive: true });
-    for (const f of fs.readdirSync(fontsSrc)) {
-      if (f.endsWith(".ttf") || f.endsWith(".otf")) fs.copyFileSync(path.join(fontsSrc, f), path.join(fontsDst, f));
-    }
-  }
+  bundleFonts(outDir);
 
   for (const entry of registry) {
     const tag = tagForIrKey(entry.irKey);
@@ -228,44 +362,9 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
     });
   }
 
-  const core: [string, string][] = [
-    ["di.dart", generateDi(ir, ctx, arch)],
-    ["router.dart", generateRoutes(ir, ctx, arch)],
-    ["components.dart", generateComponents(ir)],
-    ["app_strings.dart", generateLocalization(ir)],
-    ["theme.dart", generateTheme(ir)],
-    ["config.dart", generateConfig(ir)],
-    ["secrets.dart", generateSecrets(ir)],
-    ["observability.dart", generateObservability(ir)],
-    ["validator.dart", generateValidator(ir)],
-  ];
-  const coreGenerator: Record<string, string> = {
-    "di.dart": "DIGenerator",
-    "router.dart": "RouteGenerator",
-    "components.dart": "ComponentRegistryGenerator",
-    "app_strings.dart": "LocalizationGenerator",
-    "theme.dart": "ThemeGenerator",
-    "config.dart": "ConfigGenerator",
-    "secrets.dart": "SecretsGenerator",
-    "observability.dart": "ObservabilityGenerator",
-    "validator.dart": "ValidatorGenerator",
-  };
-  for (const [f, content] of core) {
-    const p = path.join(coreDir, f);
-    fs.writeFileSync(p, content);
-    files.push(p);
-    planEntries.push({
-      artifact: `core:${f.replace(/\.dart$/, "")}`,
-      generator: coreGenerator[f] ?? "CoreGenerator",
-      schema: "core",
-      layer: "core",
-      file: path.relative(outDir, p),
-      strategy: "default",
-      dependsOn: [],
-      mode: "deterministic",
-      class: "structural",
-    });
-  }
+  const coreResult = writeCore(ir, ctx, arch, coreDir, outDir);
+  files.push(...coreResult.files);
+  planEntries.push(...coreResult.planEntries);
 
   const barrelFile = path.join(outDir, "lib", "generated.dart");
   fs.writeFileSync(barrelFile, generateBarrel(ir, ctx));
@@ -274,72 +373,15 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   const testDir = path.join(outDir, "test");
-  fs.mkdirSync(testDir, { recursive: true });
-  const testFiles: [string, string, string][] = [
-    ["widget_test.dart", generateWidgetTest(ir), "WidgetTestGenerator"],
-    ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
-    ["flow_test.dart", generateFlowTest(ir), "FlowTestGenerator"],
-    ["golden_test.dart", generateGoldenTest(ir, arch.stateManagement), "GoldenTestGenerator"],
-  ];
-  for (const [f, content, generator] of testFiles) {
-    fs.writeFileSync(path.join(testDir, f), content);
-    planEntries.push({
-      artifact: `test:${f.replace(/\.dart$/, "").replace(/_test$/, "")}`,
-      generator,
-      schema: "test",
-      layer: "test",
-      file: path.relative(outDir, path.join(testDir, f)),
-      strategy: "default",
-      dependsOn: [],
-      mode: "deterministic",
-      class: "structural",
-    });
-  }
+  const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg);
+  files.push(...testsResult.files);
+  planEntries.push(...testsResult.planEntries);
   planEntries.push(
     { artifact: "core:barrel", generator: "BarrelGenerator", schema: "core", layer: "core", file: path.relative(outDir, barrelFile), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural" },
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  // Oracle tests (§9.4): for each business rule with a non-empty oracle corpus, compile its
-  // example/expected pairs into a Dart test. A rule with no (or empty) oracle stays unverified —
-  // caught by validate.ts's oracle-coverage gate, not silently generated as "tested".
-  if (oracleDir) {
-    const rulesTestDir = path.join(testDir, "rules");
-    for (const rule of ir.businessRules ?? []) {
-      const oracle = loadOracle(rule.name, oracleDir);
-      if (!oracle || oracle.cases.length === 0) continue;
-      const entity = ir.entities.find((e) => e.name === rule.entity);
-      if (!entity) continue;
-      fs.mkdirSync(rulesTestDir, { recursive: true });
-      const oracleFileName = fileName(rule.name).replace(/\.dart$/, "_oracle_test.dart");
-      const f = path.join(rulesTestDir, oracleFileName);
-      fs.writeFileSync(f, generateOracleTest(rule, oracle, entity, ir, pkg));
-      files.push(f);
-      planEntries.push({
-        artifact: `oracle:${rule.name}`,
-        generator: "RuleOracleTestGenerator",
-        schema: "rule",
-        layer: "test/rules",
-        file: path.relative(outDir, f),
-        strategy: "default",
-        dependsOn: [`rule:${rule.name}`],
-        mode: "semantic",
-        class: "semantic",
-      });
-    }
-  }
-
-  const plan: GenerationPlan = {
-    schemaVersion: irVersion,
-    generatorVersion: "1.0.0",
-    artifactCount: planEntries.length,
-    entries: planEntries,
-    scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, coupledPair: arch.coupledPair, complexity: arch.complexity },
-  };
-  const planIssues = validatePlanReferences(plan);
-  if (planIssues.length) throw new Error(planIssues.join("\n"));
-  fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
-  fs.writeFileSync(regionManifestPath, JSON.stringify(nextHashes, null, 2));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes);
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

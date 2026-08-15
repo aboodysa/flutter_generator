@@ -1,0 +1,38 @@
+{
+  "steps": [
+    "list-visible",
+    "create-click",
+    "fill-form",
+    "submit",
+    "detail-shows-created",
+    "update",
+    "delete",
+    "list-empty"
+  ],
+  "locators": {
+    "row": "Merged ListTile node: [...document.querySelectorAll('flt-semantics[role=\"button\"]')].find(e => e.getAttribute('aria-label')?.includes(name)) \u2014 click via el.click() (fallback: mouse at rect center).",
+    "textfield": "document.querySelector('flt-semantics[role=\"textbox\"][aria-label=\"<fieldName>\"] input') \u2014 labelText becomes aria-label; type via real CDP keystrokes, never el.value=.",
+    "button": "[...document.querySelectorAll('flt-semantics[role=\"button\"]')].find(e => (e.getAttribute('aria-label')||'').trim() === label) el.click(); assert not aria-disabled before submit."
+  },
+  "assertions": {
+    "list-visible": "row-count === expected seed rows; pre-flight assert flt-semantics-host exists (ensureSemantics is on).",
+    "create-click": "form rendered: document.querySelectorAll('flt-semantics[role=\"textbox\"]').length === form-fields count.",
+    "fill-form": "after typing each field, input.value === typed text; Submit has no aria-disabled once valid.",
+    "submit": "URL pathname ends /<entity>/<id> and no loading spinner node remains.",
+    "detail-shows-created": "some flt-semantics aria-label contains the created title + its field values.",
+    "update": "re-type one field to v2, submit, assert detail aria-label contains v2.",
+    "delete": "click Delete, assert its row node is removed from DOM.",
+    "list-empty": "row-count === 0 AND EmptyState text ('No items'/'No data') present."
+  },
+  "bestPractices": [
+    "anti-throttle headless: launch with --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding; use CDP over puppeteer-core (no bundled Chromium needed).",
+    "pumpAndSettle-equivalent: waitForFunction polling a snapshot of flt-semantics-host's innerText+aria-labels until 2 consecutive samples (\u2248500ms apart) are identical; never fixed sleeps.",
+    "aria-label requirement: locators live solely on semantics; add a pre-check that every target node has a non-empty aria-label (the generator's Semantics/ensureSemantics contract), or fail fast.",
+    "screenshot per step: page.screenshot({path}) right after each assertion \u2014 pixel evidence pairs with the aria assertions."
+  ],
+  "pitfalls": [
+    "canvas vs semantics: text lives in aria-label ATTRIBUTES, not innerText \u2014 innerText is often empty/partial; always read getAttribute('aria-label'). Missing ensureSemantics() = blank <flt-glass-pane> and zero nodes.",
+    "flt-glass-pane timing: the boot glass pane swallows early synthetic clicks; wait until the target semantics node exists AND is visible, then el.click() on the node (not canvas coordinates).",
+    "text selection: Flutter web keeps a real <input>; writing el.value + dispatching input does not update Flutter. Focus the input, Ctrl/Cmd+A then Input.dispatchKeyEvent Backspace to clear, and type via Input.insertText/Input.dispatchKeyEvent \u2014 empty insertText('') fires nothing."
+  ]
+}

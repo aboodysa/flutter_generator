@@ -1,5 +1,5 @@
 import { EntityModel, Field, ModelModel } from "../types";
-import { DART_TYPES, capitalize, nullable, voBaseType, fileName, defaultValue, importsFromTypes, GenContext } from "../dart";
+import { DART_TYPES, capitalize, nullable, voBaseType, fileName, defaultValue, importsFromTypes, PkgContext } from "../dart";
 
 function modelType(f: Field): string {
   if (f.semanticType) return f.semanticType;
@@ -117,7 +117,7 @@ function fromEntityExpr(f: Field): string {
  * ModelGenerator — structural, deterministic, 0% LLM.
  * IR EntityModel (+ optional jsonKeys/acceptedKeys overrides) → DTO with fromJson/toJson + entity mapping.
  */
-export function generateModel(entity: EntityModel, override: ModelModel | undefined, ctx?: GenContext): string {
+export function generateModel(entity: EntityModel, override: ModelModel | undefined, ctx?: PkgContext): string {
   const name = `${entity.name}Model`;
 
   const ctorParams = entity.fields

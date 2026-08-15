@@ -1,5 +1,5 @@
 import { RuleModel, RuleCondition } from "../types";
-import { GenContext } from "../dart";
+import { PkgContext } from "../dart";
 
 /**
  * BusinessRuleGenerator — structural, deterministic, 0% LLM (Phase 3 deterministic core).
@@ -18,7 +18,7 @@ function conditionExpr(c: RuleCondition): string {
   }
 }
 
-export function generateRule(rule: RuleModel, ctx?: GenContext): string {
+export function generateRule(rule: RuleModel, ctx?: PkgContext): string {
   const entityImport = ctx?.symbols.get(rule.entity)
     ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(rule.entity)}';`
     : `import '${rule.entity.toLowerCase()}.dart';`;

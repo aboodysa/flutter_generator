@@ -1,11 +1,11 @@
 import { DatasourceModel } from "../types";
-import { importsFromTypes, GenContext } from "../dart";
+import { importsFromTypes, PkgContext } from "../dart";
 
 /**
  * DataSourceGenerator — structural, deterministic, 0% LLM.
  * IR DatasourceModel → remote datasource with Dio calls per endpoint.
  */
-export function generateDatasource(ds: DatasourceModel, ctx?: GenContext): string {
+export function generateDatasource(ds: DatasourceModel, ctx?: PkgContext): string {
   const methods = ds.endpoints
     .map((e) => {
       const method = e.method.toLowerCase();

@@ -23,5 +23,12 @@ export const COMPOSITIONS: Record<string, CompositionSpec> = {
 };
 
 export function compositionFor(archetype: string): CompositionSpec {
-  return COMPOSITIONS[archetype] ?? LIST_SPEC;
+  const spec = COMPOSITIONS[archetype];
+  if (!spec) {
+    // SOLID review #8: warn (don't throw — generation must stay resilient to a typo'd IR) so an
+    // unrecognized archetype (e.g. "detial") doesn't silently render as "list" with no trace.
+    // eslint-disable-next-line no-console
+    console.warn(`[composition] unknown screen archetype '${archetype}' — falling back to 'list'. Known archetypes: ${Object.keys(COMPOSITIONS).join(", ")}.`);
+  }
+  return spec ?? LIST_SPEC;
 }

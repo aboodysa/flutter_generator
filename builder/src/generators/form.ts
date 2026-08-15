@@ -1,7 +1,7 @@
 import { FormModel, FormFieldModel } from "../types";
-import { GenContext } from "../dart";
+import { PkgContext } from "../dart";
 
-export function generateForm(form: FormModel, ctx?: GenContext): string {
+export function generateForm(form: FormModel, ctx?: PkgContext): string {
   const controllerDecls = form.fields
     .map((f) => `  final _${f.name} = TextEditingController();`)
     .join("\n");

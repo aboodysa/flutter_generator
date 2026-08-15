@@ -1,13 +1,15 @@
 import { StateModel, StateField } from "../types";
-import { importsFromTypes, variantSampleArgs, GenContext } from "../dart";
+import { importsFromTypes, variantSampleArgs, collectionField, camelize, GenContext } from "../dart";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
-// The three built-in fields every list state has.
+// The three built-in fields every list state has. The collection field is named from the
+// entity (Transaction -> transactions, Task -> tasks, Product -> products) via `collectionField`
+// — SOLID review #4: it used to be hardcoded to the literal "transactions" for every domain.
 function builtinFields(entity: string): StateField[] {
   return [
     { name: "status", type: "STATUS", default: "initial" },
-    { name: "transactions", type: `List<${entity}>`, default: "const []" },
+    { name: collectionField(entity), type: `List<${entity}>`, default: "const []" },
     { name: "errorMessage", type: "String?", default: undefined },
   ];
 }
@@ -30,6 +32,7 @@ function queryArgLiteral(type: string, ir: any): string {
 export function generateState(s: StateModel, ctx?: GenContext): string {
   const name = s.name;
   const entity = s.entity;
+  const collection = collectionField(entity);
   const statuses = s.statuses ?? DEFAULT_STATUSES;
   const statusEnum = `${name}Status`;
   const stateClass = `${name}State`;
@@ -128,14 +131,14 @@ class ${name}Notifier extends Notifier<${stateClass}> {
   @override
   ${stateClass} build() => ${stateClass}(
     status: ${statusEnum}.success,
-    transactions: [${demoRows}],
+    ${collection}: [${demoRows}],
   );
 
   Future<void> load() async {
     state = state.copyWith(status: ${statusEnum}.loading);
     try {
       // [user] region:user — replace with real repository call.
-      state = state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]);
+      state = state.copyWith(status: ${statusEnum}.success, ${collection}: [${demoRows}]);
     } catch (e) {
       state = state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString());
     }
@@ -151,9 +154,9 @@ class ${name}Notifier extends Notifier<${stateClass}> {
       // [user] region:user — replace with real repository call.
       ${listUseCase
         ? `final items = await _${camelize(listUseCase.name)}.call(${ucParamExpr});
-      emit(state.copyWith(status: ${statusEnum}.success, transactions: items));`
+      emit(state.copyWith(status: ${statusEnum}.success, ${collection}: items));`
         : `// Deterministic demo data so the app renders rows out of the box:
-      emit(state.copyWith(status: ${statusEnum}.success, transactions: [${demoRows}]));`}
+      emit(state.copyWith(status: ${statusEnum}.success, ${collection}: [${demoRows}]));`}
     } catch (e) {
       emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
     }
@@ -173,8 +176,4 @@ ${stateBlock}
 
 ${container}
 `;
-}
-
-function camelize(name: string): string {
-  return name.charAt(0).toLowerCase() + name.slice(1);
 }

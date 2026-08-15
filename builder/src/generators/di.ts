@@ -1,5 +1,5 @@
 import { FeatureModel } from "../types";
-import { GenContext } from "../dart";
+import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 
 /**
@@ -7,7 +7,7 @@ import { ArchitectureDecision } from "../arch";
  * Emits a get_it service locator from the dependency graph (datasources → repos → use cases → cubits).
  * Honors the arch layer's `di` decision: `none`/`provider_scope` (riverpod) → no get_it container.
  */
-export function generateDi(feature: FeatureModel, ctx?: GenContext, decision?: ArchitectureDecision): string {
+export function generateDi(feature: FeatureModel, ctx?: PkgContext, decision?: ArchitectureDecision): string {
   if (decision?.di !== "get_it") {
     const reason = decision?.di === "provider_scope" ? "riverpod ProviderScope is the DI container" : "vanilla (none) strategy — no DI container needed";
     return `// [generated] generator=DIGenerator template=di_${decision?.di ?? "none"}.v1 class=structural ownership=generated

@@ -72,9 +72,12 @@ export interface AppAttributes {
   offlinePolicy?: "none" | "cache" | "offline-first";
   permissionScope?: "none" | "basic" | "sensitive";
   stateManagement?: StateManagementProvider; // explicit provider override (wins over scoring)
+  persistence?: PersistenceKind; // explicit DB override (wins over scoring)
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";
+
+export type PersistenceKind = "none" | "sql" | "nosql";
 
 export type OperationKind = "list" | "get" | "create" | "update" | "delete";
 

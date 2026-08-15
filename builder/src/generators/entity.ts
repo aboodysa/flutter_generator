@@ -1,11 +1,11 @@
 import { EntityModel } from "../types";
-import { fieldDartType, referencedType, nullable, defaultValue, importsFromTypes, GenContext } from "../dart";
+import { fieldDartType, referencedType, nullable, defaultValue, importsFromTypes, PkgContext } from "../dart";
 
 /**
  * EntityGenerator — structural, deterministic, 0% LLM.
  * IR EntityModel → immutable Dart entity class with Equatable + correct imports.
  */
-export function generateEntity(entity: EntityModel, ctx?: GenContext): string {
+export function generateEntity(entity: EntityModel, ctx?: PkgContext): string {
   const className = entity.name;
   const identity = entity.identity?.field;
   const equality = entity.equality ?? "identity";

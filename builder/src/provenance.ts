@@ -4,6 +4,12 @@
  * never from a self-attested claim inside the payload. Agent (LLM) output is
  * tagged `origin: llm-inferred` + `requiresApproval: true` and is BLOCKED from
  * generation until a human attests `actor: human:attested`.
+ *
+ * DEFERRED (SOLID review #9, P3b): this is a flat binary gate (requiresApproval + a single
+ * humanAttest/humanAttestAll). DESIGN §9.5's Tier R (reversible, batched/deferrable) vs Tier I
+ * (irreversible/high blast-radius, always solo + blocking) routing is not implemented — every
+ * element goes through the same path regardless of reversibility or blast radius. Intentionally
+ * not built here; scope it as its own slice when P3b closure is picked up.
  */
 
 export interface Provenance {

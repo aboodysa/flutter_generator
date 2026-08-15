@@ -24,6 +24,14 @@ export interface ArchitectureDecision {
 }
 
 // Coupled-pair matrix (§10.2): the proven (stateManagement × DI) cells. Additive-only.
+//
+// `routing` (the third axis §10.2 also names) is deliberately NOT in this guard: unlike
+// stateManagement × DI, routing is not an independent selection today — scoring.ts's scoreApp()
+// always derives it 1:1 from stateManagement (`none` -> routing "none", anything else ->
+// "go_router"; see scoring.ts). There is currently no code path that could produce an unproven
+// (stateManagement × routing) combination, so guarding it here would be dead code. SOLID review
+// #7: if routing ever becomes independently selectable, extend PROVEN_COUPLED_PAIRS to 3-tuples
+// (or a second matrix) at that point — don't add it speculatively now.
 const PROVEN_COUPLED_PAIRS: Set<string> = new Set([
   "none × none",
   "bloc × get_it",

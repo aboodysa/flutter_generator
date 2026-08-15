@@ -1,5 +1,5 @@
 import { RepositoryModel, OperationModel, OperationParam } from "../types";
-import { importsFromTypes, GenContext } from "../dart";
+import { importsFromTypes, PkgContext } from "../dart";
 
 function paramStr(p: OperationParam): string {
   if (p.named === false) return `${p.type} ${p.name}`;
@@ -21,7 +21,7 @@ function operationStr(op: OperationModel): string {
  * RepositoryContractGenerator — structural, deterministic, 0% LLM.
  * IR RepositoryModel → abstract repository interface with faithful signatures.
  */
-export function generateRepository(repo: RepositoryModel, ctx?: GenContext): string {
+export function generateRepository(repo: RepositoryModel, ctx?: PkgContext): string {
   const methods = repo.operations.map(operationStr).join("\n");
 
   const types: string[] = [];
