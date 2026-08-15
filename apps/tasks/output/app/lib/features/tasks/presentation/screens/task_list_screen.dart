@@ -51,7 +51,7 @@ class TaskListScreen extends StatelessWidget {
                               title: Text(item.title),
                               subtitle: Text('${((item.dueDate?.toIso8601String() ?? '').split('T').first)} · ${item.priority.name}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.go('/task/${item.id}'),
+                              onTap: () => context.push('/task/${item.id}'),
                             ),
                           );
                         },
@@ -65,7 +65,7 @@ class TaskListScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'New Task',
-        onPressed: () => context.go('/task/new'),
+        onPressed: () => context.push('/task/new'),
         child: const Icon(Icons.add),
       ),
     );

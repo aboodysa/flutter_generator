@@ -17,7 +17,7 @@ class FollowUpDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Follow Up details'),
       actions: [
-        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('/follow-up/${id}/edit')),
+        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/follow-up/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<FollowUpListCubit>().delete(id!); if (context.mounted) context.go('/follow-up'); }),
       ]),
       body: BlocBuilder<FollowUpListCubit, FollowUpListState>(

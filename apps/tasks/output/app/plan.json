@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 49,
+  "artifactCount": 50,
   "entries": [
     {
       "artifact": "enum:TaskStatus",
@@ -554,6 +554,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/scroll_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:back",
+      "generator": "BackTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/back_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

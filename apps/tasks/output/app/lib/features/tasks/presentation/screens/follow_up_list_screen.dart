@@ -54,7 +54,7 @@ class FollowUpListScreen extends StatelessWidget {
                               title: Text(item.id),
                               subtitle: Text('${((item.createdAt?.toIso8601String() ?? '').split('T').first)}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.go('/follow-up/${item.id}'),
+                              onTap: () => context.push('/follow-up/${item.id}'),
                             ),
                           );
                         },
@@ -70,7 +70,7 @@ class FollowUpListScreen extends StatelessWidget {
         tooltip: 'New FollowUp',
         onPressed: () {
           final id = GoRouterState.of(context).uri.queryParameters['taskId'];
-          context.go(id != null ? '/follow-up/new?taskId=$id' : '/follow-up/new');
+          context.push(id != null ? '/follow-up/new?taskId=$id' : '/follow-up/new');
         },
         child: const Icon(Icons.add),
       ),

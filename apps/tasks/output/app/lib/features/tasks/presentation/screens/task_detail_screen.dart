@@ -17,7 +17,7 @@ class TaskDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Task details'),
       actions: [
-        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('/task/${id}/edit')),
+        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/task/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<TaskListCubit>().delete(id!); if (context.mounted) context.go('/task'); }),
       ]),
       body: BlocBuilder<TaskListCubit, TaskListState>(
@@ -50,7 +50,7 @@ class TaskDetailScreen extends StatelessWidget {
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               const SizedBox(height: 4.0),
-              AppListCard(card: true, title: Text('View FollowUps'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go('/follow-up?taskId=${id}')),
+              AppListCard(card: true, title: Text('View FollowUps'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/follow-up?taskId=${id}')),
               ],
             );
         },
