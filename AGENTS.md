@@ -158,6 +158,37 @@ apps/<app>/
 - Existing legacy samples stay in `builder/samples/` (do not move — additive-only); new apps go in
   `apps/<app>/`.
 
+## IR input guidelines (prevent mistakes at generation time)
+
+When writing/editing `*.ir.json` inputs, apply these so the generated app is honest and
+minimal — a field/screen/rule you add here becomes real code, goldens, forms, and tests:
+
+- **Every field must be *consumed* somewhere the user can see or act on.** Before adding a field,
+  ask: is it displayed (list/detail/form), filterable, sortable, or rule-scoped? If none, drop it
+  or say why it's needed. A `createdAt`/`updatedAt`/`createdBy` timestamp is only justified when
+  the app actually orders by it, shows it, or needs an audit trail (Ledgerly L3) — not "every row
+  gets one" out of habit. Owner's rule: timestamps are an explicit L3 capability, never an
+  implicit default. (Lesson: tasks sample got a speculative `FollowUp.createdAt` — reverted, then
+  restored because the owner DOES want to see it; both are valid, the point is *decide consciously*.)
+- **Identity fields** are `id` (String by default). Do not name a FK "id" — child links use
+  `<Parent>Id` (`FollowUp.taskId`), which drives parent→children navigation.
+- **Money** (`semanticType: "Money"`, `currency: "SAR"` etc.): never a raw `double` for money. A
+  money field without a currency is a defect (validator `[money]` catches the double form only).
+- **Enum fields** declare `"of": "<EnumType>"` and a `default` when the status has a resting state
+  (e.g. `status` starts `open`/`submitted`). Rules over enum fields need an oracle (`rules/` dir
+  next to the IR) or validation fails.
+- **One primary display field** per entity named `title`/`name`/`merchant`/`label`/`subject` — the
+  demo rows and list cards read human ("Sample Task 1") off it; without it the demo is `'x'`-junk.
+- **Screens**: a list screen needs a repo with `list`; detail screens need `:id` param support;
+  a wizard step references fields that exist on the entity. Declare `states` for every screen.
+- **Repositories**: create/update/delete only when the UI actually edits; a repo without
+  create/update yields no CRUD form (no "New"/edit/delete affordances).
+- **Business rules** always ship a `<rule>.oracle.json` with ≥1 case (validator `[oracle]` gate).
+- **Nullable vs required** mirrors the UI: nullable fields render `—` when empty; required fields
+  cannot be left blank in the generated form.
+- After editing an IR: regenerate the app, run `validate.ts`, and `flutter analyze/test` — the
+  IR is the single source of truth; validation is the gate.
+
 ## Code graph (graphify)
 
 `builder/src/` is graphed via the `graphify` skill into `graphify-out/` (`graph.json`,

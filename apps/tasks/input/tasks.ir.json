@@ -7,11 +7,18 @@
   "enums": [
     {
       "name": "TaskStatus",
-      "values": ["open", "closed"]
+      "values": [
+        "open",
+        "closed"
+      ]
     },
     {
       "name": "Priority",
-      "values": ["low", "medium", "high"]
+      "values": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   ],
   "entities": [
@@ -21,12 +28,46 @@
         "field": "id"
       },
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "title", "type": "String", "required": true, "nullable": false },
-        { "name": "description", "type": "String", "required": false, "nullable": true },
-        { "name": "dueDate", "type": "DateTime", "required": true, "nullable": true },
-        { "name": "priority", "type": "enum", "required": true, "nullable": false, "of": "Priority", "default": "medium" },
-        { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "TaskStatus", "default": "open" }
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "String",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "dueDate",
+          "type": "DateTime",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "priority",
+          "type": "enum",
+          "required": true,
+          "nullable": false,
+          "of": "Priority",
+          "default": "medium"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "nullable": false,
+          "of": "TaskStatus",
+          "default": "open"
+        }
       ]
     },
     {
@@ -35,10 +76,30 @@
         "field": "id"
       },
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "taskId", "type": "String", "required": true, "nullable": false },
-        { "name": "note", "type": "String", "required": true, "nullable": false },
-        { "name": "createdAt", "type": "DateTime", "required": true, "nullable": true }
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "taskId",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "note",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "required": true,
+          "nullable": true
+        }
       ]
     }
   ],
@@ -48,7 +109,11 @@
       "entity": "Task",
       "result": "true",
       "conditions": [
-        { "field": "priority", "operator": "==", "value": "high" }
+        {
+          "field": "priority",
+          "operator": "==",
+          "value": "high"
+        }
       ]
     }
   ],
@@ -65,28 +130,44 @@
           "name": "getTask",
           "returns": "Future<Task>",
           "params": [
-            { "name": "id", "type": "String", "named": false }
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
           ]
         },
         {
           "name": "createTask",
           "returns": "Future<Task>",
           "params": [
-            { "name": "task", "type": "Task", "named": false }
+            {
+              "name": "task",
+              "type": "Task",
+              "named": false
+            }
           ]
         },
         {
           "name": "updateTask",
           "returns": "Future<void>",
           "params": [
-            { "name": "task", "type": "Task", "named": false }
+            {
+              "name": "task",
+              "type": "Task",
+              "named": false
+            }
           ]
         },
         {
           "name": "deleteTask",
           "returns": "Future<void>",
           "params": [
-            { "name": "id", "type": "String", "named": false }
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
           ]
         }
       ]
@@ -103,28 +184,44 @@
           "name": "getFollowUp",
           "returns": "Future<FollowUp>",
           "params": [
-            { "name": "id", "type": "String", "named": false }
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
           ]
         },
         {
           "name": "createFollowUp",
           "returns": "Future<FollowUp>",
           "params": [
-            { "name": "followUp", "type": "FollowUp", "named": false }
+            {
+              "name": "followUp",
+              "type": "FollowUp",
+              "named": false
+            }
           ]
         },
         {
           "name": "updateFollowUp",
           "returns": "Future<void>",
           "params": [
-            { "name": "followUp", "type": "FollowUp", "named": false }
+            {
+              "name": "followUp",
+              "type": "FollowUp",
+              "named": false
+            }
           ]
         },
         {
           "name": "deleteFollowUp",
           "returns": "Future<void>",
           "params": [
-            { "name": "id", "type": "String", "named": false }
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
           ]
         }
       ]
@@ -134,12 +231,22 @@
     {
       "name": "TaskList",
       "entity": "Task",
-      "statuses": ["initial", "loading", "success", "failure"]
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
     },
     {
       "name": "FollowUpList",
       "entity": "FollowUp",
-      "statuses": ["initial", "loading", "success", "failure"]
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
     }
   ],
   "screens": [
