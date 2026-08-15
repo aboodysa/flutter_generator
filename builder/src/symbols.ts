@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -42,5 +42,6 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   for (const f of ir.forms ?? []) add(f.name, "presentation/forms", fileName(f.name));
   for (const r of ir.businessRules ?? []) add(r.name, "domain/rules", fileName(r.name));
   if ((ir.useCases ?? []).some((u) => u.paramType === "NoParams")) m.set("NoParams", "core/no_params.dart");
+  if (hasMoneyFields(ir)) m.set("Money", "core/money.dart");
   return m;
 }

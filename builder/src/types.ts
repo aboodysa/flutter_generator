@@ -17,6 +17,11 @@ export interface Field {
   nullable?: boolean;
   default?: string | number | boolean | null;
   semanticType?: string;
+  // P7-L1: ISO 4217 code (e.g. "SAR") — required companion to `semanticType: "Money"`. A money
+  // field is never emitted as `double`: the entity/model/form/screen/repo-seed/rule generators
+  // all special-case `semanticType === "Money"` into the generated `Money` value object (integer
+  // minor units + this code), before the generic single-primitive VO fallback ever runs.
+  currency?: string;
 }
 
 export interface EntityModel {

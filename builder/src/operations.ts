@@ -97,3 +97,17 @@ export function findWizardScreen(ir: FeatureModel, stateName: string): ScreenMod
 export function stepFields(st: WizardStep): string[] {
   return st.fields ?? (st.field ? [st.field] : []);
 }
+
+// P7-L1: a field is money-typed when it declares `semanticType: "Money"` — the single source of
+// truth every generator (entity/model/crud_form/screen/repository_impl/rule/state) checks BEFORE
+// falling through to the generic single-primitive value-object path, so Money's two-field shape
+// (minorUnits + currency) never gets treated as a plain VO wrapper.
+export function isMoneyField(f: { semanticType?: string }): boolean {
+  return f.semanticType === "Money";
+}
+
+// Whether the IR declares any money field anywhere — gates conditional emission of the shared
+// core/money.dart value object (index.ts/symbols.ts) so apps with no money never carry a dead file.
+export function hasMoneyFields(ir: FeatureModel): boolean {
+  return (ir.entities ?? []).some((e) => e.fields.some(isMoneyField));
+}

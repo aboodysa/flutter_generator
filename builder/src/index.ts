@@ -23,7 +23,7 @@ import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest } from "./generators/test";
-import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams } from "./generators/infra";
+import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
 import { scoreStateStrategy } from "./scoring";
@@ -36,7 +36,7 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields } from "./operations";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -114,6 +114,9 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if ((ir.useCases ?? []).some((u) => u.paramType === "NoParams")) {
     core.push(["no_params.dart", generateNoParams(ir)]);
   }
+  if (hasMoneyFields(ir)) {
+    core.push(["money.dart", generateMoney(ir)]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -125,6 +128,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "observability.dart": "ObservabilityGenerator",
     "validator.dart": "ValidatorGenerator",
     "no_params.dart": "NoParamsGenerator",
+    "money.dart": "MoneyGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];

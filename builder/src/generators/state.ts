@@ -1,6 +1,6 @@
 import { StateModel, StateField, EntityModel, ScreenModel, WizardStep } from "../types";
 import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, newIdExpr, GenContext } from "../dart";
-import { crudOperations, findRepoForEntity, findWizardScreen, stepFields } from "../operations";
+import { crudOperations, findRepoForEntity, findWizardScreen, stepFields, isMoneyField } from "../operations";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
@@ -344,6 +344,12 @@ ${steps.map((st, i) => `      ${i} => ${stepGuard(st)},`).join("\n")}
     if (typeof st.when === "string") return `${st.when}().evaluate(_draft)`;
     const { field, op, value } = st.when;
     const f = fieldDef(field);
+    // P7-L1: a money step field compares by `.minorUnits`, never the raw Money — the IR literal
+    // is major units (same convention as rule.ts's conditionExpr), scaled ×100.
+    if (f && isMoneyField(f)) {
+      const scaled = String(Math.round(parseFloat(value) * 100));
+      return `(${field}?.minorUnits ?? 0) ${op} ${scaled}`;
+    }
     const dflt = f?.type === "int" ? "0" : f?.type === "double" ? "0.0" : f?.type === "bool" ? "false" : "''";
     return `(${field} ?? ${dflt}) ${op} ${value}`;
   };

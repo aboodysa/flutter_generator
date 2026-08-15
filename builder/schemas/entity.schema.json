@@ -171,6 +171,11 @@
           "type": "string",
           "description": "known semantic value-object type: Email, PhoneNumber, Money, NationalId, etc."
         },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "P7-L1: ISO 4217 currency code (e.g. SAR, USD) — required companion to semanticType: \"Money\"; the field is emitted as Money (integer minor units), never double."
+        },
         "actor": {
           "type": "string"
         },

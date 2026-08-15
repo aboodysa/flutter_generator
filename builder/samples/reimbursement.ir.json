@@ -6,10 +6,6 @@
   },
   "enums": [
     {
-      "name": "Currency",
-      "values": ["usd", "eur", "gbp"]
-    },
-    {
       "name": "ExpenseCategory",
       "values": ["travel", "meals", "supplies", "other"]
     },
@@ -27,8 +23,7 @@
       "fields": [
         { "name": "id", "type": "String", "required": true, "nullable": false },
         { "name": "employee", "type": "String", "required": true, "nullable": false },
-        { "name": "amount", "type": "double", "required": true, "nullable": false },
-        { "name": "currency", "type": "enum", "required": true, "nullable": false, "of": "Currency" },
+        { "name": "amount", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "SAR" },
         { "name": "category", "type": "enum", "required": true, "nullable": false, "of": "ExpenseCategory" },
         { "name": "managerApproved", "type": "bool", "required": true, "nullable": false, "default": "false" },
         { "name": "financeApproved", "type": "bool", "required": false, "nullable": true },

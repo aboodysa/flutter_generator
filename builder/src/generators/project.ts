@@ -3,6 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
+import { hasMoneyFields } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -171,6 +172,9 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   for (const s of feature.states ?? []) names.push(s.name);
   for (const sc of feature.screens ?? []) names.push(sc.name);
   for (const r of feature.businessRules ?? []) names.push(r.name);
+  // P7-L1: unit_test.ts/oracle_test.ts only import this barrel (not core/money.dart directly) —
+  // without this, a generated test that literally writes `Money(...)` fails to compile.
+  if (hasMoneyFields(feature)) names.push("Money");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

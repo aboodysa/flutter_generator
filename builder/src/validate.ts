@@ -3,6 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor } from "./oracle";
+import { isMoneyField } from "./operations";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -73,6 +74,29 @@ function stateStrategyFidelity(outDir: string): string[] {
   return mismatches;
 }
 
+// P7-L1 ("Money never uses double"): every entity field declared `semanticType: "Money"` must
+// never surface as a raw `double` field declaration anywhere in the generated output — that would
+// mean some generator fell through to the generic double path instead of special-casing Money
+// (silently reintroducing floating-point rounding error into a money amount).
+function moneyCheck(ir: any, files: string[]): string[] {
+  const moneyFieldNames = new Set<string>();
+  for (const e of ir.entities ?? []) {
+    for (const f of e.fields ?? []) {
+      if (isMoneyField(f)) moneyFieldNames.add(f.name);
+    }
+  }
+  if (!moneyFieldNames.size) return [];
+  const issues: string[] = [];
+  for (const name of moneyFieldNames) {
+    const re = new RegExp(`\\bdouble\\??\\s+${name}\\b`);
+    for (const f of files) {
+      const src = fs.readFileSync(f, "utf8");
+      if (re.test(src)) issues.push(`[money] field '${name}' emitted as double in ${f}`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -81,6 +105,7 @@ export interface ValidationResult {
   arch: number;      // count of files with arch violations
   oracle: number;    // count of business rules missing or with zero-case oracle coverage
   fidelity: number;  // count of state artifacts whose plan.json strategy doesn't match the emitted template
+  money: number;     // count of money-declared fields emitted as double (P7-L1)
   files: number;
   issues: string[];
 }
@@ -122,7 +147,12 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...fidelityIssues);
   const fidelity = fidelityIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, files: files.length, issues };
+  // Money-never-double (P7-L1).
+  const moneyIssues = moneyCheck(ir, files);
+  issues.push(...moneyIssues);
+  const money = moneyIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, files: files.length, issues };
 }
 
 function main() {
@@ -136,7 +166,8 @@ function main() {
   console.log(`[architecture] ${r.arch === 0 ? "PASS" : "FAIL (" + r.arch + ")"}`);
   console.log(`[oracle] ${r.oracle === 0 ? "PASS" : "FAIL (" + r.oracle + ")"}`);
   console.log(`[strategy-fidelity] ${r.fidelity === 0 ? "PASS" : "FAIL (" + r.fidelity + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity > 0;
+  console.log(`[money] ${r.money === 0 ? "PASS" : "FAIL (" + r.money + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

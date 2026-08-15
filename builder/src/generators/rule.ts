@@ -1,5 +1,6 @@
-import { RuleModel, RuleCondition } from "../types";
-import { PkgContext } from "../dart";
+import { RuleModel, RuleCondition, Field } from "../types";
+import { GenContext } from "../dart";
+import { isMoneyField } from "../operations";
 
 /**
  * BusinessRuleGenerator — structural, deterministic, 0% LLM (Phase 3 deterministic core).
@@ -7,18 +8,25 @@ import { PkgContext } from "../dart";
  * RuleModel; this generator compiles it deterministically — never hand-written logic.
  */
 
-/** Compile a single condition to a Dart expression over the subject `e`. */
-function conditionExpr(c: RuleCondition): string {
-  const f = `e.${c.field}`;
+// P7-L1: a condition over a money field compares against `.minorUnits` (an int), never the Money
+// object itself — Dart has no `Money >= 1000` overload for a bare numeric literal. The IR's
+// condition `value` is expressed in major units (e.g. "1000" = 1000.00), matching how oracle
+// cases/other IR literals already read; it's scaled ×100 to line up with minorUnits.
+function conditionExpr(c: RuleCondition, fields: Field[]): string {
+  const fieldDef = fields.find((x) => x.name === c.field);
+  const money = fieldDef ? isMoneyField(fieldDef) : false;
+  const f = money ? `e.${c.field}.minorUnits` : `e.${c.field}`;
+  const value = money ? String(Math.round(parseFloat(c.value) * 100)) : c.value;
   switch (c.operator) {
-    case "contains": return `${f}.contains(${c.value})`;
-    case "daysSince>": return `DateTime.now().difference(${f}).inDays > ${c.value}`;
-    case "daysSince<": return `DateTime.now().difference(${f}).inDays < ${c.value}`;
-    default: return `${f} ${c.operator} ${c.value}`;
+    case "contains": return `${f}.contains(${value})`;
+    case "daysSince>": return `DateTime.now().difference(${f}).inDays > ${value}`;
+    case "daysSince<": return `DateTime.now().difference(${f}).inDays < ${value}`;
+    default: return `${f} ${c.operator} ${value}`;
   }
 }
 
-export function generateRule(rule: RuleModel, ctx?: PkgContext): string {
+export function generateRule(rule: RuleModel, ctx?: GenContext): string {
+  const entityFields = (ctx?.ir?.entities ?? []).find((e: any) => e.name === rule.entity)?.fields ?? [];
   const entityImport = ctx?.symbols.get(rule.entity)
     ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(rule.entity)}';`
     : `import '${rule.entity.toLowerCase()}.dart';`;
@@ -33,7 +41,7 @@ ${entityImport}
   if (rows.length) {
     const rowCode = rows
       .map((r, i) => {
-        const conds = (r.conditions ?? []).map(conditionExpr).join(" &&\n        ");
+        const conds = (r.conditions ?? []).map((c) => conditionExpr(c, entityFields)).join(" &&\n        ");
         return `    if (${conds}) return '${r.outcome}'; // row ${i + 1}`;
       })
       .join("\n");
@@ -49,7 +57,7 @@ ${rowCode}
 
   // Flat form: all conditions must hold (AND) — boolean outcome.
   const conditions = rule.conditions
-    .map(conditionExpr)
+    .map((c) => conditionExpr(c, entityFields))
     .join(" &&\n        ");
 
   return `${header}

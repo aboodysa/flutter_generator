@@ -3,19 +3,19 @@
   "entity": "ExpenseClaim",
   "cases": [
     {
-      "input": { "id": "c-1", "employee": "Ada", "amount": 1500, "currency": "usd", "category": "travel", "managerApproved": true, "status": "submitted" },
+      "input": { "id": "c-1", "employee": "Ada", "amount": 1500, "category": "travel", "managerApproved": true, "status": "submitted" },
       "expected": true
     },
     {
-      "input": { "id": "c-2", "employee": "Bea", "amount": 1000, "currency": "usd", "category": "meals", "managerApproved": true, "status": "submitted" },
+      "input": { "id": "c-2", "employee": "Bea", "amount": 1000, "category": "meals", "managerApproved": true, "status": "submitted" },
       "expected": true
     },
     {
-      "input": { "id": "c-3", "employee": "Cy", "amount": 999.99, "currency": "usd", "category": "supplies", "managerApproved": false, "status": "submitted" },
+      "input": { "id": "c-3", "employee": "Cy", "amount": 999.99, "category": "supplies", "managerApproved": false, "status": "submitted" },
       "expected": false
     },
     {
-      "input": { "id": "c-4", "employee": "Deb", "amount": 0, "currency": "eur", "category": "other", "managerApproved": false, "status": "submitted" },
+      "input": { "id": "c-4", "employee": "Deb", "amount": 0, "category": "other", "managerApproved": false, "status": "submitted" },
       "expected": false
     }
   ]

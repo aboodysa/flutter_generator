@@ -1,6 +1,6 @@
 import { EntityModel, Field } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget } from "../operations";
+import { CrudFormTarget, isMoneyField } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -43,6 +43,12 @@ function initStateLine(f: Field): string | null {
   // field that isn't itself nullable is redundant (Dart flags it: "can't be used because of
   // short-circuiting") — so the second link only gets `?.` when the field's own type is nullable.
   const chain = nullable(f) ? "?." : ".";
+  // P7-L1: Money's underlying `type` is "double" but it repopulates from `.minorUnits / 100`, not
+  // `.toString()` — checked before the "double" case below.
+  if (isMoneyField(f)) {
+    const bang = nullable(f) ? "!" : "";
+    return `    _${f.name}.text = i?.${f.name} == null ? '' : (i!.${f.name}${bang}.minorUnits / 100).toStringAsFixed(2);`;
+  }
   switch (f.type) {
     case "String": return `    _${f.name}.text = i?.${f.name} ?? '';`;
     case "int": case "double": return `    _${f.name}.text = i?.${f.name}${chain}toString() ?? '';`;
@@ -54,6 +60,11 @@ function initStateLine(f: Field): string | null {
 
 function fieldWidget(f: Field): string {
   const label = fieldLabel(f.name);
+  // P7-L1: same decimal-text UI as "double", plus a currency suffix; the typed value is parsed
+  // into minor units in valueExpr(), never left as a raw double.
+  if (isMoneyField(f)) {
+    return `        TextField(controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
+  }
   switch (f.type) {
     case "String":
       return `        TextField(controller: _${f.name}, decoration: const InputDecoration(labelText: '${label}')),`;
@@ -76,6 +87,11 @@ function fieldWidget(f: Field): string {
 
 function valueExpr(f: Field): string {
   const opt = nullable(f);
+  // P7-L1: decimal text -> minor units (round, never truncate) -> Money, never a raw double.
+  if (isMoneyField(f)) {
+    const money = `Money(minorUnits: ((double.tryParse(_${f.name}.text) ?? 0.0) * 100).round(), currency: '${f.currency}')`;
+    return opt ? `(_${f.name}.text.isEmpty ? null : ${money})` : money;
+  }
   switch (f.type) {
     case "String": return opt ? `(_${f.name}.text.isEmpty ? null : _${f.name}.text)` : `_${f.name}.text`;
     case "int": return opt ? `int.tryParse(_${f.name}.text)` : `(int.tryParse(_${f.name}.text) ?? 0)`;

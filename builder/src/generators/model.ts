@@ -1,5 +1,6 @@
 import { EntityModel, Field, ModelModel } from "../types";
 import { DART_TYPES, capitalize, nullable, voBaseType, fileName, defaultValue, importsFromTypes, PkgContext } from "../dart";
+import { isMoneyField } from "../operations";
 
 function modelType(f: Field): string {
   if (f.semanticType) return f.semanticType;
@@ -28,6 +29,14 @@ function readExpr(f: Field, override: ModelModel | undefined): string {
   const raw = alts.length ? `(${chain})` : chain;
   const isNull = nullable(f);
   const dflt = defaultValue(f);
+
+  // P7-L1: Money is a structured {minorUnits, currency} JSON object, not a single scalar — must
+  // be special-cased before the generic single-primitive VO fallback below.
+  if (isMoneyField(f)) {
+    return isNull
+      ? `${raw} != null ? Money.fromJson(${raw} as Map<String, dynamic>) : null`
+      : `Money.fromJson(${raw} as Map<String, dynamic>)`;
+  }
 
   // semanticType takes precedence over the primitive type.
   if (f.semanticType) {
@@ -67,6 +76,7 @@ function readExpr(f: Field, override: ModelModel | undefined): string {
 
 function writeExpr(f: Field): string {
   const access = nullable(f) ? `${f.name}?` : f.name;
+  if (isMoneyField(f)) return `${access}.toJson()`;
   switch (f.type) {
     case "DateTime":
       return `${access}.toIso8601String()`;

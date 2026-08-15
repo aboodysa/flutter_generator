@@ -1,5 +1,6 @@
 import { RuleModel, EntityModel, FeatureModel, Field } from "../types";
 import { OracleFile } from "../oracle";
+import { isMoneyField } from "../operations";
 
 /**
  * RuleOracleTestGenerator — semantic, deterministic, 0% LLM at generation time
@@ -12,6 +13,12 @@ import { OracleFile } from "../oracle";
 // Deterministic Dart literal for one required-field value from an oracle case's input
 // (mirrors sampleArgs in ../dart.ts; missing/null falls back to the same neutral defaults).
 function fieldLiteral(f: Field, value: any, feature: FeatureModel): string {
+  // P7-L1: oracle case JSON expresses money in major units (e.g. 1500 = 1500.00) — the same
+  // convention rule.ts's conditionExpr uses for RuleCondition literals — scaled ×100 into Money.
+  if (isMoneyField(f)) {
+    if (value === undefined || value === null) return `Money(minorUnits: 0, currency: '${f.currency}')`;
+    return `Money(minorUnits: ${Math.round(Number(value) * 100)}, currency: '${f.currency}')`;
+  }
   if (f.semanticType) {
     const vo = (feature.valueObjects ?? []).find((v) => v.name === f.semanticType);
     const base = vo?.baseType ?? "String";

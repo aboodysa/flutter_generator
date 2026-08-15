@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -19,6 +19,9 @@ const SUBTITLE_TYPES = ["double", "int", "DateTime", "enum"];
 function fieldValue(field: Field, item = "item"): string {
   const n = `${item}.${field.name}`;
   const opt = nullable(field);
+  // P7-L1: money always renders through Money.format() ("1,250.00 SAR") — never a raw double
+  // display, which would silently drop the currency and defeat the whole "never double" goal.
+  if (isMoneyField(field)) return opt ? `(${n}?.format() ?? '—')` : `${n}.format()`;
   switch (field.type) {
     case "String": return opt ? `${n} ?? '—'` : n;
     case "int": return opt ? `(${n}?.toString() ?? '—')` : `${n}.toString()`;
@@ -55,6 +58,11 @@ function wizardFieldInput(fieldName: string, field: Field | undefined, setterCal
   const label = fieldLabel(fieldName);
   const key = `const ValueKey('field-${fieldName}')`;
   if (!field) return `Text('${label} — unknown field')`;
+  // P7-L1: decimal text -> Money(minorUnits: ..., currency: ...), never a raw double state field.
+  if (isMoneyField(field)) {
+    const parse = `(v.isEmpty ? null : Money(minorUnits: ((double.tryParse(v) ?? 0.0) * 100).round(), currency: '${field.currency}'))`;
+    return `TextFormField(key: ${key}, initialValue: state.${field.name} != null ? (state.${field.name}!.minorUnits / 100).toStringAsFixed(2) : '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${field.currency}'), onChanged: (v) => ${setterCall(parse)})`;
+  }
   switch (field.type) {
     case "String":
       return `TextFormField(key: ${key}, initialValue: state.${field.name} ?? '', decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("v")})`;
@@ -80,11 +88,13 @@ function wizardFieldInput(fieldName: string, field: Field | undefined, setterCal
 function wizardFieldSummaryLine(fieldName: string, field: Field | undefined): string {
   const label = fieldLabel(fieldName);
   if (!field) return `Text('${label}: —')`;
-  const display = field.type === "bool"
-    ? `(state.${field.name} == null ? '—' : (state.${field.name}! ? 'yes' : 'no'))`
-    : field.type === "enum"
-      ? `(state.${field.name}?.name ?? '—')`
-      : `(state.${field.name}?.toString() ?? '—')`;
+  const display = isMoneyField(field)
+    ? `(state.${field.name}?.format() ?? '—')`
+    : field.type === "bool"
+      ? `(state.${field.name} == null ? '—' : (state.${field.name}! ? 'yes' : 'no'))`
+      : field.type === "enum"
+        ? `(state.${field.name}?.name ?? '—')`
+        : `(state.${field.name}?.toString() ?? '—')`;
   return `Text('${label}: \${${display}}')`;
 }
 
@@ -187,11 +197,14 @@ ${rowsBlock}
     // enum type name literally (`DropdownButton<Priority>`, `Priority.values`), unlike the
     // list/detail bodies which only ever access `.name` on an already-typed expression.
     const allStepFieldNames = Array.from(new Set(steps.flatMap(stepFields)));
-    const enumTypeNames = allStepFieldNames
-      .map(fieldDef)
-      .filter((f): f is Field => !!f && f.type === "enum")
+    const stepFieldDefs = allStepFieldNames.map(fieldDef).filter((f): f is Field => !!f);
+    const enumTypeNames = stepFieldDefs
+      .filter((f) => f.type === "enum")
       .map((f) => f.of || capitalize(f.name));
-    wizardTypeImports = importsFromTypes(enumTypeNames, ctx).join("\n");
+    // P7-L1: wizardFieldInput's money branch writes `Money(minorUnits: ..., currency: ...)`
+    // literally in this file (same reason enum types need an explicit import above it).
+    const moneyTypeNames = stepFieldDefs.some(isMoneyField) ? ["Money"] : [];
+    wizardTypeImports = importsFromTypes([...enumTypeNames, ...moneyTypeNames], ctx).join("\n");
 
     body = `            if (state.status == ${statusEnum}.success) return const Center(child: Text('All done!'));
             return Column(

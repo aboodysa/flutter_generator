@@ -1,5 +1,5 @@
 import { FeatureModel, Field, StateManagementProvider } from "../types";
-import { crudFormTargets } from "../operations";
+import { crudFormTargets, isMoneyField } from "../operations";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -23,6 +23,7 @@ void main() {
   const model = `${entity.name}Model`;
 
   const jsonSample = (f: Field): string => {
+    if (isMoneyField(f)) return `{'minorUnits': 0, 'currency': '${f.currency}'}`;
     if (f.semanticType) {
       const vo = (feature.valueObjects ?? []).find((v) => v.name === f.semanticType);
       return vo?.baseType === "String" ? "'x'" : vo?.baseType === "int" ? "0" : "0.0";
@@ -49,6 +50,7 @@ void main() {
     .join("\n");
 
   const dartSample = (f: Field): string => {
+    if (isMoneyField(f)) return `Money(minorUnits: 0, currency: '${f.currency}')`;
     if (f.semanticType) {
       const vo = (feature.valueObjects ?? []).find((v) => v.name === f.semanticType);
       return `${f.semanticType}(${vo?.baseType === "String" ? "'x'" : "0"})`;
