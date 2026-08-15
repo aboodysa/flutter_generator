@@ -188,6 +188,12 @@ minimal — a field/screen/rule you add here becomes real code, goldens, forms, 
   cannot be left blank in the generated form.
 - After editing an IR: regenerate the app, run `validate.ts`, and `flutter analyze/test` — the
   IR is the single source of truth; validation is the gate.
+- **Regeneration drops `web/` (G5).** `index.ts` only emits `lib/`+`test/`+`pubspec`; re-generating
+  `apps/<app>/output/app` deletes any `web/` platform (and goldens are regenerated). After every
+  regenerate that must be served on the tailnet: `flutter create . --platforms web
+  --project-name rasheed_replica_<app>` then `flutter build web --base-href=/<app>/`. Same for
+  `.metadata`/`analysis_options` if `flutter analyze` starts complaining. (Deeper fix — emit a
+  `web/` in the generator — is an open generator task; until then this is the documented step.)
 
 ## Code graph (graphify)
 
