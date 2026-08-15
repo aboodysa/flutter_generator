@@ -89,7 +89,7 @@
           "nullable": false
         },
         {
-          "name": "note",
+          "name": "subject",
           "type": "String",
           "required": true,
           "nullable": false

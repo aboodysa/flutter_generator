@@ -51,8 +51,8 @@
           "identity": { "field": "id" },
           "fields": [
             { "name": "id", "type": "String", "required": true, "nullable": false },
-            { "name": "employee", "type": "String", "required": true, "nullable": false },
-            { "name": "amount", "type": "double", "required": true, "nullable": false },
+            { "name": "name", "type": "String", "required": true, "nullable": false },
+            { "name": "amount", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "SAR" },
             { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "ClaimStatus", "default": "pending" }
           ]
         }
@@ -93,7 +93,7 @@
           "identity": { "field": "id" },
           "fields": [
             { "name": "id", "type": "String", "required": true, "nullable": false },
-            { "name": "approver", "type": "String", "required": true, "nullable": false },
+            { "name": "name", "type": "String", "required": true, "nullable": false },
             { "name": "decision", "type": "enum", "required": true, "nullable": false, "of": "ApprovalDecision", "default": "pending" }
           ]
         }

@@ -45,7 +45,9 @@
         {
           "name": "price",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "quantity",
@@ -62,7 +64,8 @@
           "name": "status",
           "type": "enum",
           "of": "StockStatus",
-          "required": true
+          "required": true,
+          "default": "inStock"
         },
         {
           "name": "category",

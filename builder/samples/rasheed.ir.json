@@ -50,7 +50,7 @@
           "nullable": true
         },
         {
-          "name": "merchantNameRaw",
+          "name": "merchant",
           "type": "String",
           "nullable": true
         },
@@ -62,17 +62,23 @@
         {
           "name": "amount",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "vatAmount",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "discountAmount",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "totalQty",
@@ -147,27 +153,37 @@
         {
           "name": "subtotal",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "taxableAmount",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "totalSavings",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "usedCredit",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "netPayable",
           "type": "double",
-          "nullable": true
+          "nullable": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "transactionType",
@@ -265,12 +281,12 @@
           "required": true
         },
         {
-          "name": "transactionId",
+          "name": "transactionEntityId",
           "type": "String",
           "required": true
         },
         {
-          "name": "itemName",
+          "name": "name",
           "type": "String",
           "required": true
         },
@@ -282,22 +298,30 @@
         {
           "name": "totalPrice",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "unitPrice",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "disc",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "vat",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         }
       ]
     },
@@ -315,7 +339,7 @@
           "required": true
         },
         {
-          "name": "transactionId",
+          "name": "transactionEntityId",
           "type": "String",
           "required": true
         },
@@ -349,7 +373,9 @@
         {
           "name": "paidAmount",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         }
       ]
     },
@@ -401,7 +427,7 @@
             },
             {
               "name": "languageCode",
-              "type": "String?"
+              "type": "String"
             },
             {
               "name": "localOnly",
@@ -472,7 +498,7 @@
             },
             {
               "name": "languageCode",
-              "type": "String?"
+              "type": "String"
             }
           ]
         },

@@ -47,7 +47,8 @@
           "type": "enum",
           "required": true,
           "nullable": false,
-          "of": "Priority"
+          "of": "Priority",
+          "default": "medium"
         },
         {
           "name": "isDone",

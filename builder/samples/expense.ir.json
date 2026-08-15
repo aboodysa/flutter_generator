@@ -16,7 +16,7 @@
       "fields": [
         { "name": "id", "type": "String", "required": true },
         { "name": "transactionCode", "type": "String", "required": true },
-        { "name": "amount", "type": "double", "required": true, "semanticType": "Money" },
+        { "name": "amount", "type": "double", "required": true, "semanticType": "Money", "currency": "SAR" },
         { "name": "currency", "type": "String", "default": "SAR" },
         { "name": "date", "type": "DateTime", "required": true },
         { "name": "note", "type": "String", "nullable": true },
@@ -36,7 +36,7 @@
         { "name": "id", "type": "String", "required": true },
         { "name": "name", "type": "String", "required": true },
         { "name": "quantity", "type": "int", "required": true },
-        { "name": "unitPrice", "type": "double", "required": true, "semanticType": "Money" }
+        { "name": "unitPrice", "type": "double", "required": true, "semanticType": "Money", "currency": "SAR" }
       ]
     },
     {

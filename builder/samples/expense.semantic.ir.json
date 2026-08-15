@@ -26,7 +26,9 @@
         {
           "name": "amount",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         },
         {
           "name": "date",
@@ -91,7 +93,9 @@
         {
           "name": "unitPrice",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         }
       ]
     },
@@ -130,7 +134,9 @@
         {
           "name": "paidAmount",
           "type": "double",
-          "required": true
+          "required": true,
+          "semanticType": "Money",
+          "currency": "SAR"
         }
       ]
     },
