@@ -56,7 +56,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
     final i = widget.initial;
     _taskId.text = i?.taskId ?? '';
     _note.text = i?.note ?? '';
-    _createdAt.text = i?.createdAt?.toIso8601String() ?? '';
+    _createdAt.text = i?.createdAt == null ? '' : i!.createdAt!.toIso8601String().split('T').first;
   }
 
   @override
@@ -75,7 +75,10 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
         children: [
         TextField(controller: _taskId, decoration: const InputDecoration(labelText: 'Task Id')),
         TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note')),
-        TextField(controller: _createdAt, decoration: const InputDecoration(labelText: 'Created At', hintText: 'YYYY-MM-DD')),
+        TextField(controller: _createdAt, readOnly: true, decoration: const InputDecoration(labelText: 'Created At', hintText: 'YYYY-MM-DD'), onTap: () async {
+          final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_createdAt.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
+          if (picked != null) setState(() => _createdAt.text = picked.toIso8601String().split('T').first);
+        }),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',

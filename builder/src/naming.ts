@@ -31,6 +31,14 @@ export function fieldLabel(name: string): string {
   return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// A humanized plural screen title for an entity ("Task" → "Tasks", "ExpenseClaim" → "Expense
+// Claims") — replaces developer-facing class names like "TaskListScreen" in the app bar
+// (UIX Slice B: domain-aware titles). Deterministic, same input → same title.
+export function entityPluralTitle(entity: string): string {
+  const base = fieldLabel(entity);
+  return /[^aeiou]y$/i.test(entity) ? `${base.slice(0, -1)}ies` : `${base}s`;
+}
+
 // A fresh identity value for a newly-created entity — shared by crud_form.ts (create form
 // submit) and state.ts (wizard finish()) so both entities get a real, unique id the same way.
 export function newIdExpr(identityType: string): string {

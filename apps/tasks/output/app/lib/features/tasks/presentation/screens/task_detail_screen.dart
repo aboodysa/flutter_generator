@@ -15,7 +15,7 @@ class TaskDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('TaskDetailScreen'),
+      appBar: AppBar(title: const Text('Task details'),
       actions: [
         IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('/task/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<TaskListCubit>().delete(id!); if (context.mounted) context.go('/task'); }),
@@ -30,8 +30,6 @@ class TaskDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 
-              AppListCard(card: true, title: Text('Id'), trailing: Text(item.id)),
-              const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Title'), trailing: Text(item.title)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Description'), trailing: Text(item.description ?? '—')),
@@ -41,6 +39,8 @@ class TaskDetailScreen extends StatelessWidget {
               AppListCard(card: true, title: Text('Priority'), trailing: Text(item.priority.name)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Status'), trailing: Text(item.status.name)),
+              const SizedBox(height: 4.0),
+              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('View FollowUps'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go('/follow-up?taskId=${id}')),
               ],

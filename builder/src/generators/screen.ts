@@ -1,5 +1,5 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
-import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, importsFromTypes } from "../dart";
+import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
 import { crudFormTargets, stepFields, isMoneyField } from "../operations";
 
@@ -102,8 +102,19 @@ function wizardFieldInput(fieldName: string, field: Field | undefined, setterCal
       return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("int.tryParse(v)")})`;
     case "double":
       return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("double.tryParse(v)")})`;
-    case "DateTime":
-      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toIso8601String() ?? '', decoration: const InputDecoration(labelText: '${label}', hintText: 'YYYY-MM-DD'), onChanged: (v) => ${setterCall("DateTime.tryParse(v)")})`;
+    // G2: a real date picker. The wizard's fields are deliberately controller-less (value lives
+    // in wizard state, see file header comment) — so instead of a static per-field key, the key
+    // embeds the current value, forcing Flutter to discard+recreate the field (fresh
+    // `initialValue`) whenever a pick changes it; a static key across rebuilds would otherwise
+    // leave the display stuck at whatever `initialValue` was on first build (TextFormField only
+    // consumes `initialValue` at construction, never on update).
+    case "DateTime": {
+      const iso = `state.${field.name}?.toIso8601String().split('T').first ?? ''`;
+      return `TextFormField(key: ValueKey('field-${fieldName}-\${${iso}}'), initialValue: ${iso}, readOnly: true, decoration: const InputDecoration(labelText: '${label}', hintText: 'YYYY-MM-DD'), onTap: () async {
+        final picked = await showDatePicker(context: context, initialDate: state.${field.name} ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
+        if (picked != null) ${setterCall("picked")};
+      })`;
+    }
     case "bool":
       return `CheckboxListTile(key: ${key}, value: state.${field.name} ?? false, title: Text('${label}'), onChanged: (v) => ${setterCall("v")})`;
     case "enum": {
@@ -138,6 +149,10 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const collection = collectionField(s.entity);
   const cardSurface = comp.surface !== "plain"; // Dart bool literal driving AppListCard(card: ...)
 
+  // UIX Slice B: domain-aware app-bar title — "Tasks", "Task details", never the class name
+  // "TaskListScreen". Same shape of title regardless of provider (bloc/riverpod share this text).
+  const appBarTitle = comp.layout === "detail" ? `${fieldLabel(s.entity)} details` : entityPluralTitle(s.entity);
+
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
   const identityField = entity?.identity?.field ?? "id";
 
@@ -166,14 +181,22 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
-      const rows = entity.fields.map((f) => {
-        const label = fieldLabel(f.name);
-        return `AppListCard(card: ${cardSurface}, title: Text('${label}'), trailing: Text(${fieldValue(f, "item")})),`;
-      });
+      // UIX Slice B: the identity field is de-emphasized — rendered LAST in a muted "Additional
+      // details" row, never first with equal weight (users scan title/status/date, not the id).
+      const identityFieldName = entity.identity?.field ?? "id";
+      const rows = entity.fields
+        .filter((f) => f.name !== identityFieldName)
+        .map((f) => {
+          const label = fieldLabel(f.name);
+          return `AppListCard(card: ${cardSurface}, title: Text('${label}'), trailing: Text(${fieldValue(f, "item")})),`;
+        });
       // itemGap (registry rhythm field) separates rows via a SizedBox, not a hardcoded constant.
       const rowsBlock = rows
         .map((r, i) => (i === 0 ? `              ${r}` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${r}`))
         .join("\n");
+      const idRow = entity.fields.some((f) => f.name === identityFieldName)
+        ? `\n              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall)),`
+        : "";
       // Parent→children navigation rows (general capability): one per child entity carrying
       // `camelize(parent)+"Id"` (e.g. FollowUp.taskId under a Task detail). Links to the child's
       // list with `?<fk>=<id>`; the child list screen filters on that query param (listFilterExpr).
@@ -188,7 +211,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 ${heroBlock}
-${rowsBlock}${childRows}
+${rowsBlock}${idRow}${childRows}
               ],
             );`;
     } else {
@@ -390,7 +413,7 @@ ${heroBlock}
   Widget build(BuildContext context, WidgetRef ref) {
 ${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
     return Scaffold(
-      appBar: AppBar(title: const Text('${s.name}')${appBarActions}),
+      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
       body: Builder(builder: (_) {
 ${checks}
 ${body}
@@ -404,7 +427,7 @@ ${body}
   @override
   Widget build(BuildContext context) {
 ${preBuild}    return Scaffold(
-      appBar: AppBar(title: const Text('${s.name}')${appBarActions}),
+      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
       body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
         builder: (context, state) {
 ${checks}

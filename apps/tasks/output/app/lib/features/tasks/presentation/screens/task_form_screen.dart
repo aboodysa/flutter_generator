@@ -59,7 +59,7 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
     final i = widget.initial;
     _title.text = i?.title ?? '';
     _description.text = i?.description ?? '';
-    _dueDate.text = i?.dueDate?.toIso8601String() ?? '';
+    _dueDate.text = i?.dueDate == null ? '' : i!.dueDate!.toIso8601String().split('T').first;
     if (i != null) _priority = i.priority;
     if (i != null) _status = i.status;
   }
@@ -80,7 +80,10 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
         children: [
         TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
         TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
-        TextField(controller: _dueDate, decoration: const InputDecoration(labelText: 'Due Date', hintText: 'YYYY-MM-DD')),
+        TextField(controller: _dueDate, readOnly: true, decoration: const InputDecoration(labelText: 'Due Date', hintText: 'YYYY-MM-DD'), onTap: () async {
+          final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_dueDate.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
+          if (picked != null) setState(() => _dueDate.text = picked.toIso8601String().split('T').first);
+        }),
         DropdownButton<Priority>(value: _priority, items: Priority.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _priority = v ?? _priority)),
         DropdownButton<TaskStatus>(value: _status, items: TaskStatus.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _status = v ?? _status)),
           const SizedBox(height: AppSpacing.md),

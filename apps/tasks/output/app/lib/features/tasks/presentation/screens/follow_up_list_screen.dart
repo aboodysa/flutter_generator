@@ -14,7 +14,7 @@ class FollowUpListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('FollowUpListScreen')),
+      appBar: AppBar(title: const Text('Follow Ups')),
       body: BlocBuilder<FollowUpListCubit, FollowUpListState>(
         builder: (context, state) {
         if (state.status == FollowUpListStatus.loading) return const LoadingState();

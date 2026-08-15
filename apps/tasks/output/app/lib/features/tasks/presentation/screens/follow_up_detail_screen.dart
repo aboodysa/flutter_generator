@@ -15,7 +15,7 @@ class FollowUpDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('FollowUpDetailScreen'),
+      appBar: AppBar(title: const Text('Follow Up details'),
       actions: [
         IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('/follow-up/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<FollowUpListCubit>().delete(id!); if (context.mounted) context.go('/follow-up'); }),
@@ -30,13 +30,13 @@ class FollowUpDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 
-              AppListCard(card: true, title: Text('Id'), trailing: Text(item.id)),
-              const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Task Id'), trailing: Text(item.taskId)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Note'), trailing: Text(item.note)),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Created At'), trailing: Text(((item.createdAt?.toIso8601String() ?? '').split('T').first))),
+              const SizedBox(height: 4.0),
+              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               ],
             );
         },

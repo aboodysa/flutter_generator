@@ -14,7 +14,7 @@ class TaskListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('TaskListScreen')),
+      appBar: AppBar(title: const Text('Tasks')),
       body: BlocBuilder<TaskListCubit, TaskListState>(
         builder: (context, state) {
         if (state.status == TaskListStatus.loading) return const LoadingState();
