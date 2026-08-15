@@ -3,6 +3,15 @@
 Compiled from every claude slice report + probe findings. Each item: source, what, why it
 matters, status. Update on every slice. This is the "don't lose the notes" index.
 
+## Bugs round (committed 53ae2d2) — 2026-08-15
+| Note | Detail | Status |
+|---|---|---|
+| Bug A create-keyboard | iOS Safari keyboard not showing on create (no DOM `<input>` proxy until first tap). Fixed: autofocus on create only. RCA-005 + focus_test guard | ✅ FIXED |
+| Bug B list-scroll | No visible Scrollbar + mouse excluded from dragDevices. Fixed: AppScrollBehavior + Scrollbar(thumbVisibility) + AlwaysScrollableScrollPhysics. RCA-006 + scroll_test guard | ✅ FIXED |
+| G6 FK-prefill | New-FollowUp drops ?taskId and form doesn't prefill. Fixed: FAB preserves query param + CRUD form prefills <Parent>Id | ✅ FIXED |
+| B2 leftover | focus/scroll tests boot real DI per case; focus_test resets GetIt between cases | DOCUMENTED |
+| B3 leftover | G6 prefill handles String FKs only (no sample uses non-String FK) | WONTFIX (documented) |
+
 ## From UIX Slice D (committed) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
