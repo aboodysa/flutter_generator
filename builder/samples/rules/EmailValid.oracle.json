@@ -1,0 +1,18 @@
+{
+  "rule": "EmailValid",
+  "entity": "Signup",
+  "cases": [
+    {
+      "input": { "id": "s-1", "name": "Ada", "email": "ada@example.com" },
+      "expected": true
+    },
+    {
+      "input": { "id": "s-2", "name": "Bea", "email": "not-an-email" },
+      "expected": false
+    },
+    {
+      "input": { "id": "s-3", "name": "Cy", "email": "" },
+      "expected": false
+    }
+  ]
+}

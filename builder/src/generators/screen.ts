@@ -1,5 +1,5 @@
-import { ScreenModel, EntityModel, Field } from "../types";
-import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize } from "../dart";
+import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
+import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize } from "../dart";
 import { compositionFor } from "../composition";
 import { crudFormTargets } from "../operations";
 
@@ -45,6 +45,34 @@ function pickTitle(entity: EntityModel): Field | undefined {
 function heroExpr(s: ScreenModel): string | null {
   if (!s.hero) return null;
   return `'${s.hero.replace(/'/g, "\\'")}'`;
+}
+
+// P8-W1: the current wizard step's input widget — controller-less (TextFormField.initialValue,
+// keyed per step so Flutter remounts it on step change) since the value lives in wizard state,
+// not local widget state; onChanged writes straight back via the field's generated `set<Field>`
+// mutator (state.ts).
+function wizardFieldWidget(step: WizardStep, field: Field | undefined, setterCall: (valueExpr: string) => string): string {
+  const label = fieldLabel(step.field ?? step.title);
+  const key = `const ValueKey('step-${step.id}')`;
+  if (!field) return `Text('${step.title}')`;
+  switch (field.type) {
+    case "String":
+      return `TextFormField(key: ${key}, initialValue: state.${field.name} ?? '', decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("v")})`;
+    case "int":
+      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("int.tryParse(v)")})`;
+    case "double":
+      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("double.tryParse(v)")})`;
+    case "DateTime":
+      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toIso8601String() ?? '', decoration: const InputDecoration(labelText: '${label}', hintText: 'YYYY-MM-DD'), onChanged: (v) => ${setterCall("DateTime.tryParse(v)")})`;
+    case "bool":
+      return `CheckboxListTile(key: ${key}, value: state.${field.name} ?? false, title: Text('${label}'), onChanged: (v) => ${setterCall("v")})`;
+    case "enum": {
+      const enumType = field.of ?? capitalize(field.name);
+      return `DropdownButton<${enumType}>(key: ${key}, value: state.${field.name}, hint: Text('${label}'), items: ${enumType}.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => ${setterCall("v")})`;
+    }
+    default:
+      return `Text('${label} — unsupported step field type')`;
+  }
 }
 
 export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
@@ -102,6 +130,66 @@ ${rowsBlock}
     } else {
       body = `            return Center(child: Text(state.toString()));`;
     }
+  } else if (comp.layout === "wizard") {
+    // P8-W1/W2: step header (progress + title) + current step's field + Next/Back footer,
+    // gated by state.canAdvance (state.ts). No local widget state — the current step's value
+    // lives in wizard state (via TextFormField.initialValue, keyed per step) so it survives
+    // rebuilds without a StatefulWidget.
+    const steps: WizardStep[] = s.steps ?? [];
+    const lastIndex = Math.max(steps.length - 1, 0);
+    const fieldDef = (name: string | undefined) => (name && entity ? entity.fields.find((f) => f.name === name) : undefined);
+    const setterCall = (step: WizardStep) => (valueExpr: string) =>
+      step.field ? readMutator(`set${capitalize(step.field)}`, valueExpr) : "";
+
+    const titleCases = steps
+      .map((st, i) => `                      ${i} => '${st.title.replace(/'/g, "\\'")}',`)
+      .join("\n");
+    const contentCases = steps
+      .map((st, i) => `                      ${i} => ${wizardFieldWidget(st, fieldDef(st.field), setterCall(st))},`)
+      .join("\n");
+
+    body = `            if (state.status == ${statusEnum}.success) return const Center(child: Text('All done!'));
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(value: (state.currentStep + 1) / ${Math.max(steps.length, 1)}),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${comp.heroGap}.0),
+                  child: Text(
+                    switch (state.currentStep) {
+${titleCases}
+                      _ => '',
+                    },
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: switch (state.currentStep) {
+${contentCases}
+                      _ => const SizedBox(),
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(${comp.itemGap}.0),
+                  child: Row(
+                    children: [
+                      if (state.currentStep > 0)
+                        TextButton(onPressed: () => ${readMutator("back", "")}, child: const Text('Back')),
+                      const Spacer(),
+                      PrimaryButton(
+                        label: state.currentStep == ${lastIndex} ? 'Finish' : 'Next',
+                        onPressed: state.canAdvance
+                            ? () => state.currentStep == ${lastIndex} ? ${readMutator("finish", "")} : ${readMutator("next", "")}
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );`;
   } else {
     // list (default): AppListCard rows (surface driven by comp.surface) + optional hero.
     const title = entity ? pickTitle(entity) : undefined;
@@ -124,7 +212,7 @@ ${rowsBlock}
     // there's nowhere else for those affordances to live without a detail screen.
     const onTapTarget = !hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`;
     const trailingWidget = !hasDetailScreen && canDelete
-      ? `IconButton(icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
+      ? `IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
       : `const Icon(Icons.chevron_right)`;
     body = `            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -173,15 +261,18 @@ ${heroBlock}
   // and the nested BlocBuilder/Builder body can use it (§5.2-F1).
   const preBuild = comp.layout === "detail" ? `    final id = GoRouterState.of(context).pathParameters['id'];\n` : "";
 
+  // tooltip: doubles as the accessible/semantic label for these icon-only buttons (Flutter maps
+  // IconButton/FloatingActionButton `tooltip` to the semantics label) — required for CDP flow
+  // drivers (research/cdp_flow_test.json) to locate them by aria-label, not just a11y hygiene.
   const appBarActions = comp.layout === "detail" && (canEditCreate || canDelete)
     ? `,\n      actions: [\n` +
-      (canEditCreate ? `        IconButton(icon: const Icon(Icons.edit), onPressed: () => context.go('${formPath}/\${id}/edit')),\n` : "") +
-      (canDelete ? `        IconButton(icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
+      (canEditCreate ? `        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.go('${formPath}/\${id}/edit')),\n` : "") +
+      (canDelete ? `        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
       `      ]`
     : "";
 
-  const fab = comp.layout !== "detail" && canEditCreate
-    ? `,\n      floatingActionButton: FloatingActionButton(\n        onPressed: () => context.go('${formPath}/new'),\n        child: const Icon(Icons.add),\n      )`
+  const fab = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate
+    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'New ${s.entity}',\n        onPressed: () => context.go('${formPath}/new'),\n        child: const Icon(Icons.add),\n      )`
     : "";
 
   const widgetBody = sm === "riverpod"
@@ -217,11 +308,14 @@ ${body}
   }
 }`;
 
+  // go_router is only referenced by list (onTap navigation) and detail (pathParameters) bodies —
+  // a wizard screen navigates entirely through its own Cubit/Notifier methods.
+  const routerImport = comp.layout !== "wizard" ? `import 'package:go_router/go_router.dart';\n` : "";
+
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-${stateLibImport}
+${routerImport}${stateLibImport}
 ${componentsImport}
 ${themeImport}
 ${stateImport}

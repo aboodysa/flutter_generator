@@ -1,6 +1,6 @@
-import { StateModel, StateField, EntityModel } from "../types";
-import { importsFromTypes, variantSampleArgs, collectionField, camelize, fieldDartType, GenContext } from "../dart";
-import { crudOperations, findRepoForEntity } from "../operations";
+import { StateModel, StateField, EntityModel, ScreenModel, WizardStep } from "../types";
+import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, GenContext } from "../dart";
+import { crudOperations, findRepoForEntity, findWizardScreen } from "../operations";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
@@ -35,6 +35,12 @@ function queryArgLiteral(type: string, ir: any): string {
  * declared — additionally call through it.
  */
 export function generateState(s: StateModel, ctx?: GenContext): string {
+  // P8-W2: a wizard-bound state is shaped completely differently (step index + per-step draft
+  // fields, not a loaded collection) — a dedicated generator keeps the CRUD/list path above
+  // untouched (zero regression risk) instead of threading a third shape through it.
+  const wizardScreen = ctx?.ir ? findWizardScreen(ctx.ir, s.name) : undefined;
+  if (wizardScreen) return generateWizardState(s, wizardScreen, ctx);
+
   const name = s.name;
   const entity = s.entity;
   const collection = collectionField(entity);
@@ -223,6 +229,181 @@ ${[requiredField, ...optionalFields].filter(Boolean).join("\n")}
 
   const stateLib = sm === "riverpod" ? "flutter_riverpod" : "flutter_bloc";
   const template = sm === "riverpod" ? "state_notifier.v1" : "state_enum_status.v1";
+
+  return `// [generated] generator=StateGenerator template=${template} class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:equatable/equatable.dart';
+import 'package:${stateLib}/${stateLib}.dart';
+${imports}
+
+${stateBlock}
+
+${container}
+`;
+}
+
+/**
+ * Wizard state generator (P8-W2) — step-index state + one nullable field per step that collects
+ * an entity field + next()/back()/jumpTo()/finish() + a `canAdvance` getter gating the current
+ * step: a `validate` step evaluates its RuleModel (§19) against a `_draft` entity built from the
+ * fields collected so far (type-correct placeholders — sampleArgFor — for anything not yet
+ * visited, so the rule always runs against a real, constructible instance); a plain `field` step
+ * requires it non-null/non-empty; a step with neither always advances (info/confirm step).
+ */
+function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: GenContext): string {
+  const name = s.name;
+  const entity = s.entity;
+  const statuses = s.statuses ?? DEFAULT_STATUSES;
+  const statusEnum = `${name}Status`;
+  const stateClass = `${name}State`;
+  const sm = ctx?.sm ?? "bloc";
+  const steps: WizardStep[] = wizardScreen.steps ?? [];
+
+  const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity) as EntityModel | undefined;
+  const enums = ctx?.ir?.enums ?? [];
+  const valueObjects = ctx?.ir?.valueObjects ?? [];
+  const fieldDef = (fieldName: string) => entityModel?.fields.find((f) => f.name === fieldName);
+
+  // One nullable state field per step that collects an entity field (not yet filled = null).
+  const stepFieldNames = Array.from(new Set(steps.map((st) => st.field).filter((f): f is string => !!f)));
+  const stepStateFields: StateField[] = stepFieldNames.map((fname) => {
+    const f = fieldDef(fname);
+    return { name: fname, type: `${f ? fieldDartType(f) : "String"}?`, default: undefined };
+  });
+
+  const fields: StateField[] = [
+    { name: "status", type: "STATUS", default: "initial" },
+    { name: "currentStep", type: "int", default: "0" },
+    ...stepStateFields,
+    { name: "errorMessage", type: "String?", default: undefined },
+  ];
+
+  const fieldDecl = (f: StateField) => `  final ${f.type === "STATUS" ? statusEnum : f.type} ${f.name};`;
+  const ctorParam = (f: StateField) => {
+    const t = f.type === "STATUS" ? statusEnum : f.type;
+    if (f.default !== undefined) return `    this.${f.name} = ${f.name === "status" ? `${statusEnum}.${f.default}` : f.default},`;
+    if (t.endsWith("?")) return `    this.${f.name},`;
+    return `    required this.${f.name},`;
+  };
+  const copyWithParam = (f: StateField) => {
+    const t = f.type === "STATUS" ? statusEnum : f.type;
+    const nt = t.endsWith("?") ? t : `${t}?`;
+    return `    ${nt} ${f.name},`;
+  };
+  // Nullable fields default to "reset unless explicitly passed" (matches errorMessage's intent:
+  // clear on any transition). Step-collected draft fields (name/email/...) need the opposite —
+  // next()/back()/finish() don't repass them, so they must MERGE (preserve) or every transition
+  // would silently wipe the answers collected so far.
+  const copyWithAssign = (f: StateField) => {
+    if (!f.type.endsWith("?")) return `    ${f.name}: ${f.name} ?? this.${f.name},`;
+    if (stepFieldNames.includes(f.name)) return `    ${f.name}: ${f.name} ?? this.${f.name},`;
+    return `    ${f.name}: ${f.name},`;
+  };
+
+  // _draft: a full entity from whatever's been filled + a type-correct placeholder (sampleArgFor)
+  // for every other field, so `validate` rules always run against a real, constructible instance.
+  const needsDraft = steps.some((st) => st.validate);
+  const draftArgs = (entityModel?.fields ?? [])
+    .map((f) => (stepFieldNames.includes(f.name)
+      ? `      ${f.name}: ${f.name} ?? ${sampleArgFor(f, enums, valueObjects)},`
+      : `      ${f.name}: ${sampleArgFor(f, enums, valueObjects)},`))
+    .join("\n");
+  const draftGetter = needsDraft && entityModel ? `\n  ${entity} get _draft => ${entity}(\n${draftArgs}\n      );\n` : "";
+
+  const stepGuard = (st: WizardStep): string => {
+    if (st.validate) {
+      const fieldCheck = st.field ? `${st.field} != null && ` : "";
+      return `${fieldCheck}${st.validate}().evaluate(_draft)`;
+    }
+    if (st.field) {
+      const f = fieldDef(st.field);
+      return f?.type === "String" ? `(${st.field} != null && ${st.field}!.isNotEmpty)` : `${st.field} != null`;
+    }
+    return "true";
+  };
+  const canAdvanceGetter = `
+  bool get canAdvance => switch (currentStep) {
+${steps.map((st, i) => `      ${i} => ${stepGuard(st)},`).join("\n")}
+      _ => true,
+    };
+`;
+
+  const stateBlock = `enum ${statusEnum} { ${statuses.join(", ")} }
+
+class ${stateClass} extends Equatable {
+${fields.map(fieldDecl).join("\n")}
+
+  const ${stateClass}({
+${fields.map(ctorParam).join("\n")}
+  });
+
+  ${stateClass} copyWith({
+${fields.map(copyWithParam).join("\n")}
+  }) => ${stateClass}(
+${fields.map(copyWithAssign).join("\n")}
+  );
+${draftGetter}${canAdvanceGetter}
+  @override
+  List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
+}`;
+
+  const setterMethods = (assign: (expr: string) => string): string => stepFieldNames.map((fname) => {
+    const f = fieldDef(fname);
+    return `  void set${capitalize(fname)}(${f ? fieldDartType(f) : "String"}? value) => ${assign(`${fname}: value`)};`;
+  }).join("\n\n");
+
+  const flowMethods = (assign: (expr: string) => string): string => `
+  // No-op: a wizard has nothing to fetch, but main.dart/test.ts's bloc bootstrap
+  // unconditionally calls \`sl<XCubit>()..load()\` for every screen's state.
+  Future<void> load() async {}
+
+  void next() {
+    if (!state.canAdvance) return;
+    if (state.currentStep < ${Math.max(steps.length - 1, 0)}) ${assign(`currentStep: state.currentStep + 1`)};
+  }
+
+  void back() {
+    if (state.currentStep > 0) ${assign(`currentStep: state.currentStep - 1`)};
+  }
+
+  void jumpTo(int i) {
+    if (i >= 0 && i < ${steps.length}) ${assign("currentStep: i")};
+  }
+
+  void finish() {
+    if (!state.canAdvance) return;
+    ${assign(`status: ${statusEnum}.success`)};
+  }
+
+${setterMethods(assign)}`;
+
+  const blocAssign = (expr: string) => `emit(state.copyWith(${expr}))`;
+  const riverpodAssign = (expr: string) => `state = state.copyWith(${expr})`;
+
+  const container = sm === "riverpod"
+    ? `final ${camelize(name)}Provider = NotifierProvider<${name}Notifier, ${stateClass}>(${name}Notifier.new);
+
+class ${name}Notifier extends Notifier<${stateClass}> {
+  @override
+  ${stateClass} build() => const ${stateClass}();
+${flowMethods(riverpodAssign)}
+}`
+    : `class ${name}Cubit extends Cubit<${stateClass}> {
+  ${name}Cubit() : super(const ${stateClass}());
+${flowMethods(blocAssign)}
+}`;
+
+  const refTypes: string[] = [entity];
+  for (const fname of stepFieldNames) {
+    const f = fieldDef(fname);
+    if (f?.semanticType) refTypes.push(f.semanticType);
+    else if (f?.type === "enum") refTypes.push(f.of || capitalize(f.name));
+  }
+  for (const st of steps) if (st.validate) refTypes.push(st.validate);
+  const imports = importsFromTypes(refTypes, ctx).join("\n");
+
+  const stateLib = sm === "riverpod" ? "flutter_riverpod" : "flutter_bloc";
+  const template = sm === "riverpod" ? "state_wizard_notifier.v1" : "state_wizard.v1";
 
   return `// [generated] generator=StateGenerator template=${template} class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.

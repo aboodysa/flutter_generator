@@ -20,11 +20,37 @@
     "type": {
       "enum": [
         "list",
-        "detail"
+        "detail",
+        "wizard"
       ]
     },
     "state": {
       "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "validate": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "actor": {
       "type": "string"

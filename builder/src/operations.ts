@@ -81,3 +81,11 @@ export function crudFormTargets(ir: FeatureModel): Map<string, CrudFormTarget> {
   }
   return out;
 }
+
+// P8-W2: the wizard-type screen bound to a given state (if any) — a state generates wizard
+// fields/methods (currentStep, next/back/jumpTo, per-step setters, canAdvance) only when it's
+// used by a "wizard" screen with a non-empty step list. Shared by state.ts and screen.ts so both
+// agree on "is this state a wizard" without re-deriving the check.
+export function findWizardScreen(ir: FeatureModel, stateName: string): ScreenModel | undefined {
+  return (ir.screens ?? []).find((s) => s.state === stateName && s.type === "wizard" && !!s.steps?.length);
+}

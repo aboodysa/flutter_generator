@@ -5,8 +5,17 @@
 import { ScreenModel } from "./types";
 import { kebab } from "./naming";
 
+// Per-archetype suffix appended to the entity base path — the one place that knows how each
+// screen type's path is shaped (list has none, detail takes an :id, wizard is its own sub-path).
+function suffixFor(type: string): string {
+  if (type === "detail") return "/:id";
+  if (type === "wizard") return "/wizard";
+  return "";
+}
+
 // list screen   -> /<kebab(entity)>
 // detail screen -> /<kebab(entity)>/:id
+// wizard screen -> /<kebab(entity)>/wizard
 // Collisions (two screens of the same kind sharing an entity — the IR doesn't forbid it) are
 // disambiguated by appending the screen's own name slug, so paths stay unique. Deterministic:
 // screens are walked in IR order, so the same IR always yields the same paths.
@@ -15,15 +24,14 @@ export function screenPath(screens: ScreenModel[], target: ScreenModel): string 
   let resolved: string | undefined;
   for (const s of screens) {
     const base = `/${kebab(s.entity)}`;
-    let path = s.type === "detail" ? `${base}/:id` : base;
+    let path = `${base}${suffixFor(s.type)}`;
     if (used.has(path)) {
-      const disambiguated = `${base}-${kebab(s.name)}`;
-      path = s.type === "detail" ? `${disambiguated}/:id` : disambiguated;
+      path = `${base}-${kebab(s.name)}${suffixFor(s.type)}`;
     }
     used.add(path);
     if (s === target) resolved = path;
   }
   // Fallback for a target not present in `screens` (e.g. a generator called in isolation
   // without the full sibling-screen list) — its own unsuffixed path.
-  return resolved ?? (target.type === "detail" ? `/${kebab(target.entity)}/:id` : `/${kebab(target.entity)}`);
+  return resolved ?? `/${kebab(target.entity)}${suffixFor(target.type)}`;
 }

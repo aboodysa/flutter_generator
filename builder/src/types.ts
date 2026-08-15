@@ -148,9 +148,22 @@ export interface RepositoryImplModel {
 export interface ScreenModel {
   name: string; // e.g. TransactionListScreen
   entity: string; // entity shown
-  type: string; // composition archetype id: "list" | "detail" | "dashboard" | ... (open set, see composition.ts)
+  type: string; // composition archetype id: "list" | "detail" | "wizard" | "dashboard" | ... (open set, see composition.ts)
   state: string; // state/cubit name
   hero?: string; // optional: field name or headline to render as the screen's focal point
+  steps?: WizardStep[]; // P8-W1: only meaningful when type === "wizard" (composition archetype "wizard")
+}
+
+// P8-W1: one step of a wizard screen. `field` (optional) names an entity field this step
+// collects; a step with no `field` is an info/confirm step (always advances). `validate`
+// (optional) names a RuleModel (§19) evaluated against the in-progress draft entity as the
+// "can advance from this step?" guard; absent `validate` on a field-collecting step defaults to
+// a required-filled check.
+export interface WizardStep {
+  id: string;
+  title: string;
+  field?: string;
+  validate?: string;
 }
 
 export interface TransitionModel {
