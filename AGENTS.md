@@ -68,6 +68,27 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
     lists every artifact written this session/round: path, what it is, why it
     exists, status. Update it whenever you add or change code. It's the "what
     and why" index the owner asked for.
+13. **Expose apps over Tailscale + send iPhone URL to Telegram.** When the owner
+    asks to expose a generated app (or after any app milestone), serve it on the
+    tailnet ONLY (never Funnel/public) and Telegram the iPhone URL. Recipe (full
+    guide: `/Users/username/Documents/cto/mall_directory/docs/TAILSCALE_EXPOSE.md`):
+    - Tailnet node: `macbook-air-m4-1`, IPv4 `100.94.138.3`; MagicDNS host
+      `macbook-air-m4-1.taild16060.ts.net`; owner account `abdulrhman.shaheen@`
+      (already the account on the iPhone, `iphone-14`).
+    - `tailscale status` / `tailscale ip -4` to confirm up.
+    - If the app lacks `web/`: `flutter create . --platforms web` (additive).
+    - Build with a path prefix if another app owns `/`: `flutter build web
+      --base-href=/<app>/`, serve `build/web` on a free loopback port with SPA
+      fallback (e.g. the node server pattern; debug `flutter run -d web-server`
+      works too but is slow through the proxy).
+    - Mount via Serve WITHOUT clobbering existing mounts: `tailscale serve --bg
+      --https=443 --set-path=/<app> http://127.0.0.1:<port>` (existing `/` and
+      `/api` are the mall app — never reset them).
+    - Verify with GET (HEAD 404s on flutter web-server): `curl -sk
+      https://macbook-air-m4-1.taild16060.ts.net/<app>/` → 200.
+    - Telegram: send the iPhone URL exactly as
+      `IPHONE_URL=https://macbook-air-m4-1.taild16060.ts.net/<app>/` (+ tailscale
+      IP + how-to-open), and re-send it on every subsequent expose of that app.
 
 ## Commands (run from repo root unless noted)
 

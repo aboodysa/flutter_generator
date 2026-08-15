@@ -30,4 +30,6 @@ round is listed here: path, what it is, why it exists, status. Additive — neve
 | Path | What | Why | Status |
 |---|---|---|---|
 | `apps/tasks/output/app/test/temp_all_screens_golden_test.dart` | temporary golden harness rendering all screens (detail/form/follow-up list) through the real router | the generated golden test only renders list screens; this captures every screen as visual evidence; **keep as a reference for a future "golden all screens" generator capability** | present in working tree, NOT committed (regenerated out) — recreated on demand |
-| `apps/tasks/output/rca/RCA-003-multi-cubit-main.md` | RCA for the multi-cubit main.dart crash | root-cause analysis of the real app bug found by the harness | new → commit |
+| `apps/tasks/output/rca/RCA-003-multi-cubit-main.md` | RCA for the multi-cubit main.dart crash | root-cause analysis of the real app bug found by the harness | committed `275da9d` |
+| `apps/tasks/output/app/web/` | web platform for the tasks app (`flutter create . --platforms web`) + release build at `--base-href=/tasks/` | prerequisite for Tailscale expose (AGENTS rule 13) | uncommitted → commit |
+| `apps/tasks/output/qa/tailscale_static_server.js` | node SPA-fallback static server serving `build/web` on 127.0.0.1:8081 | serves the tasks app through Tailscale Serve at `/tasks` without touching the mall app's `/` + `/api` mounts | running (nohup); copy under `apps/tasks/output/qa/` |
