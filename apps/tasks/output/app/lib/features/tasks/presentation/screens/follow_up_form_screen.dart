@@ -24,6 +24,7 @@ class FollowUpFormScreen extends StatelessWidget {
             key: ValueKey(id ?? 'new'),
             initial: initial,
             id: id,
+            queryParams: GoRouterState.of(context).uri.queryParameters,
             onSubmit: (item) => id == null
                 ? context.read<FollowUpListCubit>().create(item)
                 : context.read<FollowUpListCubit>().update(item),
@@ -35,9 +36,10 @@ class FollowUpFormScreen extends StatelessWidget {
 }
 
 class _FollowUpFormScreenBody extends StatefulWidget {
-  const _FollowUpFormScreenBody({super.key, required this.initial, required this.id, required this.onSubmit});
+  const _FollowUpFormScreenBody({super.key, required this.initial, required this.id, required this.queryParams, required this.onSubmit});
   final FollowUp? initial;
   final String? id;
+  final Map<String, String> queryParams;
   final Future<void> Function(FollowUp) onSubmit;
 
   @override
@@ -54,7 +56,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
   void initState() {
     super.initState();
     final i = widget.initial;
-    _taskId.text = i?.taskId ?? '';
+    _taskId.text = i?.taskId ?? widget.queryParams['taskId'] ?? '';
     _note.text = i?.note ?? '';
     _createdAt.text = i?.createdAt == null ? '' : i!.createdAt!.toIso8601String().split('T').first;
   }
@@ -73,7 +75,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: ListView(
         children: [
-        TextField(controller: _taskId, decoration: const InputDecoration(labelText: 'Task Id')),
+        TextField(autofocus: widget.id == null, controller: _taskId, decoration: const InputDecoration(labelText: 'Task Id')),
         TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note')),
         TextField(controller: _createdAt, readOnly: true, decoration: const InputDecoration(labelText: 'Created At', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_createdAt.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));

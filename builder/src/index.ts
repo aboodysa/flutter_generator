@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -207,6 +207,32 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
       dependsOn: [],
       mode: "deterministic",
       class: "structural",
+    });
+  }
+
+  // RCA-005/RCA-006 regression guards: unlike flow_test.dart/crud_flow_test.dart, neither of these
+  // depends on being reachable from the app's home screen (the focus test jumps straight to a
+  // route via `appRouter.go`; the scroll test pumps a screen in isolation with a seeded provider)
+  // — so both scope against the FULL `ir`, not `flowTestScope`, and cover every list screen / every
+  // CRUD form even in a multi-feature app.
+  const focusTest = generateFocusTest(ir, arch.stateManagement);
+  if (focusTest) {
+    const f = path.join(testDir, "focus_test.dart");
+    fs.writeFileSync(f, focusTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:focus", generator: "FocusTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  const scrollTest = generateScrollTest(ir, arch.stateManagement);
+  if (scrollTest) {
+    const f = path.join(testDir, "scroll_test.dart");
+    fs.writeFileSync(f, scrollTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:scroll", generator: "ScrollTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
 

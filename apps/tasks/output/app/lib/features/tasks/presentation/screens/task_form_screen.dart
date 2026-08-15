@@ -78,14 +78,14 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: ListView(
         children: [
-        TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
+        TextField(autofocus: widget.id == null, controller: _title, decoration: const InputDecoration(labelText: 'Title')),
         TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
         TextField(controller: _dueDate, readOnly: true, decoration: const InputDecoration(labelText: 'Due Date', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_dueDate.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _dueDate.text = picked.toIso8601String().split('T').first);
         }),
-        DropdownButton<Priority>(value: _priority, items: Priority.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _priority = v ?? _priority)),
-        DropdownButton<TaskStatus>(value: _status, items: TaskStatus.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _status = v ?? _status)),
+        Wrap(spacing: AppSpacing.sm, children: Priority.values.map((v) => ChoiceChip(label: Text(v.name), selected: _priority == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForPriority(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _priority = v))).toList()),
+        Wrap(spacing: AppSpacing.sm, children: TaskStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',

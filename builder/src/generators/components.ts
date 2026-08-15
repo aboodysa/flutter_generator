@@ -144,6 +144,21 @@ export const COMPONENT_REGISTRY: ComponentDef[] = [
     responsive: false,
     examples: ["AppStatusDot(tone: AppChip.toneForStatus(item.status.name), semanticLabel: item.status.name)"],
   },
+  {
+    name: "AppScrollBehavior",
+    tier: "token",
+    purpose: "RCA-006: Flutter's default ScrollBehavior excludes mouse from dragDevices (desktop/"
+      + "web mouse-drag is reserved for text selection) — every generated list opts into touch + "
+      + "mouse + trackpad + stylus drag-to-scroll so it's consistent across input devices, not just "
+      + "the touch-only default.",
+    inputs: [],
+    variants: [],
+    states: [],
+    tokens: [],
+    semanticContract: { role: "none", states: [], mergePolicy: "excludeSemantics" },
+    responsive: false,
+    examples: ["ScrollConfiguration(behavior: const AppScrollBehavior(), child: ListView(...))"],
+  },
 ];
 
 /**
@@ -156,6 +171,7 @@ export function generateComponents(_f: FeatureModel): string {
 // Do not hand-edit this file; regenerate from IR.
 // Component registry (DESIGN §8): Tokens → Atoms → Molecules.
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'theme.dart';
 
 abstract final class AppTokens {
@@ -325,6 +341,23 @@ class AppStatusDot extends StatelessWidget {
       ),
     );
   }
+}
+
+// RCA-006: the Material default ScrollBehavior only puts touch (and stylus) in dragDevices —
+// deliberate, since desktop/web mouse-drag is conventionally reserved for text selection. That
+// default is also why a real mouse click-drag never scrolled the generated list in this app's own
+// investigation, while a genuine touch-type gesture always did. Every generated list opts into
+// this behavior so drag-to-scroll works uniformly across touch, mouse, and trackpad.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
 }
 `;
 }

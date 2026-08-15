@@ -1,6 +1,6 @@
 import { EntityModel, Field } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstAutofocusableField } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -36,7 +36,7 @@ function stateVarDecl(f: Field): string {
   return `  ${enumType} _${f.name} = ${enumType}.values.first;`;
 }
 
-function initStateLine(f: Field): string | null {
+function initStateLine(f: Field, roleCtx?: FieldRoleContext): string | null {
   // A single `i?.` already short-circuits the whole chain when `i` is null; a second `?.` on a
   // field that isn't itself nullable is redundant (Dart flags it: "can't be used because of
   // short-circuiting") — so the second link only gets `?.` when the field's own type is nullable.
@@ -48,7 +48,17 @@ function initStateLine(f: Field): string | null {
     return `    _${f.name}.text = i?.${f.name} == null ? '' : (i!.${f.name}${bang}.minorUnits / 100).toStringAsFixed(2);`;
   }
   switch (f.type) {
-    case "String": return `    _${f.name}.text = i?.${f.name} ?? '';`;
+    case "String": {
+      // G6 (relationship prefill): a `<Parent>Id` field reached via a child-list FAB that carried
+      // `?<parent>Id=<id>` forward (screen.ts) prefills from that query param on CREATE — `i` is
+      // always null there, so `i?.${f.name}` is null and the query param wins; on EDIT `i`'s own
+      // value always wins regardless, since `widget.queryParams` is empty coming from the edit
+      // route. Every other String field is unaffected (blank on create, exactly as before).
+      const isRelation = fieldRole(f, roleCtx) === "relation";
+      return isRelation
+        ? `    _${f.name}.text = i?.${f.name} ?? widget.queryParams['${f.name}'] ?? '';`
+        : `    _${f.name}.text = i?.${f.name} ?? '';`;
+    }
     case "int": case "double": return `    _${f.name}.text = i?.${f.name}${chain}toString() ?? '';`;
     // G2: stored as yyyy-MM-dd (matches what showDatePicker writes below) — not the full
     // toIso8601String() timestamp, so the displayed text always matches the picker's own format.
@@ -58,20 +68,29 @@ function initStateLine(f: Field): string | null {
   }
 }
 
-function fieldWidget(f: Field, roleCtx?: FieldRoleContext): string {
+// Bug A (create-form keyboard not showing on iOS Safari): the first non-DateTime controller field
+// gets `autofocus: widget.id == null` — create-only, never edit. Rationale (RCA-005): a fresh
+// create route has NO text-input DOM proxy yet (Flutter Web creates it lazily on first
+// interaction), while an edit route's pre-filled fields already have one at mount. iOS Safari
+// only opens the native keyboard when `.focus()` fires synchronously within the tap's own
+// event handler — on create, that tap ALSO has to trigger DOM-proxy creation first, an extra
+// hop that can fall outside Safari's synchronous-gesture window. Autofocusing forces Flutter to
+// build the proxy on the first frame, before the user ever taps, closing that gap.
+function fieldWidget(f: Field, roleCtx?: FieldRoleContext, autofocusEligible?: boolean): string {
   const label = fieldLabel(f.name);
+  const autofocus = autofocusEligible ? "autofocus: widget.id == null, " : "";
   // P7-L1: same decimal-text UI as "double", plus a currency suffix; the typed value is parsed
   // into minor units in valueExpr(), never left as a raw double.
   if (isMoneyField(f)) {
-    return `        TextField(controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
+    return `        TextField(${autofocus}controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
   }
   switch (f.type) {
     case "String":
-      return `        TextField(controller: _${f.name}, decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(${autofocus}controller: _${f.name}, decoration: const InputDecoration(labelText: '${label}')),`;
     case "int":
-      return `        TextField(controller: _${f.name}, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(${autofocus}controller: _${f.name}, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
     case "double":
-      return `        TextField(controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(${autofocus}controller: _${f.name}, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
     // G2: a real date picker, not free-typed text — read-only so the on-screen keyboard never
     // opens; onTap drives showDatePicker and writes the pick back into the same controller (still
     // yyyy-MM-dd), so valueExpr()'s DateTime.tryParse(_<f>.text) keeps working unchanged.
@@ -147,11 +166,18 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
     entityNames: ((ctx?.ir?.entities ?? []) as Array<{ name: string }>).map((e) => e.name),
   };
 
+  // Bug A: the autofocus target (create route only — see fieldWidget's own doc comment for why).
+  const firstFocusable = firstAutofocusableField(entity, identityField);
+  // G6: only entities that actually carry a `<Parent>Id` field need the `queryParams` plumbing at
+  // all — everything else stays exactly as before (no unused widget field, no dead parameter).
+  const relationFields = editable.filter((f) => fieldRole(f, roleCtx) === "relation");
+  const hasRelation = relationFields.length > 0;
+
   const controllerFields = editable.filter(usesController).map(controllerDecl).join("\n");
   const stateFields = editable.filter((f) => !usesController(f)).map(stateVarDecl).join("\n");
-  const initLines = editable.map(initStateLine).filter((l): l is string => !!l).join("\n");
+  const initLines = editable.map((f) => initStateLine(f, roleCtx)).filter((l): l is string => !!l).join("\n");
   const disposeLines = editable.filter(usesController).map((f) => `    _${f.name}.dispose();`).join("\n");
-  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx)).join("\n");
+  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, f === firstFocusable)).join("\n");
 
   const ctorArgs = [
     `        ${identityField}: widget.id ?? ${newIdExpr(identityType)},`,
@@ -159,11 +185,14 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
     ...carried.map((f) => `        ${f.name}: ${carryForwardExpr(f)},`),
   ].join("\n");
 
+  const queryParamsCtorArg = hasRelation ? ", required this.queryParams" : "";
+  const queryParamsField = hasRelation ? "  final Map<String, String> queryParams;\n" : "";
+
   const body = `class ${bodyClass} extends StatefulWidget {
-  const ${bodyClass}({super.key, required this.initial, required this.id, required this.onSubmit});
+  const ${bodyClass}({super.key, required this.initial, required this.id${queryParamsCtorArg}, required this.onSubmit});
   final ${entity.name}? initial;
   final String? id;
-  final Future<void> Function(${entity.name}) onSubmit;
+${queryParamsField}  final Future<void> Function(${entity.name}) onSubmit;
 
   @override
   State<${bodyClass}> createState() => _${screenName}BodyState();
@@ -231,7 +260,7 @@ ${ctorArgs}
         key: ValueKey(id ?? 'new'),
         initial: initial,
         id: id,
-        onSubmit: (item) => id == null ? notifier.create(item) : notifier.update(item),
+${hasRelation ? "        queryParams: GoRouterState.of(context).uri.queryParameters,\n" : ""}        onSubmit: (item) => id == null ? notifier.create(item) : notifier.update(item),
       ),
     );
   }
@@ -252,7 +281,7 @@ ${ctorArgs}
             key: ValueKey(id ?? 'new'),
             initial: initial,
             id: id,
-            onSubmit: (item) => id == null
+${hasRelation ? "            queryParams: GoRouterState.of(context).uri.queryParameters,\n" : ""}            onSubmit: (item) => id == null
                 ? context.read<${stateName}Cubit>().create(item)
                 : context.read<${stateName}Cubit>().update(item),
           );

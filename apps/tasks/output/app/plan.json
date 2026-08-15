@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 47,
+  "artifactCount": 49,
   "entries": [
     {
       "artifact": "enum:TaskStatus",
@@ -532,6 +532,28 @@
       "schema": "test",
       "layer": "test",
       "file": "test/crud_flow_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:focus",
+      "generator": "FocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:scroll",
+      "generator": "ScrollTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/scroll_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

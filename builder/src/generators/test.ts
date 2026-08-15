@@ -1,5 +1,7 @@
 import { FeatureModel, Field, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstAutofocusableField, findRepoForEntity } from "../operations";
+import { kebab, collectionField, camelize } from "../naming";
+import { variantSampleArgs } from "../sampling";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -288,6 +290,199 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     expect(find.text('${updateExpect}'), findsNothing);
   });
+}
+`;
+}
+
+/**
+ * FocusTestGenerator — structural, deterministic, 0% LLM (RCA-005 / Bug A regression guard).
+ * For every entity with a synthesized CRUD form, drives the real app straight to that entity's
+ * create route via `appRouter.go(...)` (bypassing UI navigation — the create route can be several
+ * hops deep, e.g. a child entity reached only through a parent's detail screen, so tapping through
+ * would make this test's shape depend on each app's specific navigation graph) and asserts the
+ * autofocus target field (operations.ts's firstAutofocusableField — the SAME field crud_form.ts
+ * itself autofocuses) actually carries `autofocus: true`. A precise, deterministic check on the
+ * rendered widget's own configuration — no reliance on FocusNode timing, so it can't be flaky.
+ */
+export function generateFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const targets = [...crudFormTargets(feature).values()];
+  if (!targets.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+
+  const cases = targets.map((t) => {
+    const entity = feature.entities.find((e) => e.name === t.entity);
+    const identityField = entity?.identity?.field ?? "id";
+    // An entity whose only editable fields are DateTime has no autofocus target at all (G2 made
+    // DateTime read-only) — skip rather than assert a property that was never meant to be set.
+    const hasFocusable = entity ? !!firstAutofocusableField(entity, identityField) : false;
+    if (!hasFocusable) return null;
+    return `  testWidgets('${t.entity}: create form autofocuses its first field', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('/${kebab(t.entity)}/new');
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(find.byType(TextField).first);
+    expect(field.autofocus, isTrue, reason: 'create form should autofocus its first field (RCA-005)');
+  });`;
+  }).filter((c): c is string => !!c);
+  if (!cases.length) return null;
+
+  // Each case independently boots the real app (setupDependencies() registers everything in
+  // get_it's global singleton) — with more than one case in this file, the second call would
+  // throw "already registered" unless the container is torn down between tests.
+  const getItReset = sm === "bloc" ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
+
+  return `// [generated] generator=FocusTestGenerator template=focus_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+${diImport}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * ScrollTestGenerator — structural, deterministic, 0% LLM (Bug B regression guard).
+ * For every list screen, seeds N=15 distinguishable rows (sampling.ts's variantSampleArgs — the
+ * same deterministic per-row literals the state generator's own demo data uses) directly into a
+ * screen-scoped state container, bypassing DI/persistence entirely so this test never depends on
+ * (or is broken by) an app's specific persistence backend. Drags the list and asserts the last row
+ * becomes reachable — this is the drag-based reproduction the RCA (see docs/qa/tasks/rca/) used to
+ * verify scrolling actually works; a future change that breaks the Column/Expanded/ListView.builder
+ * shape (unbounded height, NeverScrollableScrollPhysics, ShrinkWrap, ...) will fail this test.
+ */
+// A minimal single-route GoRouter, not a bare MaterialApp(home: ...) — a CHILD list screen (one
+// with a `<Parent>Id` sibling entity elsewhere, e.g. FollowUpListScreen under Task) calls
+// `GoRouterState.of(context)` internally (screen.ts's listFilterExpr), which throws "no
+// GoRouterState above the current context" under a router-less MaterialApp. Wrapping every list
+// screen this way — not just child ones — avoids re-deriving screen.ts's own "is this a child
+// list" detection a third time; a non-child screen simply never calls GoRouterState.of, so the
+// router wrapper is inert for it.
+function routerConfigFor(screenName: string): string {
+  return `GoRouter(initialLocation: '/', routes: [GoRoute(path: '/', builder: (_, __) => const ${screenName}())])`;
+}
+
+export function generateScrollTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const listScreens = (feature.screens ?? []).filter((s) => s.type === "list");
+  if (!listScreens.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const N = 15;
+
+  const seedRows = (entity: NonNullable<ReturnType<typeof entityFor>>, indent: string) =>
+    Array.from({ length: N }, (_, i) => `${indent}${entity.name}(${variantSampleArgs(entity, feature.enums ?? [], feature.valueObjects ?? [], i + 1)}),`).join("\n");
+
+  function entityFor(entityName: string) {
+    return feature.entities.find((e) => e.name === entityName);
+  }
+
+  const cases = listScreens.map((s) => {
+    const entity = entityFor(s.entity);
+    const stateModel = (feature.states ?? []).find((st) => st.name === s.state);
+    if (!entity || !stateModel) return null;
+    const identityField = entity.identity?.field ?? "id";
+    const collection = collectionField(s.entity);
+    const statusEnum = `${s.state}Status`;
+    const lastKey = `${kebab(s.entity)}-${N}`;
+
+    if (sm === "riverpod") {
+      // Riverpod's Notifier.build() is synchronous and self-contained (see state.ts) — overriding
+      // it needs no repository/use-case faking at all, unlike bloc's Cubit below.
+      return {
+        decl: `class _Seeded${s.state}Notifier extends ${s.state}Notifier {
+  @override
+  ${s.state}State build() => ${s.state}State(
+    status: ${statusEnum}.success,
+    ${collection}: [
+${seedRows(entity, "      ")}
+    ],
+  );
+}`,
+        test: `  testWidgets('${s.name}: scrolls when content overflows', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [${camelize(s.state)}Provider.overrideWith(() => _Seeded${s.state}Notifier())],
+      child: MaterialApp.router(theme: buildTheme(), routerConfig: ${routerConfigFor(s.name)}),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('${lastKey}')), findsNothing, reason: 'row ${N} should be off-screen before scrolling');
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after dragging up');
+  });`,
+      };
+    }
+
+    // Bloc: the Cubit's constructor requires its list use case (state.ts). We never call it
+    // (load() is overridden below), so a `noSuchMethod`-only fake satisfies the repository type
+    // without needing to know its actual method signatures — works for any entity/repo shape.
+    const repo = findRepoForEntity(feature.repositories, s.entity);
+    const listUseCase = (feature.useCases ?? []).find((u) => u.returnType === `List<${s.entity}>`);
+    if (!repo || !listUseCase) return null;
+    return {
+      decl: `class _NoOp${repo.name} implements ${repo.name} {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Seeded${s.state}Cubit extends ${s.state}Cubit {
+  _Seeded${s.state}Cubit() : super(${listUseCase.name}(_NoOp${repo.name}()));
+
+  @override
+  Future<void> load() async {
+    emit(state.copyWith(
+      status: ${statusEnum}.success,
+      ${collection}: [
+${seedRows(entity, "        ")}
+      ],
+    ));
+  }
+}`,
+      test: `  testWidgets('${s.name}: scrolls when content overflows', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(BlocProvider<${s.state}Cubit>(
+      create: (_) => _Seeded${s.state}Cubit()..load(),
+      child: MaterialApp.router(theme: buildTheme(), routerConfig: ${routerConfigFor(s.name)}),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('${lastKey}')), findsNothing, reason: 'row ${N} should be off-screen before scrolling');
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after dragging up');
+  });`,
+    };
+  }).filter((c): c is { decl: string; test: string } => !!c);
+  if (!cases.length) return null;
+
+  const libImport = sm === "riverpod"
+    ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+    : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+
+  return `// [generated] generator=ScrollTestGenerator template=scroll_test_${sm}.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+${libImport}
+import 'package:${pkg}/generated.dart';
+import 'package:${pkg}/core/theme.dart';
+
+${cases.map((c) => c.decl).join("\n\n")}
+
+void main() {
+${cases.map((c) => c.test).join("\n\n")}
 }
 `;
 }

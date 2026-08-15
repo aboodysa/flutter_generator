@@ -2,6 +2,7 @@
 // Do not hand-edit this file; regenerate from IR.
 // Component registry (DESIGN §8): Tokens → Atoms → Molecules.
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'theme.dart';
 
 abstract final class AppTokens {
@@ -104,14 +105,6 @@ class AppListCard extends StatelessWidget {
 // priority value maps to one of these, never a raw hex color chosen ad hoc per screen.
 enum AppChipTone { neutral, info, warning, danger, success }
 
-Color _appChipToneColor(BuildContext context, AppChipTone tone) => switch (tone) {
-  AppChipTone.info => AppColors.info,
-  AppChipTone.warning => AppColors.warning,
-  AppChipTone.danger => AppColors.danger,
-  AppChipTone.success => AppColors.success,
-  AppChipTone.neutral => Theme.of(context).colorScheme.outline,
-};
-
 /// semanticContract: { role: text, accessibleName: {source: label}, states: [] }
 class AppChip extends StatelessWidget {
   const AppChip({super.key, required this.label, this.tone = AppChipTone.neutral});
@@ -137,9 +130,20 @@ class AppChip extends StatelessWidget {
     return AppChipTone.neutral;
   }
 
+  // UIX Slice D: the tone→color mapping is public (not just used by this widget's own build())
+  // so ChoiceChip in crud_form.ts/screen.ts can tint its selected state with the SAME color a
+  // read-only AppChip/AppStatusDot would show for that value — one mapping, three consumers.
+  static Color colorForTone(BuildContext context, AppChipTone tone) => switch (tone) {
+    AppChipTone.info => AppColors.info,
+    AppChipTone.warning => AppColors.warning,
+    AppChipTone.danger => AppColors.danger,
+    AppChipTone.success => AppColors.success,
+    AppChipTone.neutral => Theme.of(context).colorScheme.outline,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final color = _appChipToneColor(context, tone);
+    final color = AppChip.colorForTone(context, tone);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
       decoration: BoxDecoration(
@@ -164,8 +168,25 @@ class AppStatusDot extends StatelessWidget {
       child: Container(
         width: 12,
         height: 12,
-        decoration: BoxDecoration(color: _appChipToneColor(context, tone), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: AppChip.colorForTone(context, tone), shape: BoxShape.circle),
       ),
     );
   }
+}
+
+// RCA-006: the Material default ScrollBehavior only puts touch (and stylus) in dragDevices —
+// deliberate, since desktop/web mouse-drag is conventionally reserved for text selection. That
+// default is also why a real mouse click-drag never scrolled the generated list in this app's own
+// investigation, while a genuine touch-type gesture always did. Every generated list opts into
+// this behavior so drag-to-scroll works uniformly across touch, mouse, and trackpad.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
 }

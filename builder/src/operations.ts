@@ -133,6 +133,16 @@ export function firstCrudTextField(entity: EntityModel, identityField: string): 
   return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type));
 }
 
+// Bug A / RCA-005: the field crud_form.ts autofocuses on the create route — the first editable
+// field that renders a REAL (non-readOnly) keyboard-invoking TextField. DateTime is excluded even
+// though it's controller-backed: G2 made it `readOnly: true` (opens a date picker on tap), so
+// autofocusing it would never actually show a keyboard. Shared with test.ts's generated focus
+// regression test so both agree on which field is expected to carry `autofocus` without drifting.
+export function firstAutofocusableField(entity: EntityModel, identityField: string): Field | undefined {
+  const CONTROLLER_TYPES = new Set(["String", "int", "double", "DateTime"]);
+  return crudEditableFields(entity, identityField).find((f) => CONTROLLER_TYPES.has(f.type) && f.type !== "DateTime");
+}
+
 // UIX Slice C: deterministic field-role inference — the single source of truth every layout
 // generator (screen.ts today; crud_form.ts/future widgets later) consults instead of re-deriving
 // its own "what kind of field is this" heuristic. Rejects a client-side FieldPresentation schema

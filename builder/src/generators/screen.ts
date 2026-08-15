@@ -84,12 +84,19 @@ function childLinks(entityName: string, entities: Array<{ name: string; fields?:
     });
 }
 
+// The `<Parent>Id` field marking this entity as a "child" reached via a parent's detail link (if
+// any) — shared by listFilterExpr (row filtering) AND the create-FAB below (G6: the FAB must
+// carry the SAME `?<fk>=<id>` forward into the create form so it can prefill the field), so both
+// resolve the field once, never re-deriving the same `endsWith("Id")` heuristic independently.
+function childForeignKey(entity: EntityModel | undefined): Field | undefined {
+  return entity?.fields.find((f) => f.name.endsWith("Id") && f.name !== "id");
+}
+
 // Child list query-param filter: if this list screen's entity is a child (has `<Parent>Id` fields),
 // a matching `?<fk>=<parentId>` query param (arrived via the parent's detail-screen link) restricts
 // the visible rows to that parent's children. Null-safe (no param → no filter). Gated on the entity
 // actually carrying the field so unrelated list screens stay unchanged.
-function listFilterExpr(entity: EntityModel | undefined, collection: string): string {
-  const fk = entity?.fields.find((f) => f.name.endsWith("Id") && f.name !== "id");
+function listFilterExpr(fk: Field | undefined, collection: string): string {
   if (!fk) {
     return `    final items = state.${collection};
 `;
@@ -182,6 +189,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
 
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
   const identityField = entity?.identity?.field ?? "id";
+  const childFk = childForeignKey(entity);
 
   // §5.2-F1: create/edit/delete affordances, gated on what the entity's repository actually
   // supports (crudFormTargets is the single source shared with route.ts/index.ts/symbols.ts).
@@ -403,7 +411,7 @@ ${contentCases}
       : `const Icon(Icons.chevron_right)`;
     // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
     // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
-    const listFilter = listFilterExpr(entity, collection);
+    const listFilter = listFilterExpr(childFk, collection);
     // UIX Slice C: a status/priority-colored dot is more meaningful than a generic initial-letter
     // avatar — replaces AppAvatar when the entity has either role (status wins if it has both,
     // since "is this done" is the row's primary at-a-glance fact); AppAvatar is the fallback for
@@ -421,24 +429,38 @@ ${contentCases}
               children: [
 ${heroBlock}
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) {
-                      final item = items[i];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
-                        child: AppListCard(
-                          key: ValueKey(item.${identity}),
-                          card: ${cardSurface},
-                          leading: ${leadingWidget},
-                          title: Text(${titleExpr}),
-                          subtitle: Text(${subtitleExpr}),
-                          trailing: ${trailingWidget},
-                          onTap: () => context.go('${onTapTarget}'),
-                        ),
-                      );
-                    },
+                  // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
+                  // stylus) into drag-to-scroll — Flutter's default excludes mouse, which is why
+                  // a real mouse-drag never scrolled this list even though touch always did.
+                  // Scrollbar(thumbVisibility: true) makes the list's scrollability visible up
+                  // front, not just discoverable by already dragging (the owner's "no scroller"
+                  // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
+                  // even on the rare screen where content doesn't yet overflow.
+                  child: ScrollConfiguration(
+                    behavior: const AppScrollBehavior(),
+                    child: Scrollbar(
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        itemCount: items.length,
+                        itemBuilder: (_, i) {
+                          final item = items[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
+                            child: AppListCard(
+                              key: ValueKey(item.${identity}),
+                              card: ${cardSurface},
+                              leading: ${leadingWidget},
+                              title: Text(${titleExpr}),
+                              subtitle: Text(${subtitleExpr}),
+                              trailing: ${trailingWidget},
+                              onTap: () => context.go('${onTapTarget}'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -473,8 +495,15 @@ ${heroBlock}
       `      ]`
     : "";
 
+  // G6: on a child list screen (reached via a parent's "View <Child>s" link, e.g. FollowUps under
+  // a Task), the create-FAB must carry the SAME `?<fk>=<parentId>` query param forward into the
+  // create form — otherwise "New FollowUp" from a filtered list loses which parent it belongs to,
+  // and crud_form.ts's own query-param prefill (below) never gets an id to prefill with.
+  const fabOnPressed = childFk
+    ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.go(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
+    : `() => context.go('${formPath}/new')`;
   const fab = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate
-    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'New ${s.entity}',\n        onPressed: () => context.go('${formPath}/new'),\n        child: const Icon(Icons.add),\n      )`
+    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'New ${s.entity}',\n        onPressed: ${fabOnPressed},\n        child: const Icon(Icons.add),\n      )`
     : "";
 
   const widgetBody = sm === "riverpod"
