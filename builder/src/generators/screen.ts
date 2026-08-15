@@ -197,6 +197,11 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const canEditCreate = !!crudTarget;
   const canDelete = !!crudTarget?.delete;
   const hasDetailScreen = (ctx?.ir?.screens ?? []).some((sc: any) => sc.entity === s.entity && sc.type === "detail");
+  // Dead-route guard: a list row only navigates when its entity has a detail screen OR a
+  // create/edit form. Otherwise `context.push('/x/:id')` would hit a non-existent route →
+  // go_router "Page Not Found" (walkthrough finding: inventory, ledgerly-auth). Used by the
+  // list branch (onTap/trailing) AND the go_router import decision below.
+  const listHasNavTarget = hasDetailScreen || canEditCreate;
   const formPath = `/${kebab(s.entity)}`;
   const readMutator = (method: string, args: string) =>
     sm === "riverpod" ? `ref.read(${camelize(s.state)}Provider.notifier).${method}(${args})` : `context.read<${s.state}Cubit>().${method}(${args})`;
@@ -405,7 +410,14 @@ ${contentCases}
     // Row tap/trailing: navigate to the detail screen when one exists; otherwise (§5.2-F1) tap
     // navigates straight to the edit form and a trailing delete icon replaces the chevron —
     // there's nowhere else for those affordances to live without a detail screen.
-    const onTapTarget = !hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`;
+    // Dead-route guard (walkthrough finding): when the entity has NEITHER a detail screen NOR a
+    // create/edit form, there is NO valid target — emitting the detail path `/x/:id` would make
+    // every row tap land on a go_router "Page Not Found" (inventory, ledgerly-auth). Render the
+    // row as a plain (non-tappable) card instead.
+    const hasAnyTarget = listHasNavTarget;
+    const onTapTarget = hasAnyTarget
+      ? (!hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`)
+      : null;
     // G3: `push` (not `go`) so the detail/edit screen this row leads to gets a real back stack
     // entry — go_router renders the AppBar's back chevron automatically once Navigator.canPop is
     // true, no explicit `leading:` needed. `go` REPLACES the current entry, which is why the
@@ -413,7 +425,7 @@ ${contentCases}
     // navigation in this file using `go`.
     const trailingWidget = !hasDetailScreen && canDelete
       ? `IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
-      : `const Icon(Icons.chevron_right)`;
+      : (hasAnyTarget ? `const Icon(Icons.chevron_right)` : `const SizedBox.shrink()`);
     // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
     // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
     const listFilter = listFilterExpr(childFk, collection);
@@ -460,7 +472,7 @@ ${heroBlock}
                               title: Text(${titleExpr}),
                               subtitle: Text(${subtitleExpr}),
                               trailing: ${trailingWidget},
-                              onTap: () => context.push('${onTapTarget}'),
+                              onTap: ${onTapTarget ? `() => context.push('${onTapTarget}')` : "null"},
                             ),
                           );
                         },
@@ -545,8 +557,10 @@ ${body}
 }`;
 
   // go_router is only referenced by list (onTap navigation) and detail (pathParameters) bodies —
-  // a wizard screen navigates entirely through its own Cubit/Notifier methods.
-  const routerImport = comp.layout !== "wizard" ? `import 'package:go_router/go_router.dart';\n` : "";
+  // a wizard screen navigates entirely through its own Cubit/Notifier methods, and a "dead" list
+  // (entity has neither a detail screen nor a create/edit form → onTap: null, no nav affordances)
+  // never references the router either (dead-route guard).
+  const routerImport = comp.layout !== "wizard" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
 
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
