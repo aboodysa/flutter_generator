@@ -75,6 +75,37 @@ Sample IRs: `builder/samples/{expense.ir.json, expense.semantic.ir.json,
 inventory.ir.json, todo.ir.json, rasheed.ir.json, promo.ir.json}`.
 Oracle corpus: `builder/samples/rules/<rule>.oracle.json`.
 
+## Code graph (graphify)
+
+`builder/src/` is graphed via the `graphify` skill into `graphify-out/` (`graph.json`,
+`GRAPH_REPORT.md`, `graph.html`). Currently untracked (not yet in `.gitignore` or committed) —
+ask before deciding which.
+
+- **Read the graph, don't grep-explore, when:**
+  - doing a SOLID/architecture review or audit (god nodes, communities, cross-module coupling).
+  - answering "where is X / what calls Y / how does Z flow" across `builder/src` — prefer
+    `graphify query "<question>"` over multiple manual `grep`/`Explore` passes once
+    `graphify-out/graph.json` exists; it's the fast path (see the skill's own "Fast path —
+    existing graph" rule: don't rebuild just to answer a question).
+  - verifying a suspected dead-code / unused-field / false-abstraction claim (e.g. "is this
+    struct field ever consumed downstream?") — cross-check graph edges against a direct code
+    read; the graph is function/module-level, not field-level, so use it to confirm breadth of
+    coupling, not as the sole source for field-level claims.
+  - onboarding to an unfamiliar corner of `builder/src`.
+- **Update/rebuild the graph when:**
+  - `builder/src` has had structural changes since the last build — new generator files, new
+    registry entries, renamed/removed modules — i.e. whenever a review or handoff needs the
+    graph to reflect current code, not a stale snapshot. Use `/graphify builder/src --update`
+    (incremental) rather than a full rebuild when only a few files changed.
+  - `GRAPH_REPORT.md`'s header date predates recent commits touching `builder/src`.
+- **How to use it:**
+  - `graphify query "<question>"` — BFS traversal for broad context (add `--dfs` to trace one
+    specific path, `--budget N` to cap output).
+  - `graphify path "<A>" "<B>"` — shortest path between two named symbols/concepts.
+  - `graphify explain "<Node>"` — plain-language explanation of one node.
+  - Cite `source_location`/file:line from graph output the same way you'd cite a `grep` hit —
+    it's an index into the real code, not a replacement for reading the code it points to.
+
 ## LLM agent work (semantic lane)
 
 - Default model for agent LLM calls is **`opencode/deepseek-v4-pro`** (see
