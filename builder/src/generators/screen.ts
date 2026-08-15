@@ -1,6 +1,7 @@
 import { ScreenModel, EntityModel, Field } from "../types";
-import { GenContext, nullable, kebab, collectionField } from "../dart";
+import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize } from "../dart";
 import { compositionFor } from "../composition";
+import { crudFormTargets } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -31,11 +32,6 @@ function fieldValue(field: Field, item = "item"): string {
   }
 }
 
-// A display label for a field (humanized snake/camelCase).
-function fieldLabel(name: string): string {
-  return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function pickTitle(entity: EntityModel): Field | undefined {
   const f = entity.fields.find((x) => TITLE_PRIORITY.includes(x.name));
   if (f) return f;
@@ -62,6 +58,16 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
   const identityField = entity?.identity?.field ?? "id";
 
+  // §5.2-F1: create/edit/delete affordances, gated on what the entity's repository actually
+  // supports (crudFormTargets is the single source shared with route.ts/index.ts/symbols.ts).
+  const crudTarget = ctx?.ir ? crudFormTargets(ctx.ir).get(s.entity) : undefined;
+  const canEditCreate = !!crudTarget;
+  const canDelete = !!crudTarget?.delete;
+  const hasDetailScreen = (ctx?.ir?.screens ?? []).some((sc: any) => sc.entity === s.entity && sc.type === "detail");
+  const formPath = `/${kebab(s.entity)}`;
+  const readMutator = (method: string, args: string) =>
+    sm === "riverpod" ? `ref.read(${camelize(s.state)}Provider.notifier).${method}(${args})` : `context.read<${s.state}Cubit>().${method}(${args})`;
+
   // Hero block: gated by the archetype (comp.hasHero) AND an IR-declared headline — an archetype
   // with hasHero:false never renders one even if `s.hero` is set, and vice versa. heroGap (the
   // registry's rhythm field) drives the padding below the hero.
@@ -85,7 +91,6 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
         .map((r, i) => (i === 0 ? `              ${r}` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${r}`))
         .join("\n");
       body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
-            final id = GoRouterState.of(context).pathParameters['id'];
             final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -114,6 +119,13 @@ ${rowsBlock}
     // itself; this is the same no-collision formula screen.ts uses for the common case — see
     // AGENTS/DESIGN note in route.ts).
     const detailPath = `/${kebab(s.entity)}`;
+    // Row tap/trailing: navigate to the detail screen when one exists; otherwise (§5.2-F1) tap
+    // navigates straight to the edit form and a trailing delete icon replaces the chevron —
+    // there's nowhere else for those affordances to live without a detail screen.
+    const onTapTarget = !hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`;
+    const trailingWidget = !hasDetailScreen && canDelete
+      ? `IconButton(icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
+      : `const Icon(Icons.chevron_right)`;
     body = `            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -132,8 +144,8 @@ ${heroBlock}
                           leading: AppAvatar(label: ${titleExpr}),
                           title: Text(${titleExpr}),
                           subtitle: Text(${subtitleExpr}),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.go('${detailPath}/\${item.${identity}}'),
+                          trailing: ${trailingWidget},
+                          onTap: () => context.go('${onTapTarget}'),
                         ),
                       );
                     },
@@ -157,19 +169,34 @@ ${heroBlock}
     ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
     : `import 'package:flutter_bloc/flutter_bloc.dart';`;
 
+  // Detail-only: `id` is read once at the top of build() so both the AppBar edit/delete actions
+  // and the nested BlocBuilder/Builder body can use it (§5.2-F1).
+  const preBuild = comp.layout === "detail" ? `    final id = GoRouterState.of(context).pathParameters['id'];\n` : "";
+
+  const appBarActions = comp.layout === "detail" && (canEditCreate || canDelete)
+    ? `,\n      actions: [\n` +
+      (canEditCreate ? `        IconButton(icon: const Icon(Icons.edit), onPressed: () => context.go('${formPath}/\${id}/edit')),\n` : "") +
+      (canDelete ? `        IconButton(icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
+      `      ]`
+    : "";
+
+  const fab = comp.layout !== "detail" && canEditCreate
+    ? `,\n      floatingActionButton: FloatingActionButton(\n        onPressed: () => context.go('${formPath}/new'),\n        child: const Icon(Icons.add),\n      )`
+    : "";
+
   const widgetBody = sm === "riverpod"
     ? `class ${s.name} extends ConsumerWidget {
   const ${s.name}({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
+${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
     return Scaffold(
-      appBar: AppBar(title: const Text('${s.name}')),
+      appBar: AppBar(title: const Text('${s.name}')${appBarActions}),
       body: Builder(builder: (_) {
 ${checks}
 ${body}
-      }),
+      })${fab},
     );
   }
 }`
@@ -178,14 +205,14 @@ ${body}
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('${s.name}')),
+${preBuild}    return Scaffold(
+      appBar: AppBar(title: const Text('${s.name}')${appBarActions}),
       body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
         builder: (context, state) {
 ${checks}
 ${body}
         },
-      ),
+      )${fab},
     );
   }
 }`;

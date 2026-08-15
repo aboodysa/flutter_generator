@@ -2,6 +2,7 @@ import { FeatureModel, StateManagementProvider } from "../types";
 import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
+import { persistenceFor } from "../persistence";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -20,11 +21,14 @@ export function generatePubspec(feature: FeatureModel, decision?: ArchitectureDe
   const provider = providerFor(sm);
 
   // Dependencies derived from the arch layer: state-mgmt package (provider), get_it (DI),
-  // go_router (routing). Each is added only when its axis is actually selected.
+  // go_router (routing), persistence backend (drift/hive_ce). Each is added only when its
+  // axis is actually selected.
   const smDep = provider.package ? `  ${provider.package}: ${PROVIDER_VERSIONS[provider.id]}\n` : "";
   const diDep = decision?.di === "get_it" ? "  get_it: ^8.0.1\n" : "";
   const routingDep = decision?.routing === "go_router" ? "  go_router: ^17.1.0\n" : "";
-  const infraDeps = `${smDep}${diDep}${routingDep}`;
+  const persistence = persistenceFor(decision?.persistence ?? "none");
+  const persistenceDep = persistence.package ? `  ${persistence.package}: ${persistence.version}\n` : "";
+  const infraDeps = `${smDep}${diDep}${routingDep}${persistenceDep}`;
 
   return `# [generated] generator=ProjectGenerator template=pubspec.v1 class=structural ownership=generated
 # Do not hand-edit this file; regenerate from IR.

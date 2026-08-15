@@ -1,5 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
+import { crudFormTargets, crudFormScreenName } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -33,6 +34,10 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   }
   for (const s of ir.states ?? []) add(s.name, "presentation/state", fileName(s.name));
   for (const sc of ir.screens ?? []) add(sc.name, "presentation/screens", fileName(sc.name));
+  for (const entity of crudFormTargets(ir).keys()) {
+    const n = crudFormScreenName(entity);
+    add(n, "presentation/screens", fileName(n));
+  }
   for (const sm of ir.stateMachines ?? []) add(`${sm.name}StateMachine`, "domain/state_machines", fileName(`${sm.name}StateMachine`));
   for (const f of ir.forms ?? []) add(f.name, "presentation/forms", fileName(f.name));
   for (const r of ir.businessRules ?? []) add(r.name, "domain/rules", fileName(r.name));

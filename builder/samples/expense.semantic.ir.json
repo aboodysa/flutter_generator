@@ -17,7 +17,6 @@
       "identity": {
         "field": "id"
       },
-      "equality": "identity",
       "fields": [
         {
           "name": "id",
@@ -260,6 +259,39 @@
               "required": true
             }
           ]
+        },
+        {
+          "name": "createTransaction",
+          "returns": "Future<Transaction>",
+          "params": [
+            {
+              "name": "transaction",
+              "type": "Transaction",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateTransaction",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "transaction",
+              "type": "Transaction",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteTransaction",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
         }
       ]
     }
@@ -290,6 +322,27 @@
       "operation": "listTransactions",
       "paramType": "TransactionFilter",
       "returnType": "List<Transaction>"
+    },
+    {
+      "name": "CreateTransaction",
+      "repository": "TransactionRepository",
+      "operation": "createTransaction",
+      "paramType": "Transaction",
+      "returnType": "Transaction"
+    },
+    {
+      "name": "UpdateTransaction",
+      "repository": "TransactionRepository",
+      "operation": "updateTransaction",
+      "paramType": "Transaction",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteTransaction",
+      "repository": "TransactionRepository",
+      "operation": "deleteTransaction",
+      "paramType": "String",
+      "returnType": "void"
     }
   ],
   "datasources": [

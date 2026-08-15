@@ -1,4 +1,5 @@
-import { StateModel, FeatureModel } from "./types";
+import { StateModel, FeatureModel, PersistenceKind } from "./types";
+import { listEntityName, hasFullCrud } from "./operations";
 
 /**
  * Deterministic pattern-selection scoring function (DESIGN §5.2).
@@ -22,6 +23,9 @@ export interface ScoringInputs {
   offlinePolicy: number;
   permissionScope: number;
   stateComplexity: number;
+  hasRelationships: boolean; // §5.2-F2: any entity has a `reference`-typed field
+  documentShaped: boolean; // any entity has a `List`-typed (nested) field
+  fullCrudSurface: boolean; // some repository implements create+update+delete for its list entity
 }
 
 export interface ScoringDecision {
@@ -30,6 +34,7 @@ export interface ScoringDecision {
   stateManagement: "none" | "bloc" | "riverpod";
   di: "none" | "get_it" | "provider_scope";
   routing: "none" | "go_router";
+  persistence: PersistenceKind;
   reason: string;
 }
 
@@ -57,6 +62,13 @@ export function computeInputs(ir: FeatureModel): ScoringInputs {
     stateComplexity += (sm.transitions ?? []).filter((t) => t.guard).length; // guards add transition surface
   }
 
+  const hasRelationships = ir.entities.some((e) => e.fields.some((f) => f.type === "reference"));
+  const documentShaped = ir.entities.some((e) => e.fields.some((f) => f.type === "List"));
+  const fullCrudSurface = (ir.repositories ?? []).some((r) => {
+    const entityName = listEntityName(r);
+    return !!entityName && hasFullCrud(r, entityName);
+  });
+
   return {
     collectionCardinality: ir.entities.length,
     filterAxes,
@@ -66,11 +78,36 @@ export function computeInputs(ir: FeatureModel): ScoringInputs {
     offlinePolicy: ord(OFFLINE, a.offlinePolicy ?? "none", 0),
     permissionScope: ord(PERMISSION, a.permissionScope ?? "none", 0),
     stateComplexity,
+    hasRelationships,
+    documentShaped,
+    fullCrudSurface,
   };
+}
+
+// Persistence selection (§5.2-F2, SQL-biased — locked, see design/flutter-app-builder/research/
+// PERSISTENCE_ARCH.md). Explicit `attributes.persistence` always wins; otherwise score SQL-affinity
+// vs NoSQL-affinity from the same declarative inputs used for state-mgmt scoring.
+function scorePersistence(ir: FeatureModel, i: ScoringInputs): { persistence: PersistenceKind; reason: string } {
+  const override = ir.attributes?.persistence;
+  if (override) return { persistence: override, reason: `explicit override persistence=${override}` };
+
+  const sqlScore =
+    (i.offlinePolicy === 2 ? 3 : i.offlinePolicy === 1 ? 1 : 0) + // offline-first(3) | cache(1)
+    (i.hasRelationships ? 2 : 0) +
+    (i.filterAxes >= 3 ? 1 : 0) + // queryAxes >= 3
+    (i.fullCrudSurface ? 1 : 0);
+  const nosqlScore =
+    (i.offlinePolicy === 1 ? 2 : 0) + // cache(2)
+    (i.documentShaped ? 2 : 0);
+
+  if (sqlScore >= 3) return { persistence: "sql", reason: `sqlScore ${sqlScore} >= 3 (drift)` };
+  if (nosqlScore >= 2) return { persistence: "nosql", reason: `nosqlScore ${nosqlScore} >= 2 (hive_ce)` };
+  return { persistence: "none", reason: `sqlScore ${sqlScore} nosqlScore ${nosqlScore} — in-memory` };
 }
 
 export function scoreApp(ir: FeatureModel): ScoringDecision {
   const i = computeInputs(ir);
+  const { persistence, reason: persistenceReason } = scorePersistence(ir, i);
 
   // Explicit provider override (enterprise: human-pinned selection) wins over scoring.
   const override = ir.attributes?.stateManagement;
@@ -78,15 +115,16 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
     const stateManagement = override;
     if (override === "none") {
       return {
-        inputs: i, complexity: 0, stateManagement, di: "none", routing: "none",
-        reason: `explicit override stateManagement=none`,
+        inputs: i, complexity: 0, stateManagement, di: "none", routing: "none", persistence,
+        reason: `explicit override stateManagement=none; ${persistenceReason}`,
       };
     }
     return {
       inputs: i, complexity: i.stateComplexity || 1, stateManagement,
       di: override === "riverpod" ? "provider_scope" : "get_it",
       routing: "go_router",
-      reason: `explicit override stateManagement=${override} (coupled-pair: ${override} × ${override === "riverpod" ? "provider_scope" : "get_it"})`,
+      persistence,
+      reason: `explicit override stateManagement=${override} (coupled-pair: ${override} × ${override === "riverpod" ? "provider_scope" : "get_it"}); ${persistenceReason}`,
     };
   }
 
@@ -107,7 +145,8 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
       stateManagement: "none",
       di: "none",
       routing: "none",
-      reason: `complexity ${complexity} < ${NONE_FLOOR} — vanilla (none) strategy`,
+      persistence,
+      reason: `complexity ${complexity} < ${NONE_FLOOR} — vanilla (none) strategy; ${persistenceReason}`,
     };
   }
 
@@ -117,7 +156,8 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
     stateManagement: "bloc",
     di: "get_it",
     routing: "go_router",
-    reason: `complexity ${complexity} — bloc (enterprise default) + get_it + go_router`,
+    persistence,
+    reason: `complexity ${complexity} — bloc (enterprise default) + get_it + go_router; ${persistenceReason}`,
   };
 }
 

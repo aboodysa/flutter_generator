@@ -1,4 +1,5 @@
 import { FeatureModel, Field, StateManagementProvider } from "../types";
+import { crudFormTargets } from "../operations";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -211,6 +212,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Scaffold), findsWidgets);
 ${nav}
+  });
+}
+`;
+}
+
+/**
+ * CrudFlowTestGenerator — structural, deterministic, 0% LLM (§5.2-F1 CRUD proof).
+ * Drives the real generated widget tree end to end: create (via the list FAB) -> visible on the
+ * detail screen it navigates to -> edit (via the detail AppBar action) -> visible updated ->
+ * delete (via the detail AppBar action) -> gone. Only emitted when an entity has a synthesized
+ * form (crudFormTargets — create+update), a delete operation, AND a detail screen to land on
+ * (today: entities with a "list" + "detail" screen pair whose repository is full-CRUD). Targets
+ * the first rendered TextField, which is the entity's first non-identity field in IR order — the
+ * common "title/name first" shape (documented assumption, not a general-purpose heuristic).
+ */
+export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const target = [...crudFormTargets(feature).values()].find(
+    (t) => t.delete && (feature.screens ?? []).some((s) => s.entity === t.entity && s.type === "detail"),
+  );
+  if (!target) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+
+  return `// [generated] generator=CrudFlowTestGenerator template=crud_flow_${sm}.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:${pkg}/main.dart';
+${diImport}
+void main() {
+  testWidgets('${target.entity}: create -> edit -> delete', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+
+    // create (list FAB -> form -> submit -> lands on detail)
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Widget test value');
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('Widget test value'), findsOneWidget);
+
+    // edit (detail AppBar action -> form, prefilled -> submit -> back on detail)
+    await tester.tap(find.byIcon(Icons.edit));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Widget test value updated');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Widget test value updated'), findsOneWidget);
+
+    // delete (detail AppBar action -> back on the list, row gone)
+    await tester.tap(find.byIcon(Icons.delete));
+    await tester.pumpAndSettle();
+    expect(find.text('Widget test value updated'), findsNothing);
   });
 }
 `;

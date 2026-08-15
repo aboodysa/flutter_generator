@@ -1,5 +1,6 @@
-import { StateModel, StateField } from "../types";
-import { importsFromTypes, variantSampleArgs, collectionField, camelize, GenContext } from "../dart";
+import { StateModel, StateField, EntityModel } from "../types";
+import { importsFromTypes, variantSampleArgs, collectionField, camelize, fieldDartType, GenContext } from "../dart";
+import { crudOperations, findRepoForEntity } from "../operations";
 
 const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
@@ -27,7 +28,11 @@ function queryArgLiteral(type: string, ir: any): string {
 
 /**
  * StateGenerator — structural, deterministic, 0% LLM (enum-status strategy).
- * IR StateModel → enum Status + state class + Cubit.
+ * IR StateModel → enum Status + state class + Cubit/Notifier.
+ * §5.2-F1: when the entity's repository declares create/update/delete operations, the
+ * Cubit/Notifier also gets create/update/delete methods that mutate the collection field
+ * directly (deterministic, testable without DI) and — for bloc, where a matching use case is
+ * declared — additionally call through it.
  */
 export function generateState(s: StateModel, ctx?: GenContext): string {
   const name = s.name;
@@ -65,7 +70,11 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
     return f.type.endsWith("?") ? `    ${f.name}: ${f.name},` : `    ${f.name}: ${f.name} ?? this.${f.name},`;
   };
 
-  const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity);
+  const entityModel = (ctx?.ir?.entities ?? []).find((e: any) => e.name === entity) as EntityModel | undefined;
+  const identityField = entityModel?.identity?.field ?? "id";
+  const identityFieldDef = entityModel?.fields.find((f) => f.name === identityField);
+  const identityType = identityFieldDef ? fieldDartType(identityFieldDef) : "String";
+
   const demoRows = entityModel
     ? [0, 1, 2].map((i) => `${entity}(${variantSampleArgs(entityModel, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [], i)})`).join(", ")
     : "null";
@@ -78,6 +87,16 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
       ? `${listUseCase.paramType}(${paramQuery.fields.map((f: any) => `${f.name}: ${queryArgLiteral(f.type, ctx?.ir)}`).join(", ")})`
       : listUseCase.paramType === "NoParams" ? "NoParams()" : `const ${listUseCase.paramType}()`)
     : "";
+
+  // Create/update/delete use cases (§5.2-F1) — only when the repository declares the operation
+  // AND a use case wraps it. Independent of whether the list itself is repo- or demo-backed.
+  const repo = findRepoForEntity(ctx?.ir?.repositories, entity);
+  const kinds = repo ? crudOperations(repo, entity) : {};
+  const findUc = (opName: string | undefined) =>
+    opName && repo ? (ctx?.ir?.useCases ?? []).find((u: any) => u.repository === repo.name && u.operation === opName) : undefined;
+  const createUc = findUc(kinds.create?.name);
+  const updateUc = findUc(kinds.update?.name);
+  const deleteUc = findUc(kinds.delete?.name);
 
   // Imports: entity + extra field types; demo-construction types (enum/VO) only when the
   // provider seeds demo in the state file; use-case/query types only when bloc uses the repo.
@@ -102,6 +121,9 @@ export function generateState(s: StateModel, ctx?: GenContext): string {
       refTypes.push(listUseCase.paramType);
     }
   }
+  if (sm === "bloc") {
+    for (const uc of [createUc, updateUc, deleteUc]) if (uc) refTypes.push(uc.name);
+  }
   const imports = importsFromTypes(refTypes, ctx).join("\n");
 
   const stateBlock = `enum ${statusEnum} { ${statuses.join(", ")} }
@@ -123,6 +145,31 @@ ${fields.map(copyWithAssign).join("\n")}
   List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
 }`;
 
+  // create/update/delete bodies shared in shape between bloc (Cubit, emit) and riverpod
+  // (Notifier, state=) — `assign` is the provider-specific state-write statement.
+  const crudMethods = (assign: (expr: string) => string, useUseCases: boolean): string => {
+    const parts: string[] = [];
+    if (kinds.create) {
+      const call = useUseCases && createUc ? `    if (_${camelize(createUc.name)} != null) await _${camelize(createUc.name)}!.call(item);\n` : "";
+      parts.push(`  Future<void> create(${entity} item) async {\n${call}    ${assign(`[...state.${collection}, item]`)}\n  }`);
+    }
+    if (kinds.update) {
+      const call = useUseCases && updateUc ? `    if (_${camelize(updateUc.name)} != null) await _${camelize(updateUc.name)}!.call(item);\n` : "";
+      parts.push(
+        `  Future<void> update(${entity} item) async {\n${call}` +
+        `    final idx = state.${collection}.indexWhere((e) => e.${identityField} == item.${identityField});\n` +
+        `    if (idx == -1) return;\n` +
+        `    final next = List<${entity}>.of(state.${collection})..[idx] = item;\n` +
+        `    ${assign("next")}\n  }`,
+      );
+    }
+    if (kinds.delete) {
+      const call = useUseCases && deleteUc ? `    if (_${camelize(deleteUc.name)} != null) await _${camelize(deleteUc.name)}!.call(${identityField});\n` : "";
+      parts.push(`  Future<void> delete(${identityType} ${identityField}) async {\n${call}    ${assign(`state.${collection}.where((e) => e.${identityField} != ${identityField}).toList()`)}\n  }`);
+    }
+    return parts.length ? `\n\n${parts.join("\n\n")}` : "";
+  };
+
   // Container differs by provider (arch layer): bloc = Cubit, riverpod = Notifier + provider.
   const container = sm === "riverpod"
     ? `final ${camelize(name)}Provider = NotifierProvider<${name}Notifier, ${stateClass}>(${name}Notifier.new);
@@ -142,11 +189,21 @@ class ${name}Notifier extends Notifier<${stateClass}> {
     } catch (e) {
       state = state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString());
     }
-  }
+  }${crudMethods((expr) => `state = state.copyWith(${collection}: ${expr});`, false)}
 }`
-    : `class ${name}Cubit extends Cubit<${stateClass}> {
-  ${listUseCase ? `final ${listUseCase.name} _${camelize(listUseCase.name)};` : ""}
-  ${name}Cubit(${listUseCase ? `this._${camelize(listUseCase.name)}` : ""}) : super(const ${stateClass}());
+    : (() => {
+      const requiredParams = listUseCase ? [`this._${camelize(listUseCase.name)}`] : [];
+      const optionalParams: string[] = [];
+      const optionalFields: string[] = [];
+      if (createUc) { optionalParams.push(`this._${camelize(createUc.name)}`); optionalFields.push(`  final ${createUc.name}? _${camelize(createUc.name)};`); }
+      if (updateUc) { optionalParams.push(`this._${camelize(updateUc.name)}`); optionalFields.push(`  final ${updateUc.name}? _${camelize(updateUc.name)};`); }
+      if (deleteUc) { optionalParams.push(`this._${camelize(deleteUc.name)}`); optionalFields.push(`  final ${deleteUc.name}? _${camelize(deleteUc.name)};`); }
+      const ctorParams = [...requiredParams, ...(optionalParams.length ? [`[${optionalParams.join(", ")}]`] : [])].join(", ");
+      const requiredField = listUseCase ? `  final ${listUseCase.name} _${camelize(listUseCase.name)};` : "";
+
+      return `class ${name}Cubit extends Cubit<${stateClass}> {
+${[requiredField, ...optionalFields].filter(Boolean).join("\n")}
+  ${name}Cubit(${ctorParams}) : super(const ${stateClass}());
 
   Future<void> load() async {
     emit(state.copyWith(status: ${statusEnum}.loading));
@@ -160,8 +217,9 @@ class ${name}Notifier extends Notifier<${stateClass}> {
     } catch (e) {
       emit(state.copyWith(status: ${statusEnum}.failure, errorMessage: e.toString()));
     }
-  }
+  }${crudMethods((expr) => `emit(state.copyWith(${collection}: ${expr}));`, true)}
 }`;
+    })();
 
   const stateLib = sm === "riverpod" ? "flutter_riverpod" : "flutter_bloc";
   const template = sm === "riverpod" ? "state_notifier.v1" : "state_enum_status.v1";

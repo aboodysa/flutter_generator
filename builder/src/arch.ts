@@ -1,4 +1,4 @@
-import { FeatureModel, StateManagementProvider } from "./types";
+import { FeatureModel, StateManagementProvider, PersistenceKind } from "./types";
 import { scoreApp, scoreStateStrategy, StateStrategy } from "./scoring";
 
 /**
@@ -17,6 +17,7 @@ export interface ArchitectureDecision {
   stateManagement: StateManagementProvider;
   di: DiStrategy;
   routing: "none" | "go_router";
+  persistence: PersistenceKind; // §5.2-F2: independent axis, not part of the coupled-pair guard (see scoring.ts)
   perStateStrategy: Map<string, StateStrategy>;
   complexity: number;
   coupledPair: string; // "bloc × get_it"
@@ -54,6 +55,7 @@ export function decideArchitecture(ir: FeatureModel): ArchitectureDecision {
     stateManagement: app.stateManagement,
     di: app.di,
     routing: app.routing,
+    persistence: app.persistence,
     perStateStrategy,
     complexity: app.complexity,
     coupledPair,

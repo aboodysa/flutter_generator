@@ -1,14 +1,23 @@
 import { EntityModel } from "../types";
-import { fieldDartType, referencedType, nullable, defaultValue, importsFromTypes, PkgContext } from "../dart";
+import { fieldDartType, referencedType, nullable, defaultValue, importsFromTypes, GenContext } from "../dart";
+import { crudFormTargets } from "../operations";
 
 /**
  * EntityGenerator — structural, deterministic, 0% LLM.
  * IR EntityModel → immutable Dart entity class with Equatable + correct imports.
  */
-export function generateEntity(entity: EntityModel, ctx?: PkgContext): string {
+export function generateEntity(entity: EntityModel, ctx?: GenContext): string {
   const className = entity.name;
   const identity = entity.identity?.field;
-  const equality = entity.equality ?? "identity";
+
+  // Full-field equality is required for entities the Cubit/Notifier update() (§5.2-F1 CRUD):
+  // Bloc's Cubit.emit() short-circuits (skips the update entirely, no rebuild) when the new
+  // state == the old state via Equatable, and a List<Entity> compares element-wise — with
+  // identity-only equality ([id]), "same id, different title" looks unchanged, so a genuine
+  // field edit silently never reaches the UI. Auto-upgrade CRUD-capable entities to "full"
+  // unless the IR explicitly pins a mode (an explicit `equality` always wins).
+  const crudCapable = ctx?.ir ? crudFormTargets(ctx.ir).has(entity.name) : false;
+  const equality = entity.equality ?? (crudCapable ? "full" : "identity");
 
   const imports = importsFromTypes(
     entity.fields.map(referencedType).filter((t): t is string => !!t && t !== className),

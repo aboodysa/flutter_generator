@@ -110,6 +110,17 @@
               "named": false
             }
           ]
+        },
+        {
+          "name": "deleteTask",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
         }
       ]
     }
@@ -160,6 +171,13 @@
       "repository": "TaskRepository",
       "operation": "updateTask",
       "paramType": "Task",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteTask",
+      "repository": "TaskRepository",
+      "operation": "deleteTask",
+      "paramType": "String",
       "returnType": "void"
     }
   ]

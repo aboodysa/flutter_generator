@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -34,6 +34,9 @@ import { buildLockfile } from "./context";
 import { unapprovedElements } from "./provenance";
 import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
+import { generateCrudFormScreen } from "./generators/crud_form";
+import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
+import { crudFormTargets, crudFormScreenName, listEntityName } from "./operations";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -170,6 +173,27 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     });
   }
 
+  // CRUD flow test (§5.2-F1 proof) — only when an entity actually has the full create/edit/
+  // delete + detail-screen shape this test drives; unlike the four above, it's conditional so it
+  // IS pushed into `files` (the "+9" constant only covers the always-emitted set).
+  const crudFlow = generateCrudFlowTest(ir, arch.stateManagement);
+  if (crudFlow) {
+    const f = path.join(testDir, "crud_flow_test.dart");
+    fs.writeFileSync(f, crudFlow);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:crud_flow",
+      generator: "CrudFlowTestGenerator",
+      schema: "test",
+      layer: "test",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [],
+      mode: "deterministic",
+      class: "structural",
+    });
+  }
+
   // Oracle tests (§9.4): for each business rule with a non-empty oracle corpus, compile its
   // example/expected pairs into a Dart test. A rule with no (or empty) oracle stays unverified —
   // caught by validate.ts's oracle-coverage gate, not silently generated as "tested".
@@ -202,6 +226,67 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
   return { files, planEntries };
 }
 
+// §5.2-F1/F2: synthesized create/edit form screens (one per CRUD-capable entity) + persistence
+// schema files (drift table / hive adapter, when persistence != none). Neither is IR-declared —
+// both are derived from the repository's CRUD surface via crudFormTargets()/listEntityName(),
+// the single source shared with symbols.ts/route.ts/screen.ts so imports/routes/UI never drift.
+function writeCrudExtras(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision, featureRoot: string, outDir: string): { files: string[]; planEntries: PlanEntry[] } {
+  const files: string[] = [];
+  const planEntries: PlanEntry[] = [];
+
+  const screensDir = path.join(featureRoot, "presentation", "screens");
+  for (const target of crudFormTargets(ir).values()) {
+    const entity = ir.entities.find((e) => e.name === target.entity);
+    if (!entity) continue;
+    const name = crudFormScreenName(target.entity);
+    fs.mkdirSync(screensDir, { recursive: true });
+    const f = path.join(screensDir, fileName(name));
+    fs.writeFileSync(f, generateCrudFormScreen(target, entity, name, ctx));
+    files.push(f);
+    planEntries.push({
+      artifact: `screen:${name}`,
+      generator: "CrudFormGenerator",
+      schema: "screen",
+      layer: "presentation/screens",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`state:${target.screen.state}`],
+      mode: "deterministic",
+      class: "pattern",
+    });
+  }
+
+  if (arch.persistence !== "none") {
+    const localDir = path.join(featureRoot, "data", "local");
+    const isSql = arch.persistence === "sql";
+    for (const repo of ir.repositories ?? []) {
+      const entityName = listEntityName(repo);
+      const entity = entityName ? ir.entities.find((e) => e.name === entityName) : undefined;
+      if (!entity) continue;
+      fs.mkdirSync(localDir, { recursive: true });
+      const content = isSql
+        ? generateDriftTable(entity)
+        : generateHiveAdapter(entity, ir.enums ?? [], ir.valueObjects ?? [], ir.entities.indexOf(entity));
+      const f = path.join(localDir, fileName(entity.name).replace(/\.dart$/, isSql ? "_table.dart" : "_adapter.dart"));
+      fs.writeFileSync(f, content);
+      files.push(f);
+      planEntries.push({
+        artifact: `persistence:${entity.name}`,
+        generator: "PersistenceGenerator",
+        schema: "persistence",
+        layer: "data/local",
+        file: path.relative(outDir, f),
+        strategy: arch.persistence,
+        dependsOn: [`entity:${entity.name}`],
+        mode: "deterministic",
+        class: "structural",
+      });
+    }
+  }
+
+  return { files, planEntries };
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
 function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>): void {
   const plan: GenerationPlan = {
@@ -209,7 +294,7 @@ function writePlan(irVersion: string, planEntries: PlanEntry[], arch: Architectu
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
-    scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, coupledPair: arch.coupledPair, complexity: arch.complexity },
+    scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -244,6 +329,7 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
   const scoring: string[] = [];
   for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
   scoring.push(`app → ${arch.stateManagement} (${arch.coupledPair})`);
+  scoring.push(`persistence → ${arch.persistence}`);
 
   const planEntries: PlanEntry[] = [];
 
@@ -361,6 +447,10 @@ export function generateApp(ir: FeatureModel, outDir: string, irVersion = "1", o
       class: "structural",
     });
   }
+
+  const crudExtras = writeCrudExtras(ir, ctx, arch, featureRoot, outDir);
+  files.push(...crudExtras.files);
+  planEntries.push(...crudExtras.planEntries);
 
   const coreResult = writeCore(ir, ctx, arch, coreDir, outDir);
   files.push(...coreResult.files);
