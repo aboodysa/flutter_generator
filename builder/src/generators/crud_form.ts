@@ -1,6 +1,6 @@
 import { EntityModel, Field } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -58,7 +58,7 @@ function initStateLine(f: Field): string | null {
   }
 }
 
-function fieldWidget(f: Field): string {
+function fieldWidget(f: Field, roleCtx?: FieldRoleContext): string {
   const label = fieldLabel(f.name);
   // P7-L1: same decimal-text UI as "double", plus a currency suffix; the typed value is parsed
   // into minor units in valueExpr(), never left as a raw double.
@@ -84,6 +84,15 @@ function fieldWidget(f: Field): string {
       return `        CheckboxListTile(title: const Text('${label}'), value: _${f.name}, onChanged: (v) => setState(() => _${f.name} = v ?? false)),`;
     case "enum": {
       const enumType = f.of ?? capitalize(f.name);
+      // UIX Slice D: status/priority enums get a ChoiceChip row (segmented, tone-colored via the
+      // same AppChip.toneFor* mapping Slice C's read-only chips use) instead of a raw
+      // DropdownButton overlay — the owner's UI/UX complaint was specifically about that overlay.
+      // Every other enum keeps the dropdown unchanged (role fallback = "plain", not this branch).
+      const role = fieldRole(f, roleCtx);
+      if (role === "status" || role === "priority") {
+        const toneFn = role === "status" ? "toneForStatus" : "toneForPriority";
+        return `        Wrap(spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: _${f.name} == v, selectedColor: AppChip.colorForTone(context, AppChip.${toneFn}(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _${f.name} = v))).toList()),`;
+      }
       return `        DropdownButton<${enumType}>(value: _${f.name}, items: ${enumType}.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _${f.name} = v ?? _${f.name})),`;
     }
     default:
@@ -133,11 +142,16 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
 
   const bodyClass = `_${screenName}Body`;
 
+  const roleCtx: FieldRoleContext = {
+    identityField,
+    entityNames: ((ctx?.ir?.entities ?? []) as Array<{ name: string }>).map((e) => e.name),
+  };
+
   const controllerFields = editable.filter(usesController).map(controllerDecl).join("\n");
   const stateFields = editable.filter((f) => !usesController(f)).map(stateVarDecl).join("\n");
   const initLines = editable.map(initStateLine).filter((l): l is string => !!l).join("\n");
   const disposeLines = editable.filter(usesController).map((f) => `    _${f.name}.dispose();`).join("\n");
-  const fieldWidgets = editable.map(fieldWidget).join("\n");
+  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx)).join("\n");
 
   const ctorArgs = [
     `        ${identityField}: widget.id ?? ${newIdExpr(identityType)},`,

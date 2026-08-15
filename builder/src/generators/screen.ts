@@ -105,7 +105,7 @@ function listFilterExpr(entity: EntityModel | undefined, collection: string): st
 // per field so Flutter remounts it on step change) since the value lives in wizard state, not
 // local widget state; onChanged writes straight back via the field's generated `set<Field>`
 // mutator (state.ts).
-function wizardFieldInput(fieldName: string, field: Field | undefined, setterCall: (valueExpr: string) => string): string {
+function wizardFieldInput(fieldName: string, field: Field | undefined, setterCall: (valueExpr: string) => string, roleCtx?: FieldRoleContext): string {
   const label = fieldLabel(fieldName);
   const key = `const ValueKey('field-${fieldName}')`;
   if (!field) return `Text('${label} — unknown field')`;
@@ -136,8 +136,16 @@ function wizardFieldInput(fieldName: string, field: Field | undefined, setterCal
     }
     case "bool":
       return `CheckboxListTile(key: ${key}, value: state.${field.name} ?? false, title: Text('${label}'), onChanged: (v) => ${setterCall("v")})`;
+    // UIX Slice D: status/priority wizard fields get the same ChoiceChip treatment as the CRUD
+    // form (single source of truth: fieldRole + AppChip.toneFor*) — every other enum keeps the
+    // dropdown, unchanged.
     case "enum": {
       const enumType = field.of ?? capitalize(field.name);
+      const role = fieldRole(field, roleCtx);
+      if (role === "status" || role === "priority") {
+        const toneFn = role === "status" ? "toneForStatus" : "toneForPriority";
+        return `Wrap(key: ${key}, spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.${field.name} == v, selectedColor: AppChip.colorForTone(context, AppChip.${toneFn}(v.name)).withValues(alpha: 0.2), onSelected: (_) => ${setterCall("v")})).toList())`;
+      }
       return `DropdownButton<${enumType}>(key: ${key}, value: state.${field.name}, hint: Text('${label}'), items: ${enumType}.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => ${setterCall("v")})`;
     }
     default:
@@ -277,6 +285,7 @@ ${rowsBlock}${childRows}
     const steps: WizardStep[] = s.steps ?? [];
     const fieldDef = (name: string) => (entity ? entity.fields.find((f) => f.name === name) : undefined);
     const setterCall = (fieldName: string) => (valueExpr: string) => readMutator(`set${capitalize(fieldName)}`, valueExpr);
+    const wizardRoleCtx = entity ? roleContextFor(entity, ctx) : undefined;
 
     const titleCases = steps
       .map((st, i) => `                      ${i} => '${st.title.replace(/'/g, "\\'")}',`)
@@ -295,7 +304,7 @@ ${rowsBlock}${childRows}
       const collectedSoFar = Array.from(new Set(steps.slice(0, index).flatMap(stepFields)));
       const summaryLines = collectedSoFar.map((f) => `                        ${wizardFieldSummaryLine(f, fieldDef(f))},`).join("\n");
       if (flds.length) {
-        const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f))},`).join("\n");
+        const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f), wizardRoleCtx)},`).join("\n");
         const body = summaryLines ? `${summaryLines}\n${widgets}` : widgets;
         return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
       }
