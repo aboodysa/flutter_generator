@@ -44,6 +44,19 @@ Exit (acceptance):
 - **Feedback loop**: CDP test results feed the implementing agent → RCA → fix → re-test, until the loop is green. Failures + RCA logged under `docs/qa/<sample>/rca/`.
 Slices: F1 CRUD sample (repo mutation impl + forms + delete) + `transactions`→entity-derived collection; F2 persistence selection (sql/nosql generators + validator); F3 CDP flow-test harness + flow goldens; F4 feedback-loop wiring.
 
+### P7 — Ledgerly-MVP slice (single expense feature, real domain depth)  ← NEXT after P6-F1/F2
+Entry: CRUD + persistence landed; generator emits a working multi-screen single-feature app.
+Exit (acceptance) — see `research/EXPECTED_GAPS.md` §3 (generator CAN produce this today):
+- **Money-as-int**: money fields generated as integer minor units + ISO currency VO (never double).
+- Expense entity + category/tax code; **CRUD + split** (amount/% across categories summing 100%).
+- **Policy `PolicyVerdict`**: extend `RuleModel` eval to emit `{ruleId, severity(warn|require_justification|block), message, waivedBy?}` on save AND submit; oracle-gated.
+- Submit + manager approve/reject (state machine); no batch.
+- go_router + get_it/bloc + iPhone goldens; seeded SAR/USD demo data.
+- **Audit events** (append-only `AuditEvent` list).
+- **CSV export** (idempotent; exported items immutable).
+- AR/EN + RTL via generated l10n.
+Slices: L1 money-as-int + split; L2 policy `PolicyVerdict` (+ severity/waive); L3 approvals + audit + CSV export; L4 l10n/RTL + seeded demo.
+
 ### P3 — v1 closure (trust-boundary polish)
 Entry: P1–P2 done; v1 definition ("end of Phase 3") nearly met.
 Exit: DESIGN §9.5 approval routing 2×2 (Reversibility × Blast-radius: Tier R batched/deferrable, Tier I solo/blocking) implemented in `approve.ts`; §9.4 two-party confidence (second-party ReviewAgent + threshold) wired for business rules; **per-state strategy honored** (selection never lies) + **strategy-fidelity gate**.
