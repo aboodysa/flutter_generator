@@ -54,7 +54,11 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
    the golden test loads Roboto via `FontLoader` + `buildTheme()` (never bare
    `MaterialApp`, which renders Ahem boxes). **Break long content into multiple
    `sendMessage` calls** (one point/paragraph per message) — never one huge
-   message; the owner reads on a phone.
+   message; the owner reads on a phone. **When the owner asks for a file
+   (report/markdown), send it as an ATTACHMENT via `sendDocument`
+   (`curl -F "document=@<file>" .../sendDocument`), not as text chunks** —
+   attachments are the preferred form for files; chunked text is for progress
+   notes only.
 10. **Always inform the owner on Telegram.** Every status change, each commit,
     each golden/photo, each bug/RCA, each slice start/finish goes to Telegram.
     If you're about to act, the owner should already know. When in doubt, send
