@@ -12,6 +12,12 @@ matters, status. Update on every slice. This is the "don't lose the notes" index
 | B2 leftover | focus/scroll tests boot real DI per case; focus_test resets GetIt between cases | DOCUMENTED |
 | B3 leftover | G6 prefill handles String FKs only (no sample uses non-String FK) | WONTFIX (documented) |
 
+## From parallel session B (samples) — 2026-08-16
+| Note | Detail | Status |
+|---|---|---|
+| B1 wizard review-step duplicate-status bug | a wizard step bound to an entity's `status` field collides with the wizard's internal flow-status field → duplicate_definition analyzer error. Worked around in work_auth IR (field-less review step). ROOT FIX: namespace the wizard internal flow-status field (e.g. `_flowStatus`) in state.ts's wizard cubit/state generation. REAL latent generator bug | OPEN (root fix queued — wizard slice) |
+| B2 repo node broken | Homebrew node 25 broken (libllhttp), used nvm node 24; unrelated | INFO |
+
 ## From UIX Slice D (committed) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
