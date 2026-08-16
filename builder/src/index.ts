@@ -36,7 +36,7 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasOutbox } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasOutbox, targetOf } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
@@ -47,6 +47,7 @@ import { generateExportCore } from "./generators/export";
 import { generateAuditLogScreen } from "./generators/audit_log_screen";
 import { generateSession, generateAuthLoginScreen } from "./generators/auth";
 import { generateOutboxCore } from "./generators/outbox";
+import { generateSwiftUITarget } from "./generators/swiftui";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -718,10 +719,44 @@ function writePlan(irVersion: string, planEntries: PlanEntry[], arch: Architectu
  * existing single-feature path, untouched in shape (same steps, same order).
  */
 export function generateApp(ir: FeatureModel | AppModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {
+  // S1 (§3.1, §2.4): resolve the generation target ONCE at the composition root — every entry
+  // point (CLI main(), server.ts, pipeline.ts, and validate.ts's own determinism regen) funnels
+  // through generateApp, so dispatching here covers all of them without duplicating the check.
+  // `flutter` (absent or explicit) is byte-identical to pre-S1 output: the registry below is
+  // untouched, unrebound, and unrenamed.
+  const target = targetOf(ir);
+  console.log(`[target] ${target}`);
+  if (target === "swiftui") {
+    // S2: emit the SwiftUI skeleton under <outDir>/ios/ — additive, never touches the Flutter
+    // lib/ path below (§5.2's invariant: existing Flutter output stays exactly where it is).
+    return writeSwiftUITarget(ir, outDir);
+  }
+
   if (Array.isArray((ir as AppModel).features)) {
     return generateMultiFeatureApp(ir as AppModel, outDir, irVersion, oracleDir);
   }
   return generateSingleFeatureApp(ir as FeatureModel, outDir, irVersion, oracleDir);
+}
+
+/**
+ * S2: writes the swiftui target's emitted files under <outDir>/ios/ — the ONLY I/O this target
+ * performs (generateSwiftUITarget itself is a pure (IR, ctx) -> files list, brief §2.1/§2.2).
+ * Mirrors the Flutter path's own "clean stale output, then write" convention
+ * (generateSingleFeatureApp's fs.rmSync before writing lib/ below) so a repeated run never leaks a
+ * file a later IR no longer emits — the same determinism posture, applied to ios/ instead of lib/.
+ * `scoring`/`conflicts` are minimal/empty for S2: there is no per-state architecture scoring or
+ * region-preservation machinery for Swift yet (both are Flutter-specific, built for later slices).
+ */
+function writeSwiftUITarget(ir: any, outDir: string): GenerateResult {
+  const iosDir = path.join(outDir, "ios");
+  fs.rmSync(iosDir, { recursive: true, force: true });
+  const project = generateSwiftUITarget(ir, { ir });
+  for (const file of project.files) {
+    const dest = path.join(iosDir, file.path);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, file.content);
+  }
+  return { outDir, fileCount: project.files.length, scoring: [`target → swiftui`], conflicts: [] };
 }
 
 function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = "1", oracleDir?: string): GenerateResult {

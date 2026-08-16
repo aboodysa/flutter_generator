@@ -1,0 +1,352 @@
+{
+  "schemaVersion": "1",
+  "name": "tasks",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "TaskStatus",
+      "values": [
+        "open",
+        "closed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "values": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "Task",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "String",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "dueDate",
+          "type": "DateTime",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "priority",
+          "type": "enum",
+          "required": true,
+          "nullable": false,
+          "of": "Priority",
+          "default": "medium"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "nullable": false,
+          "of": "TaskStatus",
+          "default": "open"
+        }
+      ]
+    },
+    {
+      "name": "FollowUp",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "taskId",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "required": true,
+          "nullable": true
+        }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "HighPriority",
+      "entity": "Task",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "priority",
+          "operator": "==",
+          "value": "high"
+        }
+      ],
+      "severity": "block",
+      "message": "High-priority tasks require manager sign-off before creation."
+    }
+  ],
+  "repositories": [
+    {
+      "name": "TaskRepository",
+      "operations": [
+        {
+          "name": "listTasks",
+          "returns": "Future<List<Task>>",
+          "params": []
+        },
+        {
+          "name": "getTask",
+          "returns": "Future<Task>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "createTask",
+          "returns": "Future<Task>",
+          "params": [
+            {
+              "name": "task",
+              "type": "Task",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateTask",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "task",
+              "type": "Task",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteTask",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "FollowUpRepository",
+      "operations": [
+        {
+          "name": "listFollowUps",
+          "returns": "Future<List<FollowUp>>",
+          "params": []
+        },
+        {
+          "name": "getFollowUp",
+          "returns": "Future<FollowUp>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "createFollowUp",
+          "returns": "Future<FollowUp>",
+          "params": [
+            {
+              "name": "followUp",
+              "type": "FollowUp",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateFollowUp",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "followUp",
+              "type": "FollowUp",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteFollowUp",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "name": "TaskList",
+      "entity": "Task",
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    },
+    {
+      "name": "FollowUpList",
+      "entity": "FollowUp",
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    }
+  ],
+  "screens": [
+    {
+      "name": "TaskListScreen",
+      "entity": "Task",
+      "type": "list",
+      "state": "TaskList"
+    },
+    {
+      "name": "TaskDetailScreen",
+      "entity": "Task",
+      "type": "detail",
+      "state": "TaskList"
+    },
+    {
+      "name": "FollowUpListScreen",
+      "entity": "FollowUp",
+      "type": "list",
+      "state": "FollowUpList"
+    },
+    {
+      "name": "FollowUpDetailScreen",
+      "entity": "FollowUp",
+      "type": "detail",
+      "state": "FollowUpList"
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListTasks",
+      "repository": "TaskRepository",
+      "operation": "listTasks",
+      "paramType": "NoParams",
+      "returnType": "List<Task>"
+    },
+    {
+      "name": "GetTask",
+      "repository": "TaskRepository",
+      "operation": "getTask",
+      "paramType": "String",
+      "returnType": "Task"
+    },
+    {
+      "name": "CreateTask",
+      "repository": "TaskRepository",
+      "operation": "createTask",
+      "paramType": "Task",
+      "returnType": "Task"
+    },
+    {
+      "name": "UpdateTask",
+      "repository": "TaskRepository",
+      "operation": "updateTask",
+      "paramType": "Task",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteTask",
+      "repository": "TaskRepository",
+      "operation": "deleteTask",
+      "paramType": "String",
+      "returnType": "void"
+    },
+    {
+      "name": "ListFollowUps",
+      "repository": "FollowUpRepository",
+      "operation": "listFollowUps",
+      "paramType": "NoParams",
+      "returnType": "List<FollowUp>"
+    },
+    {
+      "name": "GetFollowUp",
+      "repository": "FollowUpRepository",
+      "operation": "getFollowUp",
+      "paramType": "String",
+      "returnType": "FollowUp"
+    },
+    {
+      "name": "CreateFollowUp",
+      "repository": "FollowUpRepository",
+      "operation": "createFollowUp",
+      "paramType": "FollowUp",
+      "returnType": "FollowUp"
+    },
+    {
+      "name": "UpdateFollowUp",
+      "repository": "FollowUpRepository",
+      "operation": "updateFollowUp",
+      "paramType": "FollowUp",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteFollowUp",
+      "repository": "FollowUpRepository",
+      "operation": "deleteFollowUp",
+      "paramType": "String",
+      "returnType": "void"
+    }
+  ]
+}

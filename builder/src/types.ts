@@ -164,7 +164,15 @@ export interface AppAttributes {
   // MF6: offline outbox — repo create/update/delete write-ahead-enqueue an OutboxMessage before
   // mutating the in-memory list. Additive — absent = today's output byte-identical.
   outbox?: boolean;
+  // SwiftUI target (S1): the generation target. A GENERATION TARGET — which rendering target this
+  // generation invocation produces — not an application capability. Consumed only by the
+  // composition root (index.ts dispatch) and validate.ts (target-specific gates); it must never be
+  // read by a generated app, business rule, or screen. Absent = "flutter" (byte-identical output).
+  // `targets[]` (multi-target in one invocation) is explicitly reserved for a future mode.
+  platform?: "flutter" | "swiftui";
 }
+
+export type GenerationTarget = NonNullable<AppAttributes["platform"]>;
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";
 

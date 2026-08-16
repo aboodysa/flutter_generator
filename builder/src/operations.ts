@@ -2,7 +2,7 @@
 // naming.ts (both dependency-free themselves). Single source of truth for "what CRUD kind is this
 // operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
 // drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel, AuthModel, PersonaModel, BudgetModel } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel, AuthModel, PersonaModel, BudgetModel, GenerationTarget } from "./types";
 import { capitalize, camelize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
@@ -515,4 +515,19 @@ export function firstScopedRepoEntity(ir: FeatureModel): { entity: EntityModel; 
     if (repo) return { entity: e, repo };
   }
   return undefined;
+}
+
+// S1 (§3.1): `attributes.platform` is a GENERATION TARGET, not an application capability — it is
+// read only by the composition root (index.ts, for dispatch) and validate.ts (for the [platform]
+// gate), never by a generator that shapes runtime app behavior. `ir` is `any` (not `FeatureModel`)
+// because the composition root reads this before the single-/multi-feature IR shape is resolved
+// (`generateApp`'s parameter is `FeatureModel | AppModel`, and this must read the raw union
+// uniformly — mirrors flattenedIr's `any` in validate.ts for the same reason). Absent = "flutter",
+// matching hasLocale/hasOutbox's `?? default` shape above.
+export function targetOf(ir: any): GenerationTarget {
+  return ir?.attributes?.platform ?? "flutter";
+}
+
+export function isSwiftUI(ir: any): boolean {
+  return targetOf(ir) === "swiftui";
 }

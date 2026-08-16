@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -17,6 +17,18 @@ function walk(dir: string): string[] {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) out.push(...walk(p));
     else if (p.endsWith(".dart")) out.push(p);
+  }
+  return out;
+}
+
+// S2: the Swift analogue of walk() above — a sibling, not a parametrized version of it, so the
+// Flutter walk stays byte-for-byte untouched (brief §2.6 Open/Closed).
+function walkSwift(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...walkSwift(p));
+    else if (p.endsWith(".swift")) out.push(p);
   }
   return out;
 }
@@ -43,6 +55,20 @@ function archCheck(f: string, src: string): string | null {
     if (/Colors\.|Color\(0x|Color\.fromRGBO|const Color\(/.test(src)) {
       return `presentation bypasses registry (raw color literal) in ${rel}`;
     }
+  }
+  return null;
+}
+
+// S2 (§6.3): the Swift analogue of archCheck above, for the [swiftarch] gate — a sibling function,
+// not a shared/parametrized one, so archCheck's Flutter behavior stays byte-for-byte untouched
+// (§2.6 Open/Closed). V1 rule (requirements §6.3): a Domain-layer file must not import
+// SwiftUI/UIKit. S2's skeleton has no Domain/ files at all (App.swift/HelloView.swift are the
+// platform entry point and a Features/ view respectively), so this passes vacuously today — it
+// exists now so S3+ (which will add real Domain/ files) can't silently regress it later.
+function swiftArchCheck(f: string, src: string): string | null {
+  const rel = f.replace(/.*\/ios\//, "");
+  if (rel.includes("/Domain/") && /^\s*import\s+(SwiftUI|UIKit)\b/m.test(src)) {
+    return `Domain violation in ${rel}: imports SwiftUI/UIKit`;
   }
   return null;
 }
@@ -376,6 +402,32 @@ function outboxCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// S1 (§3.1): platform=generation target; absent=flutter. Validates only the raw declared value —
+// target dispatch (index.ts's generateApp) is a separate concern (§2.6 Single Responsibility) and
+// is not touched here. Runs early (validateOutput calls this before the determinism regen below)
+// since it's a cheap precondition check on the IR itself, independent of any generated output.
+const VALID_PLATFORMS = new Set(["flutter", "swiftui"]);
+function platformCheck(ir: any): string[] {
+  const platform = ir?.attributes?.platform;
+  if (platform === undefined) return [];
+  if (!VALID_PLATFORMS.has(platform)) {
+    return [`[platform] attributes.platform="${platform}" must be "flutter" or "swiftui" (absent=flutter)`];
+  }
+  return [];
+}
+
+// S2 (correction 3, §5.1.1): the generated Package.swift must declare `.iOS(.v17)` as the first
+// `platforms: [` entry. `\s*` (not a literal space) tolerates any indentation/newline style the
+// generator happens to use — the requirement is the declaration's presence, not its whitespace.
+const SWIFTPKG_PLATFORM_RE = /platforms:\s*\[\s*\.iOS\(\.v17\)/;
+function swiftPkgCheck(iosFiles: string[]): string[] {
+  const pkgFile = iosFiles.find((f) => f.endsWith("/Package.swift"));
+  if (!pkgFile || !SWIFTPKG_PLATFORM_RE.test(fs.readFileSync(pkgFile, "utf8"))) {
+    return [`[swiftpkg] Package.swift missing or missing .iOS(.v17) platform declaration`];
+  }
+  return [];
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -396,12 +448,85 @@ export interface ValidationResult {
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
+  platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
+  swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
+  swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
+  swiftdeterminism: number; // count of non-empty diffs between two swiftui generations of the same IR (S2)
   files: number;
   issues: string[];
 }
 
-export function validateOutput(ir: any, outDir: string, irPath = "builder/samples/expense.semantic.ir.json"): ValidationResult {
+// S2 (§6.3, §6.4): a swiftui-target IR emits ONLY <outDir>/ios — none of the Flutter-specific
+// checks below (all of which assume <outDir>/lib exists, from `walk()` down to every individual
+// xxxCheck) apply, and several would throw outright on a missing directory. A dedicated pipeline
+// — not isSwiftUI branches threaded through every Flutter check — keeps the Flutter path in
+// validateOutput byte-for-byte untouched (§2.6 Open/Closed).
+function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): ValidationResult {
   const issues: string[] = [];
+
+  const platformIssues = platformCheck(ir);
+  issues.push(...platformIssues);
+  const platform = platformIssues.length;
+
+  const iosDir = path.join(outDir, "ios");
+  const iosFiles = walkSwift(iosDir);
+
+  const swiftpkgIssues = swiftPkgCheck(iosFiles);
+  issues.push(...swiftpkgIssues);
+  const swiftpkg = swiftpkgIssues.length;
+
+  const swiftarchIssues: string[] = [];
+  for (const f of iosFiles) {
+    const v = swiftArchCheck(f, fs.readFileSync(f, "utf8"));
+    if (v) swiftarchIssues.push(`[swiftarch] ${v}`);
+  }
+  issues.push(...swiftarchIssues);
+  const swiftarch = swiftarchIssues.length;
+
+  // [swiftdeterminism]: regenerate once fresh and diff against the already-generated outDir/ios —
+  // same "generate once, diff against outDir" perf posture as [determinism] below, applied to
+  // ios/ instead of lib/. Unlike that check, this wraps the diff in try/catch — `diff` exits
+  // non-zero when it finds a difference, which is the exact case this gate exists to report, not
+  // an unexpected failure to crash on.
+  const swiftdeterminismIssues: string[] = [];
+  const tmpSwift = `${outDir}.swift.v1`;
+  execSync(`npx ts-node --transpile-only builder/src/index.ts ${irPath} ${tmpSwift}`, { stdio: "pipe" });
+  let swiftDiff = "";
+  try {
+    swiftDiff = execSync(`diff -r ${tmpSwift}/ios ${iosDir}`, { stdio: "pipe" }).toString();
+  } catch (e: any) {
+    swiftDiff = e.stdout ? e.stdout.toString() : String(e.message ?? e);
+  }
+  if (swiftDiff.trim() !== "") swiftdeterminismIssues.push(`[swiftdeterminism] ${swiftDiff.trim()}`);
+  issues.push(...swiftdeterminismIssues);
+  const swiftdeterminism = swiftdeterminismIssues.length;
+  fs.rmSync(tmpSwift, { recursive: true, force: true });
+
+  return {
+    // Flutter-only gates: N/A for a swiftui-target IR (no lib/ output exists in S2) — vacuous
+    // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
+    determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
+    datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
+    exportGate: 0, l10n: 0, outbox: 0,
+    platform, swiftpkg, swiftarch, swiftdeterminism,
+    files: iosFiles.length, issues,
+  };
+}
+
+export function validateOutput(ir: any, outDir: string, irPath = "builder/samples/expense.semantic.ir.json"): ValidationResult {
+  // S2: dispatch to the dedicated Swift pipeline above — see its own comment for why this is an
+  // early return rather than isSwiftUI branches threaded through the Flutter body below.
+  if (isSwiftUI(ir)) {
+    return validateSwiftUIOutput(ir, outDir, irPath);
+  }
+
+  const issues: string[] = [];
+
+  // Platform (S1, §3.1): cheap precondition check on the declared IR value, before any generated
+  // output exists to inspect — does not weaken or reorder any check below it.
+  const platformIssues = platformCheck(ir);
+  issues.push(...platformIssues);
+  const platform = platformIssues.length;
 
   // Determinism — generate ONCE fresh and diff against the already-generated outDir/lib.
   // (Perf: previously generated twice to tmp1/tmp2; the workflow always validates a freshly
@@ -511,13 +636,36 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...outboxIssues);
   const outbox = outboxIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, l10n, outbox, files: files.length, issues };
+  return {
+    determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
+    tenant, auth, attachment, budget, audit, exportGate, l10n, outbox, platform,
+    // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
+    // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
+    swiftpkg: 0, swiftarch: 0, swiftdeterminism: 0,
+    files: files.length, issues,
+  };
 }
 
 function main() {
   const irPath = process.argv[2] ?? "builder/samples/expense.semantic.ir.json";
   const outDir = process.argv[3] ?? "builder/output/generated_app";
-  const r = validateOutput(JSON.parse(fs.readFileSync(irPath, "utf8")), outDir, irPath);
+  const ir = JSON.parse(fs.readFileSync(irPath, "utf8"));
+  const r = validateOutput(ir, outDir, irPath);
+
+  // S2: a swiftui-target IR only ever populates platform/swiftpkg/swiftarch/swiftdeterminism —
+  // printing the full Flutter gate list below would report misleading PASSes for checks that
+  // never ran (no oracle coverage was verified, no money check ran, etc.) against ios/ output.
+  if (isSwiftUI(ir)) {
+    console.log(`[platform] ${r.platform === 0 ? "PASS" : "FAIL (" + r.platform + ")"}`);
+    console.log(`[swiftpkg] ${r.swiftpkg === 0 ? "PASS" : "FAIL (" + r.swiftpkg + ")"}`);
+    console.log(`[swiftarch] ${r.swiftarch === 0 ? "PASS" : "FAIL (" + r.swiftarch + ")"}`);
+    console.log(`[swiftdeterminism] ${r.swiftdeterminism === 0 ? "PASS" : "FAIL (" + r.swiftdeterminism + ")"} across ${r.files} files`);
+    const swiftFailed = r.platform + r.swiftpkg + r.swiftarch + r.swiftdeterminism > 0;
+    console.log(swiftFailed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
+    process.exit(swiftFailed ? 1 : 0);
+  }
+
+  console.log(`[platform] ${r.platform === 0 ? "PASS" : "FAIL (" + r.platform + ")"}`);
   console.log(`[determinism] ${r.determinism ? "PASS (byte-identical)" : "FAIL"}`);
   console.log(`[headers] ${r.headers === 0 ? "PASS" : "FAIL (" + r.headers + ")"} across ${r.files} files`);
   console.log(`[secrets] ${r.secrets === 0 ? "PASS" : "FAIL (" + r.secrets + ")"}`);
@@ -537,7 +685,7 @@ function main() {
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
