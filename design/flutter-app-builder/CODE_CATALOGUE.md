@@ -25,6 +25,7 @@ round is listed here: path, what it is, why it exists, status. Additive — neve
 | `CAPABILITIES.md` | General app-type-agnostic capability catalog (L1–L5, MF1–MF6, C1–C2) with 4 sample apps as evidence | plan must be capability-driven, not Ledgerly-driven; each capability validated by ≥2 different app types | committed `739f933` |
 | `LEDGERLY_MVP.md` | Ledgerly-MVP milestone: slice map (MVP item → generator slice), sequence, acceptance proof | Ledgerly is ONE sample of the general capability plan | committed `739f933` |
 | `CODE_CATALOGUE.md` | this file | the what-and-why index the owner asked for | new |
+| `research/PAYMENTS_OPTS.md` | Payments options report: SA/GCC provider landscape (Stripe, moyasar, Tap, HyperPay, PayTabs, Checkout.com, Paymob, wallets/BNPL), a `PaymentGateway` port + `MockPaymentGateway` + DTO + idempotency generator design, adapter-first recommendation (moyasar/Tap/Stripe), PCI posture, and now-vs-backend roadmap | input to a future `payments.v1` generator capability (deterministic, offline-first, SA-first); research-only spike per `~/temp/opencode/flutter-app-builder/RESEARCH_PAYMENTS.md` | new, uncommitted |
 
 ## Temp/QA harnesses
 | Path | What | Why | Status |
