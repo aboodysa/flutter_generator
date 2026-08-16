@@ -203,6 +203,32 @@ function splitCheck(ir: any, oracleDir: string): string[] {
 // a code path fell through to the unscoped branch and would leak one tenant's rows to another.
 // Unlike the whole-app linters above, this is per-repo-file so a single unscoped impl can't hide
 // behind another scoped one.
+// M3 (LEFTOVER_NOTES.md, MF1): symbols.ts's buildSymbols is called once per feature and the
+// results merged with Map.set — a type name (entity/enum/valueObject/query/wrapper/repository/
+// state/screen/stateMachine/form) declared by TWO different features silently collides:
+// whichever feature is processed last simply overwrites the first's registration in the shared
+// table, so the FIRST feature's own generated code (which imports that name expecting its own
+// file) resolves to the wrong path. No-op for a single-feature IR (`ir.features` isn't an array).
+const SYMBOL_NAME_KEYS = ["entities", "enums", "valueObjects", "queries", "wrappers", "repositories", "states", "screens", "stateMachines", "forms"];
+function symbolCollisionCheck(ir: any): string[] {
+  if (!Array.isArray(ir.features)) return [];
+  const owner = new Map<string, string>();
+  const issues: string[] = [];
+  for (const f of ir.features) {
+    for (const key of SYMBOL_NAME_KEYS) {
+      for (const item of (f as any)[key] ?? []) {
+        const prev = owner.get(item.name);
+        if (prev && prev !== f.name) {
+          issues.push(`[symbols] '${item.name}' declared in both feature '${prev}' and '${f.name}' — cross-feature symbol collision, last-registered silently wins`);
+        } else if (!prev) {
+          owner.set(item.name, f.name);
+        }
+      }
+    }
+  }
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -469,6 +495,7 @@ export interface ValidationResult {
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
+  symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -528,7 +555,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -618,6 +645,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...tenantIssues);
   const tenant = tenantIssues.length;
 
+  // Symbol-table collisions (M3, MF1): two features declaring the same type name — checked
+  // against the RAW ir (not flattenedIr) since this is specifically about the per-feature
+  // structure that causes the collision in the first place.
+  const symbolIssues = symbolCollisionCheck(ir);
+  issues.push(...symbolIssues);
+  const symbols = symbolIssues.length;
+
   // Auth guard (MF2): a declared-auth app must boot to the persona gate and route per-role.
   const authIssues = authGuardCheck(ir, files);
   issues.push(...authIssues);
@@ -665,7 +699,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
 
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, auth, attachment, budget, audit, exportGate, l10n, outbox, platform,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
     swiftpkg: 0, swiftarch: 0, swiftdeterminism: 0,
@@ -705,6 +739,7 @@ function main() {
   console.log(`[verdict] ${r.verdict === 0 ? "PASS" : "FAIL (" + r.verdict + ")"}`);
   console.log(`[split] ${r.split === 0 ? "PASS" : "FAIL (" + r.split + ")"}`);
   console.log(`[tenant] ${r.tenant === 0 ? "PASS" : "FAIL (" + r.tenant + ")"}`);
+  console.log(`[symbols] ${r.symbols === 0 ? "PASS" : "FAIL (" + r.symbols + ")"}`);
   console.log(`[auth] ${r.auth === 0 ? "PASS" : "FAIL (" + r.auth + ")"}`);
   console.log(`[attachment] ${r.attachment === 0 ? "PASS" : "FAIL (" + r.attachment + ")"}`);
   console.log(`[budget] ${r.budget === 0 ? "PASS" : "FAIL (" + r.budget + ")"}`);
@@ -712,7 +747,7 @@ function main() {
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
