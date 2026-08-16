@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 66,
+  "artifactCount": 67,
   "entries": [
     {
       "artifact": "feature:auth:enum:UserRole",
@@ -757,6 +757,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/budget_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:l10n",
+      "generator": "L10nTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/l10n_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
