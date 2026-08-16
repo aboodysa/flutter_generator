@@ -36,7 +36,11 @@ function walkSwift(dir: string): string[] {
 // Architecture linter: dependency-direction rules over the feature-first layout.
 function archCheck(f: string, src: string): string | null {
   const rel = f.replace(/.*\/lib\//, "");
-  const layer = rel.split("/").slice(0, 2).join("/");
+  // M2 (probe only, not yet applied — see report): every feature file lives under
+  // features/<name>/<layer>/..., so slice(0,2) captures "features/<name>" (never containing
+  // "/domain" etc) instead of "<name>/<layer>" — the check has been vacuous for every app, single-
+  // or multi-feature, not just multi-feature as originally scoped.
+  const layer = rel.split("/").slice(1, 3).join("/");
   const imports = [...src.matchAll(/import '([^']+)';/g)].map((m) => m[1] ?? "").filter(Boolean);
   if (layer.includes("/domain")) {
     const bad = imports.filter((i) =>
@@ -51,8 +55,12 @@ function archCheck(f: string, src: string): string | null {
   if (layer.includes("/presentation")) {
     const bad = imports.filter((i) => i.includes("/data/datasources") || i.includes("/data/repositories/"));
     if (bad.length) return `presentation→data-impl in ${rel}: ${bad.join(", ")}`;
-    // Component registry (§8): screens must not hardcode tokens — consume registry components instead.
-    if (/Colors\.|Color\(0x|Color\.fromRGBO|const Color\(/.test(src)) {
+    // Component registry (§8): screens must not hardcode tokens — consume registry components
+    // instead. M2: `Colors\.` alone also matches "AppColors." (the app's OWN token class, e.g.
+    // `AppColors.error`) — a false positive on exactly the pattern this check exists to require.
+    // A negative lookbehind excludes any `Colors.`/`Color(` immediately preceded by a letter, so
+    // `AppColors.x` passes while bare `Colors.x`/`Color(0x...)` still trips it.
+    if (/(?<![A-Za-z])Colors\.|(?<![A-Za-z])Color\(0x|(?<![A-Za-z])Color\.fromRGBO|(?<![A-Za-z])const Color\(/.test(src)) {
       return `presentation bypasses registry (raw color literal) in ${rel}`;
     }
   }

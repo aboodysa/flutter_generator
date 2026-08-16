@@ -116,13 +116,15 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
       children: [
         for (final v in visible)
           Card(
+            // M2/component-registry (§8): tone comes from the same AppChip.colorForTone mapping
+            // ChoiceChip's selectedColor already uses below — no raw material-Colors literal.
             color: v.isWaived
-                ? Colors.grey.shade200
+                ? AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.12)
                 : v.severity == PolicySeverity.block
-                    ? Colors.red.shade50
+                    ? AppChip.colorForTone(context, AppChipTone.danger).withValues(alpha: 0.08)
                     : v.severity == PolicySeverity.warn
-                        ? Colors.amber.shade50
-                        : Colors.blue.shade50,
+                        ? AppChip.colorForTone(context, AppChipTone.warning).withValues(alpha: 0.08)
+                        : AppChip.colorForTone(context, AppChipTone.info).withValues(alpha: 0.08),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: Column(
@@ -212,9 +214,9 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
         TextButton.icon(onPressed: _addSplitRow, icon: const Icon(Icons.add), label: const Text('Add split')),
         Text(
           'Split total: ${_splitTotal.toStringAsFixed(2)}%',
-          style: TextStyle(color: errors.isEmpty ? null : Colors.red, fontWeight: FontWeight.bold),
+          style: TextStyle(color: errors.isEmpty ? null : AppColors.error, fontWeight: FontWeight.bold),
         ),
-        for (final e in errors) Text(e, style: const TextStyle(color: Colors.red)),
+        for (final e in errors) Text(e, style: const TextStyle(color: AppColors.error)),
       ],
     );
   }

@@ -110,13 +110,15 @@ class _MealBudgetFormScreenBodyState extends State<_MealBudgetFormScreenBody> {
       children: [
         for (final v in visible)
           Card(
+            // M2/component-registry (§8): tone comes from the same AppChip.colorForTone mapping
+            // ChoiceChip's selectedColor already uses below — no raw material-Colors literal.
             color: v.isWaived
-                ? Colors.grey.shade200
+                ? AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.12)
                 : v.severity == PolicySeverity.block
-                    ? Colors.red.shade50
+                    ? AppChip.colorForTone(context, AppChipTone.danger).withValues(alpha: 0.08)
                     : v.severity == PolicySeverity.warn
-                        ? Colors.amber.shade50
-                        : Colors.blue.shade50,
+                        ? AppChip.colorForTone(context, AppChipTone.warning).withValues(alpha: 0.08)
+                        : AppChip.colorForTone(context, AppChipTone.info).withValues(alpha: 0.08),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: Column(
