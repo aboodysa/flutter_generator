@@ -18,6 +18,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Widget test value');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'approved'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'approved')).selected, isTrue, reason: 'tapping a chip must select it (onSelected wiring)');
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'open')).selected, isFalse, reason: 'selecting a new chip must deselect the previous one');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     expect(find.text('Widget test value'), findsOneWidget);

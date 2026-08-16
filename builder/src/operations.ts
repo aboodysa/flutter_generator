@@ -129,8 +129,14 @@ export function crudEditableFields(entity: EntityModel, identityField: string): 
 // first TextField is money-typed (decimal text -> minor units), since typing a plain string into
 // it would silently produce `Money(minorUnits: 0, ...)` instead of the intended amount.
 const CRUD_TEXT_FIELD_TYPES = new Set(["String", "int", "double", "DateTime"]);
+// G2a: DateTime renders as a TextField too, but G2 made it `readOnly: true` (opens showDatePicker
+// on tap, same as firstFocusBypassField's own DateTime exclusion above) — this function's only
+// consumer, generateCrudFlowTest, types a plain string/decimal into whatever it returns, which a
+// readOnly date field can't accept the same way. Excluded from the "first" pick so that test
+// always lands on a field it can genuinely type into; DateTime fields still render as TextField
+// (crud_form.ts is unaffected — this is purely about which field the flow test targets).
 export function firstCrudTextField(entity: EntityModel, identityField: string): Field | undefined {
-  return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type));
+  return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type) && f.type !== "DateTime");
 }
 
 // Bug A / RCA-005 / keyboard-bypass follow-up: the field crud_form.ts wires a gesture-bound

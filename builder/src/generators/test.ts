@@ -1,6 +1,6 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox } from "../operations";
-import { kebab, collectionField, camelize, fieldLabel, fileName } from "../naming";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole } from "../operations";
+import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
 import { nullable } from "../nullability";
@@ -459,6 +459,23 @@ export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementP
   const createExpect = money ? `1,250.50 ${currency}` : createValue;
   const updateExpect = money ? `1,999.25 ${currency}` : updateValue;
 
+  // D1: crud_form.ts renders a status/priority enum as a ChoiceChip row (see crud_form.ts's
+  // "UIX Slice D" comment) instead of a Dropdown — this test only ever typed into the first
+  // TextField, so onSelected was proven by render+analyze, never by an actual tap. The form's
+  // default selection is always `${enumType}.values.first`, so tapping the SECOND value (when one
+  // exists) and asserting selected flips true/false there/on the default is a real behavioral
+  // check, not just a render check.
+  const roleCtx = { identityField, entityNames: (feature.entities ?? []).map((e) => e.name) };
+  const chipField = entity?.fields.find((f) => f.type === "enum" && ["status", "priority"].includes(fieldRole(f, roleCtx)));
+  const chipEnumValues = chipField ? (feature.enums ?? []).find((e) => e.name === (chipField.of || capitalize(chipField.name)))?.values : undefined;
+  const chipTapStep = chipField && chipEnumValues && chipEnumValues.length >= 2
+    ? `    await tester.tap(find.widgetWithText(ChoiceChip, '${chipEnumValues[1]}'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '${chipEnumValues[1]}')).selected, isTrue, reason: 'tapping a chip must select it (onSelected wiring)');
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '${chipEnumValues[0]}')).selected, isFalse, reason: 'selecting a new chip must deselect the previous one');
+`
+    : "";
+
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
   const session = authSession(feature, pkg, "    ");
   const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
@@ -480,7 +497,7 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '${createValue}');
-    await tester.tap(find.text('Create'));
+${chipTapStep}    await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     expect(find.text('${createExpect}'), findsOneWidget);
 

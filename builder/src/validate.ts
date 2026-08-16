@@ -235,14 +235,15 @@ function authGuardCheck(ir: any, files: string[]): string[] {
 // validate.ts is handed the RAW IR read straight off disk — for an MF1 multi-feature IR
 // (`"features": [...]`) that means `ir.entities` is undefined at the top level (entities live
 // under `ir.features[].entities`; index.ts only builds the flattened/merged FeatureModel INSIDE
-// generateApp, which validate.ts never sees). Every other per-entity gate here has the same
-// pre-existing gap (documented: LEFTOVER_NOTES.md "G2b/M2" — moneyCheck/datepickerCheck/tenantCheck
-// etc. all read `ir.entities` directly and vacuously no-op on a multi-feature IR). budgetCheck
-// can't afford to inherit that silently: `attributes.budget` DOES live at the IR's top level for
-// both shapes, so hasBudget(ir) is still true for a multi-feature IR, and a bare `ir.entities`
-// lookup would flip from "vacuous pass" to an outright false FAIL (entity genuinely present, just
-// unreachable at this path) — worse than silently skipping. Flatten locally rather than changing
-// the other checks' pre-existing (out-of-scope) behavior.
+// generateApp, which validate.ts never sees). budgetCheck couldn't afford to inherit that
+// silently: `attributes.budget` DOES live at the IR's top level for both shapes, so hasBudget(ir)
+// is still true for a multi-feature IR, and a bare `ir.entities` lookup would flip from "vacuous
+// pass" to an outright false FAIL (entity genuinely present, just unreachable at this path) —
+// worse than silently skipping. Originally flattened locally just for budgetCheck/auditCheck/
+// exportCheck/l10nCheck; G2b (LEFTOVER_NOTES.md) — moneyCheck/datepickerCheck/verdictCheck/
+// tenantCheck/splitCheck/oracleCoverage had the exact same vacuous-no-op gap, just never caught
+// because no prior multi-feature sample carried money/date fields or severity'd rules to expose
+// it (see flattenedIr's businessRules/repositories/repositoryImpls fields, added for those).
 function flattenedEntities(ir: any): any[] {
   if (Array.isArray(ir.entities)) return ir.entities;
   if (Array.isArray(ir.features)) return ir.features.flatMap((f: any) => f.entities ?? []);
@@ -258,7 +259,19 @@ function flattenedScreens(ir: any): any[] {
 // L3: `audited: true` is declared inside entities[] (feature-local, not an app-level attribute
 // like budget), so it needs the same flattening treatment for the raw multi-feature IR shape.
 function flattenedIr(ir: any): any {
-  return { ...ir, entities: flattenedEntities(ir), screens: flattenedScreens(ir) };
+  return {
+    ...ir,
+    entities: flattenedEntities(ir),
+    screens: flattenedScreens(ir),
+    // G2b/M2 (LEFTOVER_NOTES.md): moneyCheck/datepickerCheck/verdictCheck/tenantCheck all read
+    // ir.businessRules/ir.repositories/ir.repositoryImpls directly too — the same vacuous-no-op
+    // gap flattenedEntities/flattenedScreens already fixed for the other checks, just never
+    // extended to these fields because no prior multi-feature sample carried money/date fields or
+    // severity'd rules to expose it. Ledgerly-MVP's L2/L3 additions are the first that do.
+    businessRules: Array.isArray(ir.businessRules) ? ir.businessRules : (ir.features ?? []).flatMap((f: any) => f.businessRules ?? []),
+    repositories: Array.isArray(ir.repositories) ? ir.repositories : (ir.features ?? []).flatMap((f: any) => f.repositories ?? []),
+    repositoryImpls: Array.isArray(ir.repositoryImpls) ? ir.repositoryImpls : (ir.features ?? []).flatMap((f: any) => f.repositoryImpls ?? []),
+  };
 }
 
 // MF5: a declared `attributes.budget` must (a) resolve against a real entity + three actual Money
@@ -554,7 +567,9 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
 
   // Oracle coverage (§9.4): a business rule with no (or empty) oracle is unverified
   // generated code — the correctness boundary DESIGN §0 treats as non-negotiable.
-  const oc = oracleCoverage(ir, oracleDirFor(irPath));
+  // G2b: oracleCoverage reads ir.businessRules directly — flattenedIr so a multi-feature IR's
+  // rules (declared per-feature) are actually seen instead of vacuously reporting zero issues.
+  const oc = oracleCoverage(flattenedIr(ir), oracleDirFor(irPath));
   for (const r of [...oc.missing, ...oc.empty]) issues.push(`[oracle] ${r}: missing/zero-case oracle — unverifiable`);
   const oracle = oc.missing.length + oc.empty.length;
 
@@ -563,31 +578,35 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...fidelityIssues);
   const fidelity = fidelityIssues.length;
 
-  // Money-never-double (P7-L1).
-  const moneyIssues = moneyCheck(ir, files);
+  // Money-never-double (P7-L1). G2b: flattenedIr — see moneyCheck's own note below.
+  const moneyIssues = moneyCheck(flattenedIr(ir), files);
   issues.push(...moneyIssues);
   const money = moneyIssues.length;
 
-  // Real date picker, not free-typed text (G2).
-  const datepickerIssues = datepickerCheck(ir, files);
+  // Real date picker, not free-typed text (G2). G2b: flattenedIr, same reasoning as moneyCheck.
+  const datepickerIssues = datepickerCheck(flattenedIr(ir), files);
   issues.push(...datepickerIssues);
   const datepicker = datepickerIssues.length;
 
   // Policy verdicts (L2): severity'd rules need a valid severity, a non-empty message, and oracle
-  // coverage — stricter than the general [oracle] gate above.
-  const verdictIssues = verdictCheck(ir, oracleDirFor(irPath));
+  // coverage — stricter than the general [oracle] gate above. G2b: flattenedIr — ir.businessRules
+  // lives per-feature on a multi-feature IR, same gap as oracleCoverage above.
+  const verdictIssues = verdictCheck(flattenedIr(ir), oracleDirFor(irPath));
   issues.push(...verdictIssues);
   const verdict = verdictIssues.length;
 
   // Split/allocation (MF4): a declared split group needs oracle coverage for validateSplit and a
   // category field to render — stricter than the general [oracle] gate, which never sees this
-  // (validateSplit isn't a business rule).
-  const splitIssues = splitCheck(ir, oracleDirFor(irPath));
+  // (validateSplit isn't a business rule). G2b: flattenedIr — hasSplitGroups/splitGroupFor read
+  // ir.entities directly.
+  const splitIssues = splitCheck(flattenedIr(ir), oracleDirFor(irPath));
   issues.push(...splitIssues);
   const split = splitIssues.length;
 
   // Tenant scoping (MF2): every tenantId-carrying repo's impl must actually filter/stamp rows.
-  const tenantIssues = tenantCheck(ir, files);
+  // G2b: flattenedIr — tenantScopedEntities reads ir.entities, and this check itself reads
+  // ir.repositories/ir.repositoryImpls, all per-feature on a multi-feature IR.
+  const tenantIssues = tenantCheck(flattenedIr(ir), files);
   issues.push(...tenantIssues);
   const tenant = tenantIssues.length;
 
