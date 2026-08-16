@@ -27,7 +27,6 @@ class ReplicaApp extends StatelessWidget {
       create: (_) => sl<ApprovalListCubit>()..load(),
       child: MaterialApp.router(
         onGenerateTitle: (context) => AppStrings.of(context).appTitle,
-        locale: const Locale('en'),
         supportedLocales: const [Locale('en'), Locale('ar')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,

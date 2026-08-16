@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 57,
+  "artifactCount": 59,
   "entries": [
     {
       "artifact": "enum:LeaveType",
@@ -524,6 +524,17 @@
       "class": "structural"
     },
     {
+      "artifact": "core:outbox",
+      "generator": "OutboxCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/outbox.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:widget",
       "generator": "WidgetTestGenerator",
       "schema": "test",
@@ -628,6 +639,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/l10n_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:outbox",
+      "generator": "OutboxTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/outbox_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,7 +36,7 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasOutbox } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
@@ -46,6 +46,7 @@ import { generateAuditCore } from "./generators/audit";
 import { generateExportCore } from "./generators/export";
 import { generateAuditLogScreen } from "./generators/audit_log_screen";
 import { generateSession, generateAuthLoginScreen } from "./generators/auth";
+import { generateOutboxCore } from "./generators/outbox";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -162,6 +163,11 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     core.push(["session.dart", generateSession(ir)]);
     core.push(["auth_login_screen.dart", generateAuthLoginScreen(ir, ctx)]);
   }
+  // MF6: gated on hasOutbox (attributes.outbox: true). App-level like budget/locale above — every
+  // outbox-enabled repo impl imports this single queue regardless of which entity it belongs to.
+  if (hasOutbox(ir)) {
+    core.push(["outbox.dart", generateOutboxCore()]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -183,6 +189,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "audit_log_screen.dart": "AuditLogScreenGenerator",
     "session.dart": "SessionGenerator",
     "auth_login_screen.dart": "AuthLoginScreenGenerator",
+    "outbox.dart": "OutboxCoreGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -419,6 +426,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:l10n", generator: "L10nTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // MF6 regression guard — enqueue/markSent/markFailed+retry/FIFO replay order, plus the
+  // stash-proofed case: a real generated repo's create() write-ahead-enqueues. References Outbox
+  // directly via the generated.dart barrel, so dropping core/outbox.dart fails to compile the test.
+  const outboxTest = generateOutboxTest(ir, ctx);
+  if (outboxTest) {
+    const f = path.join(testDir, "outbox_test.dart");
+    fs.writeFileSync(f, outboxTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:outbox", generator: "OutboxTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -852,6 +872,12 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // guessed path. Map it onto the merged table once resolution succeeds against the flattened IR.
   if (resolveBudget(merged)) {
     symbols.set("BudgetLine", "core/budget.dart");
+  }
+  // MF6: same reasoning as MF5's BudgetLine fix above — attributes.outbox is app-level, invisible
+  // to any single feature's own buildSymbols(f) call, so every outbox-enabled repo impl's import
+  // of Outbox would otherwise resolve to a wrong guessed path.
+  if (hasOutbox(merged)) {
+    symbols.set("Outbox", "core/outbox.dart");
   }
 
   const arch = decideArchitecture(merged);

@@ -1,5 +1,5 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -1296,6 +1296,99 @@ import 'package:flutter_test/flutter_test.dart';
 ${needsConvert ? "import 'dart:convert';\n" : ""}import 'package:${pkg}/generated.dart';
 ${repoImport}
 void main() {${auditTests}${exportTests}${immutabilityTest}}
+`;
+}
+
+/**
+ * OutboxTestGenerator — structural, deterministic, 0% LLM (MF6).
+ * Regression-proves core/outbox.dart's queue mechanics generically (enqueue / markSent / markFailed
+ * + retry / FIFO replay order — none of this depends on any particular entity) plus one real-repo
+ * integration case proving repository_impl.ts's write-ahead hook actually fires. Mirrors
+ * audit_test.dart's immutability case: drives a real generated repo impl directly (not via the
+ * barrel — an auto `${repo}InMemoryImpl` with no declared repositoryImpls entry isn't
+ * barrel-exported, see project.ts's generateBarrel), so this is also the stash-proof oracle —
+ * neutering the outbox hook makes the integration assertion fail (message count doesn't grow).
+ */
+export function generateOutboxTest(feature: FeatureModel, ctx?: GenContext): string | null {
+  if (!hasOutbox(feature)) return null;
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  let integrationTest = "";
+  let repoImport = "";
+  for (const entity of feature.entities ?? []) {
+    const repo = findRepoForEntity(feature.repositories, entity.name);
+    if (!repo) continue;
+    const kinds = crudOperations(repo, entity.name);
+    if (!kinds.create) continue;
+    const declaredImpl = (feature.repositoryImpls ?? []).find((ri) => ri.contract === repo.name);
+    const implName = declaredImpl ? declaredImpl.name : `${repo.name}InMemoryImpl`;
+    // `feature.name` is wrong for the multi-feature merged IR (see audit_test.dart's identical
+    // comment) — ctx.symbols is per-feature-path-aware and resolves correctly for both shapes.
+    const implPath = ctx?.symbols.get(implName) ?? `features/${feature.name}/data/repositories/${fileName(implName)}`;
+    repoImport = `import 'package:${pkg}/${implPath}';\n`;
+    const sampleArgs = variantSampleArgs(entity, feature.enums ?? [], feature.valueObjects ?? [], 1);
+    integrationTest = `
+  test('a repo ${kinds.create.name}() write-ahead-enqueues an OutboxMessage before returning', () async {
+    final repo = ${implName}();
+    final before = Outbox.instance.pending().length;
+    await repo.${kinds.create.name}(${entity.name}(${sampleArgs}));
+    final pending = Outbox.instance.pending();
+    expect(pending.length, before + 1, reason: 'create() must write-ahead-enqueue exactly one message');
+    expect(pending.last.entity, '${entity.name}');
+    expect(pending.last.action, 'create');
+    expect(pending.last.status, OutboxStatus.pending);
+  });
+`;
+    break;
+  }
+
+  return `// [generated] generator=OutboxTestGenerator template=outbox_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:${pkg}/generated.dart';
+${repoImport}
+void main() {
+  test('enqueue adds a pending message', () {
+    final before = Outbox.instance.pending().length;
+    final msg = Outbox.instance.enqueue(entity: 'Widget', entityId: 'w-1', action: 'create', payload: {'name': 'demo'});
+    expect(Outbox.instance.pending().length, before + 1);
+    expect(msg.status, OutboxStatus.pending);
+    expect(msg.attempts, 0);
+    expect(msg.entity, 'Widget');
+    expect(msg.action, 'create');
+  });
+
+  test('markSent removes a message from pending() without deleting its history', () {
+    final msg = Outbox.instance.enqueue(entity: 'Widget', entityId: 'w-2', action: 'update');
+    Outbox.instance.markSent(msg.id);
+    expect(Outbox.instance.pending().any((m) => m.id == msg.id), isFalse);
+    expect(Outbox.instance.all.any((m) => m.id == msg.id && m.status == OutboxStatus.sent), isTrue);
+  });
+
+  test('markFailed increments attempts and records the error; retry() makes it pending again', () {
+    final msg = Outbox.instance.enqueue(entity: 'Widget', entityId: 'w-3', action: 'delete');
+    Outbox.instance.markFailed(msg.id, 'network unreachable');
+    final failed = Outbox.instance.all.firstWhere((m) => m.id == msg.id);
+    expect(failed.status, OutboxStatus.failed);
+    expect(failed.attempts, 1);
+    expect(failed.lastError, 'network unreachable');
+    expect(Outbox.instance.pending().any((m) => m.id == msg.id), isFalse, reason: 'a failed message is not pending until retried');
+
+    Outbox.instance.retry(msg.id);
+    final retried = Outbox.instance.all.firstWhere((m) => m.id == msg.id);
+    expect(retried.status, OutboxStatus.pending);
+    expect(Outbox.instance.pending().any((m) => m.id == msg.id), isTrue);
+  });
+
+  test('pending() replay order is deterministic FIFO — insertion order survives an out-of-order markSent', () {
+    final a = Outbox.instance.enqueue(entity: 'Order', entityId: 'o-a', action: 'create');
+    final b = Outbox.instance.enqueue(entity: 'Order', entityId: 'o-b', action: 'create');
+    final c = Outbox.instance.enqueue(entity: 'Order', entityId: 'o-c', action: 'create');
+    Outbox.instance.markSent(b.id);
+    final ids = Outbox.instance.pending().map((m) => m.id).where((id) => id == a.id || id == c.id).toList();
+    expect(ids, [a.id, c.id], reason: 'replay must preserve original enqueue order');
+  });
+${integrationTest}}
 `;
 }
 

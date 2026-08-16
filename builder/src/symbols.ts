@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments, resolveBudget, hasAudit, hasExport } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments, resolveBudget, hasAudit, hasExport, hasOutbox } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -83,6 +83,13 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   if (hasExport(ir)) {
     m.set("toCsv", "core/export.dart");
     m.set("toJson", "core/export.dart");
+  }
+  // MF6: like budget above, attributes.outbox is app-level but a single-feature IR carries app
+  // attributes directly on itself, so this per-feature call already sees it correctly; the
+  // multi-feature merge (index.ts's generateMultiFeatureApp) needs its own post-merge fix instead
+  // (mirrors MF5's BudgetLine fix), since app-level attributes aren't visible to any one feature.
+  if (hasOutbox(ir)) {
+    m.set("Outbox", "core/outbox.dart");
   }
   addAuthSymbols(m, ir);
   return m;

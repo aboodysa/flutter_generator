@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasLocale, localeOf } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasLocale, localeOf, hasOutbox } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -308,6 +308,9 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // pitfall the attachment comment above already documents).
   if (hasAudit(feature)) names.push("AuditLog");
   if (hasExport(feature)) names.push("toCsv");
+  // MF6: outbox_test.dart's generated cases reference Outbox directly — same reasoning as
+  // Money/SplitLine/ReceiptAttachment/BudgetLine/AuditLog above (one representative name per file).
+  if (hasOutbox(feature)) names.push("Outbox");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

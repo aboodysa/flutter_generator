@@ -8,6 +8,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/l
 import 'package:rasheed_replica_hr_service/features/hr_service/data/models/leave_request_model.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_status.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_type.dart';
+import 'package:rasheed_replica_hr_service/core/outbox.dart';
 import 'package:rasheed_replica_hr_service/core/session.dart';
 
 class LeaveRequestRepositoryInMemoryImpl implements LeaveRequestRepository {
@@ -22,6 +23,12 @@ class LeaveRequestRepositoryInMemoryImpl implements LeaveRequestRepository {
 
   @override
   Future<LeaveRequest> createLeaveRequest(LeaveRequest leaveRequest) async {
+    Outbox.instance.enqueue(
+      entity: 'LeaveRequest',
+      entityId: leaveRequest.id.toString(),
+      action: 'create',
+      payload: LeaveRequestModel.fromEntity(leaveRequest).toJson(),
+    );
     _items.add(leaveRequest);
     AuditLog.instance.append(recordMutation(
       entity: 'LeaveRequest',
@@ -38,6 +45,14 @@ class LeaveRequestRepositoryInMemoryImpl implements LeaveRequestRepository {
     final idx = _items.indexWhere((e) => e.id == leaveRequest.id);
     if (idx != -1 && _items[idx].exported == true) {
       throw StateError('LeaveRequest ${_items[idx].id} is exported and immutable — corrections require void + clone, not edit.');
+    }
+    if (idx != -1) {
+      Outbox.instance.enqueue(
+        entity: 'LeaveRequest',
+        entityId: leaveRequest.id.toString(),
+        action: 'update',
+        payload: LeaveRequestModel.fromEntity(leaveRequest).toJson(),
+      );
     }
     final before = idx != -1 ? LeaveRequestModel.fromEntity(_items[idx]).toJson() : null;
     if (idx != -1) _items[idx] = leaveRequest;
@@ -59,6 +74,9 @@ class LeaveRequestRepositoryInMemoryImpl implements LeaveRequestRepository {
     final _existing = _matches.isEmpty ? null : _matches.first;
     if (_existing != null && _existing.exported == true) {
       throw StateError('LeaveRequest ${id} is exported and immutable — corrections require void + clone, not delete.');
+    }
+    if (_existing != null) {
+      Outbox.instance.enqueue(entity: 'LeaveRequest', entityId: id.toString(), action: 'delete');
     }
     _items.removeWhere((e) => e.id == id);
     if (_existing != null) {

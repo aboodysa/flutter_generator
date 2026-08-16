@@ -161,6 +161,9 @@ export interface AppAttributes {
   // Arabic is the opt-in RTL option — MaterialApp.supportedLocales carries both either way).
   // Additive — absent = today's flat single-locale AppStrings, byte-identical output.
   locale?: "en" | "ar" | "both";
+  // MF6: offline outbox — repo create/update/delete write-ahead-enqueue an OutboxMessage before
+  // mutating the in-memory list. Additive — absent = today's output byte-identical.
+  outbox?: boolean;
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";

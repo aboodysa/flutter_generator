@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -328,7 +328,13 @@ function exportCheck(ir: any, files: string[]): string[] {
 // MaterialApp's locale/supportedLocales/localizationsDelegates wiring in main.dart — mirrors
 // [auth]'s marker-based check on router.dart exactly.
 const L10N_STRINGS_MARKERS = ["_en", "_ar", "static AppStrings of(BuildContext context)"];
-const L10N_MAIN_MARKERS = ["locale:", "supportedLocales:", "localizationsDelegates:", "GlobalMaterialLocalizations.delegate"];
+// Pre-existing bug fix (unrelated to MF6, found while regenerating evidence samples): ba62b24
+// (L4 RTL follow-up) made `locale:` conditional — "both" deliberately omits it now so the
+// browser/OS locale resolves AR/RTL (G-L4-1) — but this marker list still required it
+// unconditionally, so [l10n] FAILed on every "both" app (ledgerly/hr_service) since that fix
+// landed. `onGenerateTitle:` is unconditional in every locale-aware branch, so it's the correct
+// always-present marker instead.
+const L10N_MAIN_MARKERS = ["onGenerateTitle:", "supportedLocales:", "localizationsDelegates:", "GlobalMaterialLocalizations.delegate"];
 function l10nCheck(ir: any, files: string[]): string[] {
   if (!hasLocale(ir)) return [];
   const issues: string[] = [];
@@ -353,6 +359,23 @@ function l10nCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// MF6: attributes.outbox must emit core/outbox.dart (Outbox/OutboxMessage), and — mirrors
+// [attachment]/[budget]'s "prove it on the output, don't just trust the generator" posture — at
+// least one generated data/repositories/* impl must actually reference Outbox.instance.enqueue,
+// not just declare the capability with no repo wired to it.
+function outboxCheck(ir: any, files: string[]): string[] {
+  if (!hasOutbox(ir)) return [];
+  const issues: string[] = [];
+  if (!files.some((f) => f.endsWith("/core/outbox.dart"))) {
+    issues.push(`[outbox] app declares attributes.outbox but generated output has no core/outbox.dart (Outbox/OutboxMessage)`);
+  }
+  const referenced = files.some((f) => f.includes("/data/repositories/") && fs.readFileSync(f, "utf8").includes("Outbox.instance.enqueue"));
+  if (!referenced) {
+    issues.push(`[outbox] app declares attributes.outbox but no generated repository impl references Outbox.instance.enqueue`);
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -372,6 +395,7 @@ export interface ValidationResult {
   audit: number;     // count of audit issues: audited entity with no auth, or missing core/audit.dart|audit_log_screen.dart (L3)
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
+  outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   files: number;
   issues: string[];
 }
@@ -481,7 +505,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...l10nIssues);
   const l10n = l10nIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, l10n, files: files.length, issues };
+  // Outbox (MF6): a declared outbox must emit core/outbox.dart and be actually referenced by at
+  // least one generated repository impl.
+  const outboxIssues = outboxCheck(ir, files);
+  issues.push(...outboxIssues);
+  const outbox = outboxIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, l10n, outbox, files: files.length, issues };
 }
 
 function main() {
@@ -506,7 +536,8 @@ function main() {
   console.log(`[audit] ${r.audit === 0 ? "PASS" : "FAIL (" + r.audit + ")"}`);
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n > 0;
+  console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

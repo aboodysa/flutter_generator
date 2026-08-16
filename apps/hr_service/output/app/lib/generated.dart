@@ -28,3 +28,4 @@ export 'package:rasheed_replica_hr_service/core/session.dart';
 export 'package:rasheed_replica_hr_service/core/auth_login_screen.dart';
 export 'package:rasheed_replica_hr_service/core/audit.dart';
 export 'package:rasheed_replica_hr_service/core/export.dart';
+export 'package:rasheed_replica_hr_service/core/outbox.dart';

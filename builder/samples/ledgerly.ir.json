@@ -4,6 +4,7 @@
   "attributes": {
     "stateManagement": "bloc",
     "locale": "both",
+    "outbox": true,
     "auth": {
       "roles": [
         "employee",

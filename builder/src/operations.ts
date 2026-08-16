@@ -274,6 +274,13 @@ export function localeOf(ir: FeatureModel): "en" | "ar" | "both" | undefined {
   return ir.attributes?.locale;
 }
 
+// MF6: offline outbox — app-level (like budget/locale), not per-entity: every repo's
+// create/update/delete write-ahead-enqueues regardless of which entity. Single source of truth
+// shared by repository_impl.ts's hooks, index.ts's core-file gate, and the [outbox] validate.ts gate.
+export function hasOutbox(ir: FeatureModel): boolean {
+  return !!ir.attributes?.outbox;
+}
+
 export function budgetOf(ir: FeatureModel): BudgetModel | undefined {
   return ir.attributes?.budget;
 }

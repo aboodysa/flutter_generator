@@ -1,6 +1,6 @@
 import { RepositoryImplModel, RepositoryModel, OperationModel, OperationParam, EntityModel } from "../types";
 import { GenContext, variantSampleArgs, importsFromTypes } from "../dart";
-import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolveBudget, isAudited, exportLockedEntity } from "../operations";
+import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolveBudget, isAudited, exportLockedEntity, hasOutbox } from "../operations";
 
 /**
  * RepositoryImplGenerator — structural, deterministic, 0% LLM.
@@ -34,6 +34,11 @@ import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolv
  * behavior" posture `[money]`/`[oracle]` hold elsewhere. The generated form's saveGuard is the
  * primary defense (disables Save before the user can even attempt it); this is defense in depth
  * against any other code path reaching the repo directly.
+ *
+ * MF6 (outbox): when the app opts into `attributes.outbox: true` (app-level, every entity),
+ * create/update/delete write-ahead-enqueue an OutboxMessage into the app-wide Outbox BEFORE the
+ * in-memory list is mutated — a write that's about to be rejected (the export-immutability throw
+ * above) never gets logged, only writes that actually happen do.
  */
 
 function paramStr(p: OperationParam): string {
@@ -108,6 +113,8 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
   // existing call site without an IR stays on the pre-L3 code path unchanged.
   const audited = ready && ctx?.ir ? isAudited(ctx.ir, entityName!) : false;
   const exportLock = ready && ctx?.ir ? exportLockedEntity(ctx.ir, entityName!) : undefined;
+  // MF6: app-level (unlike audited/exportLock above) — every entity's repo gets the hook when set.
+  const outbox = ready && ctx?.ir ? hasOutbox(ctx.ir) : false;
   // Session.actorId is String? even when isAuthenticated is true (Dart can't type-promote across
   // two different getters) — `??` both satisfies the non-nullable `actor` param and covers the
   // same "not signed in" fallback the isAuthenticated ternary would have.
@@ -145,8 +152,19 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
         `      after: ${entityName}Model.fromEntity(${stamped}).toJson(),\n` +
         `    ));\n`
       : "";
+    // MF6: write-ahead — enqueued BEFORE `_items.add`, so the outbox reflects intent even if a
+    // later step in the method somehow failed to complete.
+    const outboxEnqueue = outbox
+      ? `    Outbox.instance.enqueue(\n` +
+        `      entity: '${entityName}',\n` +
+        `      entityId: ${stamped}.${identityField}.toString(),\n` +
+        `      action: 'create',\n` +
+        `      payload: ${entityName}Model.fromEntity(${stamped}).toJson(),\n` +
+        `    );\n`
+      : "";
     methods.push(
       `  @override\n  Future<${voidReturn ? "void" : entityName}> ${kinds.create.name}(${opSig(kinds.create)}) async {\n` +
+      outboxEnqueue +
       `    _items.add(${stamped});\n` +
       auditAppend +
       (voidReturn ? `  }` : `    return ${stamped};\n  }`),
@@ -181,10 +199,24 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
         `      ));\n` +
         `    }\n`
       : "";
+    // MF6: write-ahead — after the export guard (a rejected write is never logged) but before the
+    // mutation itself; gated on idx != -1 like auditAppend above (nothing to enqueue for a target
+    // row that doesn't exist).
+    const outboxEnqueue = outbox
+      ? `    if (idx != -1) {\n` +
+        `      Outbox.instance.enqueue(\n` +
+        `        entity: '${entityName}',\n` +
+        `        entityId: ${paramName}.${identityField}.toString(),\n` +
+        `        action: 'update',\n` +
+        `        payload: ${entityName}Model.fromEntity(${scoped ? `_stampTenant(${paramName})` : paramName}).toJson(),\n` +
+        `      );\n` +
+        `    }\n`
+      : "";
     methods.push(
       `  @override\n  Future<${voidReturn ? "void" : entityName}> ${kinds.update.name}(${opSig(kinds.update)}) async {\n` +
       `    final idx = _items.indexWhere((e) => e.${identityField} == ${paramName}.${identityField}${scoped ? " && _inScope(e)" : ""});\n` +
       exportGuard +
+      outboxEnqueue +
       auditBefore +
       `    if (idx != -1) _items[idx] = ${scoped ? `_stampTenant(${paramName})` : paramName};\n` +
       auditAppend +
@@ -196,15 +228,23 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
     implementedOps.push(kinds.delete);
     const idParam = kinds.delete.params[0]?.name ?? "id";
     const scopedCond = scoped ? " && _inScope(e)" : "";
-    // Only needed (and only emitted) when this delete must check export-lock or record an audit
-    // event — `removeWhere` alone never gives back a reference to what it removed.
-    const findExisting = exportLock || audited
+    // Only needed (and only emitted) when this delete must check export-lock, enqueue an outbox
+    // message, or record an audit event — `removeWhere` alone never gives back a reference to
+    // what it removed.
+    const findExisting = exportLock || audited || outbox
       ? `    final _matches = _items.where((e) => e.${identityField} == ${idParam}${scopedCond});\n` +
         `    final _existing = _matches.isEmpty ? null : _matches.first;\n`
       : "";
     const exportGuard = exportLock
       ? `    if (_existing != null && _existing.exported == true) {\n` +
         `      throw StateError('${entityName} \${${idParam}} is exported and immutable — corrections require void + clone, not delete.');\n` +
+        `    }\n`
+      : "";
+    // MF6: write-ahead — after the export guard, before `_items.removeWhere`. No payload — the
+    // row is about to be gone; entityId is all a delete replay needs to identify the target.
+    const outboxEnqueue = outbox
+      ? `    if (_existing != null) {\n` +
+        `      Outbox.instance.enqueue(entity: '${entityName}', entityId: ${idParam}.toString(), action: 'delete');\n` +
         `    }\n`
       : "";
     const auditAppend = audited
@@ -222,6 +262,7 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
       `  @override\n  Future<void> ${kinds.delete.name}(${opSig(kinds.delete)}) async {\n` +
       findExisting +
       exportGuard +
+      outboxEnqueue +
       `    _items.removeWhere((e) => e.${identityField} == ${idParam}${scoped ? " && _inScope(e)" : ""});\n` +
       auditAppend +
       `  }`,
@@ -260,6 +301,13 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
   // there too, importsFromTypes only needs one name per file to resolve the import), and
   // `${entityName}Model` is the data-layer JSON snapshot before/after captures from.
   if (audited) refTypes.push("AuditLog", `${entityName}Model`);
+  // MF6: `Outbox` pulls in core/outbox.dart (OutboxMessage/OutboxStatus live there too); create/
+  // update's payload needs `${entityName}Model` same as audit's before/after (harmless if already
+  // pushed above — importsFromTypes de-dupes by name). Gated on at least one CRUD kind actually
+  // existing (not just `outbox` being true) — a repo with only list/get ops never emits an
+  // outboxEnqueue block anywhere, so pushing the import unconditionally would leave an
+  // unused-import warning (flutter analyze caught this on ledgerly's read-only Approval/User repos).
+  if (outbox && (kinds.create || kinds.update || kinds.delete)) refTypes.push("Outbox", `${entityName}Model`);
   const entityImports = importsFromTypes(refTypes, ctx).join("\n");
 
   const methodBlock = methods.join("\n\n");
