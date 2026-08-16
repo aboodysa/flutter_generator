@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -209,6 +209,22 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   // touch (undeclared export, unresolved declaration, or a non-"list" screen type).
   const resolvedExport = ctx?.ir ? resolveExport(ctx.ir, s) : undefined;
 
+  // L4: locale-aware — a small, FIXED chrome vocabulary (Back/Edit/Delete/noData/New) swaps
+  // through AppStrings.of(context); per-entity/field labels stay as-is (documented scope
+  // boundary, see infra.ts's generateLocaleAwareLocalization doc comment). `appStringsUsed`
+  // tracks whether THIS screen actually calls str() anywhere — a read-only list screen with no
+  // create/edit/delete/detail affordance never does, and importing AppStrings unconditionally
+  // whenever the APP is locale-aware (rather than when THIS FILE needs it) produced an
+  // unused_import warning on exactly those screens (caught by `flutter analyze`, not the
+  // TS-level regression diff, since the import itself is still syntactically valid).
+  const loc = !!ctx?.ir && hasLocale(ctx.ir);
+  let appStringsUsed = false;
+  const str = (key: string, literal: string) => {
+    if (!loc) return literal;
+    appStringsUsed = true;
+    return `AppStrings.of(context).${key}`;
+  };
+
   // §5.2-F1: create/edit/delete affordances, gated on what the entity's repository actually
   // supports (crudFormTargets is the single source shared with route.ts/index.ts/symbols.ts).
   const crudTarget = ctx?.ir ? crudFormTargets(ctx.ir).get(s.entity) : undefined;
@@ -350,7 +366,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
           : `import '../state/${splitState.name.toLowerCase()}.dart';`;
       }
       const budgetLocal = isBudgetEntity ? `\n            final budget = ${budgetLineExpr("item")};` : "";
-      body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
+      body = `            if (state.${collection}.isEmpty) return ${loc ? "" : "const "}Center(child: Text(${str("noData", "'No data'")}));
             final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);${budgetLocal}
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -444,7 +460,7 @@ ${contentCases}
                   child: Row(
                     children: [
                       if (state.currentStep > 0)
-                        TextButton(onPressed: () => ${readMutator("back", "")}, child: const Text('Back')),
+                        TextButton(onPressed: () => ${readMutator("back", "")}, child: ${loc ? "" : "const "}Text(${str("back", "'Back'")})),
                       const Spacer(),
                       PrimaryButton(
                         label: state.isLastStep ? 'Finish' : 'Next',
@@ -503,7 +519,7 @@ ${contentCases}
     // owner's report ("no back affordance" + "browser back behaves oddly") traced to every arrival
     // navigation in this file using `go`.
     const trailingWidget = !hasDetailScreen && canDelete
-      ? `IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
+      ? `IconButton(tooltip: ${str("delete", "'Delete'")}, icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
       : (hasAnyTarget ? `const Icon(Icons.chevron_right)` : `const SizedBox.shrink()`);
     // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
     // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
@@ -626,8 +642,8 @@ ${heroBlock}
   // drivers (research/cdp_flow_test.json) to locate them by aria-label, not just a11y hygiene.
   const appBarActions = comp.layout === "detail" && (canEditCreate || canDelete)
     ? `,\n      actions: [\n` +
-      (canEditCreate ? `        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('${formPath}/\${id}/edit')),\n` : "") +
-      (canDelete ? `        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
+      (canEditCreate ? `        IconButton(tooltip: ${str("edit", "'Edit'")}, icon: const Icon(Icons.edit), onPressed: () => context.push('${formPath}/\${id}/edit')),\n` : "") +
+      (canDelete ? `        IconButton(tooltip: ${str("delete", "'Delete'")}, icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
       `      ]`
     : exportButtons.length
       ? `,\n      actions: [\n${exportButtons.join("")}      ]`
@@ -640,8 +656,20 @@ ${heroBlock}
   const fabOnPressed = childFk
     ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.push(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
     : `() => context.push('${formPath}/new')`;
-  const fab = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate
-    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'New ${s.entity}',\n        onPressed: ${fabOnPressed},\n        child: const Icon(Icons.add),\n      )`
+  // L4: only the fixed "New" word is translatable — ${s.entity} is a dynamic, IR-derived name
+  // with no deterministic Arabic source (see infra.ts's documented scope boundary).
+  const fabApplies = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate;
+  if (loc && fabApplies) appStringsUsed = true;
+  const newTooltip = loc ? `'\${AppStrings.of(context).newLabel} ${s.entity}'` : `'New ${s.entity}'`;
+  const fab = fabApplies
+    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newTooltip},\n        onPressed: ${fabOnPressed},\n        child: const Icon(Icons.add),\n      )`
+    : "";
+  // L4: AppStrings import — same leading-"\n"-folded-into-the-value trick as budgetImport/
+  // exportImport use, so a non-locale (or locale-aware-but-unused-here) screen's import block
+  // gains zero extra blank lines. Computed here (not earlier) so every str()/FAB call site above
+  // has already had a chance to set appStringsUsed.
+  const l10nImport = appStringsUsed
+    ? "\n" + (ctx?.symbols.get("AppStrings") ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get("AppStrings")}';` : "import '../../core/app_strings.dart';")
     : "";
 
   const widgetBody = sm === "riverpod"
@@ -692,7 +720,7 @@ ${themeImport}
 ${stateImport}
 ${wizardTypeImports}
 ${splitStateImport}
-${budgetImport}${exportImport}
+${budgetImport}${exportImport}${l10nImport}
 
 ${widgetBody}
 `;

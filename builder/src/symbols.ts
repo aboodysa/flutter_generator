@@ -42,6 +42,10 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   for (const f of ir.forms ?? []) add(f.name, "presentation/forms", fileName(f.name));
   for (const r of ir.businessRules ?? []) add(r.name, "domain/rules", fileName(r.name));
   if ((ir.useCases ?? []).some((u) => u.paramType === "NoParams")) m.set("NoParams", "core/no_params.dart");
+  // L4: core/app_strings.dart is emitted unconditionally for every app (like components.dart),
+  // so this registration is unconditional too — screen.ts/crud_form.ts only reference the symbol
+  // when hasLocale(ir) is true, but the path must resolve either way.
+  m.set("AppStrings", "core/app_strings.dart");
   if (hasMoneyFields(ir)) m.set("Money", "core/money.dart");
   if (hasPolicyRules(ir)) {
     m.set("PolicyVerdict", "core/policy.dart");

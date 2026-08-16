@@ -157,6 +157,10 @@ export interface AppAttributes {
   auth?: AuthModel; // MF2: multi-user auth + roles + tenant scoping (additive — absent = no auth)
   attachments?: boolean; // MF3: attachment + OCR port (additive — absent = no core/attachment.dart)
   budget?: BudgetModel; // MF5: budget/quota (additive — absent = no core/budget.dart)
+  // L4: l10n + RTL. "en"/"ar" pin a single boot locale; "both" supports switching (boots "en",
+  // Arabic is the opt-in RTL option — MaterialApp.supportedLocales carries both either way).
+  // Additive — absent = today's flat single-locale AppStrings, byte-identical output.
+  locale?: "en" | "ar" | "both";
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";

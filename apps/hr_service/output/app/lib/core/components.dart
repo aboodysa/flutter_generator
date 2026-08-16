@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'theme.dart';
+import 'app_strings.dart';
 
 abstract final class AppTokens {
   static const spacing = 16.0;
@@ -40,7 +41,7 @@ class ErrorState extends StatelessWidget {
   const ErrorState({super.key, this.message});
   final String? message;
   @override
-  Widget build(BuildContext context) => Center(child: Text(message ?? 'Something went wrong'));
+  Widget build(BuildContext context) => Center(child: Text(message ?? AppStrings.of(context).error));
 }
 
 /// semanticContract: { role: text, accessibleName: {source: message}, states: [empty] }

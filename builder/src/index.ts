@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -406,6 +406,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:audit", generator: "AuditTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // L4 regression guard — AppStrings.of swaps strings per locale; the app's first screen flips
+  // Directionality per locale with no RTL overflow, AR+EN goldens captured. References AppStrings
+  // directly, so dropping the locale-aware core/app_strings.dart fails to compile the test.
+  const l10nTest = generateL10nTest(ir, arch.stateManagement);
+  if (l10nTest) {
+    const f = path.join(testDir, "l10n_test.dart");
+    fs.writeFileSync(f, l10nTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:l10n", generator: "L10nTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -901,7 +914,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const barrelFile = path.join(outDir, "lib", "generated.dart");
   fs.writeFileSync(barrelFile, generateBarrel(merged, ctx));
   const mainFile = path.join(outDir, "lib", "main.dart");
-  fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement));
+  fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement, app.attributes?.locale));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(merged, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   files.push(...writeWebScaffold(outDir, pkg));

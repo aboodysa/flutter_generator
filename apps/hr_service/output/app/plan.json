@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 56,
+  "artifactCount": 57,
   "entries": [
     {
       "artifact": "enum:LeaveType",
@@ -617,6 +617,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/audit_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:l10n",
+      "generator": "L10nTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/l10n_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

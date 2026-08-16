@@ -3,6 +3,7 @@
   "name": "ledgerly",
   "attributes": {
     "stateManagement": "bloc",
+    "locale": "both",
     "auth": {
       "roles": [
         "employee",

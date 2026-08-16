@@ -262,6 +262,18 @@ export function hasBudget(ir: FeatureModel): boolean {
   return !!ir.attributes?.budget;
 }
 
+// L4: l10n/RTL — whether the app opts into locale-aware AppStrings + MaterialApp locale wiring.
+// Single source of truth every generator (infra.ts's AppStrings shape, project.ts's MaterialApp
+// wiring, screen.ts/crud_form.ts's string call sites, the [l10n] gate) shares, mirroring
+// hasBudget/hasAttachments above.
+export function hasLocale(ir: FeatureModel): boolean {
+  return !!ir.attributes?.locale;
+}
+
+export function localeOf(ir: FeatureModel): "en" | "ar" | "both" | undefined {
+  return ir.attributes?.locale;
+}
+
 export function budgetOf(ir: FeatureModel): BudgetModel | undefined {
   return ir.attributes?.budget;
 }

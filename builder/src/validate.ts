@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -323,6 +323,36 @@ function exportCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// L4: a declared `attributes.locale` must emit the locale-aware AppStrings (both _en and _ar
+// maps — proves infra.ts actually took the locale-aware branch, not the flat pre-L4 stub) and
+// MaterialApp's locale/supportedLocales/localizationsDelegates wiring in main.dart — mirrors
+// [auth]'s marker-based check on router.dart exactly.
+const L10N_STRINGS_MARKERS = ["_en", "_ar", "static AppStrings of(BuildContext context)"];
+const L10N_MAIN_MARKERS = ["locale:", "supportedLocales:", "localizationsDelegates:", "GlobalMaterialLocalizations.delegate"];
+function l10nCheck(ir: any, files: string[]): string[] {
+  if (!hasLocale(ir)) return [];
+  const issues: string[] = [];
+  const appStrings = files.find((f) => f.endsWith("/core/app_strings.dart"));
+  if (!appStrings) {
+    issues.push(`[l10n] app declares attributes.locale but generated output has no core/app_strings.dart`);
+  } else {
+    const src = fs.readFileSync(appStrings, "utf8");
+    for (const m of L10N_STRINGS_MARKERS) {
+      if (!src.includes(m)) issues.push(`[l10n] core/app_strings.dart missing '${m}' — not the locale-aware AppStrings`);
+    }
+  }
+  const main = files.find((f) => f.endsWith("/main.dart"));
+  if (!main) {
+    issues.push(`[l10n] app declares attributes.locale but no lib/main.dart exists`);
+  } else {
+    const src = fs.readFileSync(main, "utf8");
+    for (const m of L10N_MAIN_MARKERS) {
+      if (!src.includes(m)) issues.push(`[l10n] lib/main.dart missing '${m}' — MaterialApp locale/RTL wiring not enforced`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -341,6 +371,7 @@ export interface ValidationResult {
   budget: number;    // count of budget-declaration issues: unresolved entity/fields, or missing core/budget.dart (MF5)
   audit: number;     // count of audit issues: audited entity with no auth, or missing core/audit.dart|audit_log_screen.dart (L3)
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
+  l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   files: number;
   issues: string[];
 }
@@ -445,7 +476,12 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...exportIssues);
   const exportGate = exportIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, files: files.length, issues };
+  // l10n (L4): a locale-aware app must emit locale-aware AppStrings + MaterialApp locale/RTL wiring.
+  const l10nIssues = l10nCheck(ir, files);
+  issues.push(...l10nIssues);
+  const l10n = l10nIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, l10n, files: files.length, issues };
 }
 
 function main() {
@@ -469,7 +505,8 @@ function main() {
   console.log(`[budget] ${r.budget === 0 ? "PASS" : "FAIL (" + r.budget + ")"}`);
   console.log(`[audit] ${r.audit === 0 ? "PASS" : "FAIL (" + r.audit + ")"}`);
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate > 0;
+  console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

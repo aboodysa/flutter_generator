@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_hr_service/core/components.dart';
 import 'package:rasheed_replica_hr_service/core/theme.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/presentation/state/leave_request_list.dart';
+import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_request.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_status.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_type.dart';
@@ -111,7 +112,7 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
         CheckboxListTile(title: const Text('Exported'), value: _exported, onChanged: (v) => setState(() => _exported = v ?? false)),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
-            label: widget.id == null ? 'Create' : 'Save',
+            label: widget.id == null ? AppStrings.of(context).create : AppStrings.of(context).save,
             onPressed: widget.initial?.exported == true
                 ? null
                 : () async {

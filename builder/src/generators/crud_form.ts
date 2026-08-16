@@ -1,6 +1,6 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity, hasLocale } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -489,6 +489,10 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   const exportGuard = exportLock
     ? `widget.initial?.${exportLock.exportedField.name} == true\n                ? null\n                : `
     : "";
+  // L4: Create/Save button label, locale-aware.
+  const saveLabel = ctx?.ir && hasLocale(ctx.ir)
+    ? `widget.id == null ? AppStrings.of(context).create : AppStrings.of(context).save`
+    : `widget.id == null ? 'Create' : 'Save'`;
 
   const queryParamsCtorArg = hasRelation ? ", required this.queryParams" : "";
   const queryParamsField = hasRelation ? "  final Map<String, String> queryParams;\n" : "";
@@ -535,7 +539,7 @@ ${policy.methods}${split.methods}
 ${fieldWidgets}
 ${policy.panelCall}${split.panelCall}          const SizedBox(height: AppSpacing.md),
           PrimaryButton(
-            label: widget.id == null ? 'Create' : 'Save',
+            label: ${saveLabel},
             onPressed: ${policy.saveGuard}${split.saveGuard}${exportGuard}() async {
               final item = ${policy.itemExpr};
               // Await the mutation before navigating — otherwise the detail/list screen we're
@@ -620,6 +624,9 @@ ${hasRelation ? "            queryParams: GoRouterState.of(context).uri.queryPar
   // MF2: the tenant-aware initStateLine above writes `Session.instance.tenantId` literally —
   // resolve the Session import the same way every other generated type reference is resolved.
   if (scopedEntity) refTypes.push("Session");
+  // L4: AppStrings is capitalized, so importsFromTypes resolves it the same way — no manual
+  // import-line juggling needed (unlike lowercase-only files such as core/export.dart).
+  if (ctx?.ir && hasLocale(ctx.ir)) refTypes.push("AppStrings");
   const typeImports = importsFromTypes(refTypes, ctx).join("\n");
 
   return `// [generated] generator=CrudFormGenerator template=crud_form_${sm}.v1 class=structural ownership=generated

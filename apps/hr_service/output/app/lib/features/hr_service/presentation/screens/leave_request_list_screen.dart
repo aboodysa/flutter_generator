@@ -11,6 +11,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 import 'package:rasheed_replica_hr_service/core/export.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_request.dart';
+import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 
 class LeaveRequestListScreen extends StatelessWidget {
   const LeaveRequestListScreen({super.key});
@@ -86,7 +87,7 @@ class LeaveRequestListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'New LeaveRequest',
+        tooltip: '${AppStrings.of(context).newLabel} LeaveRequest',
         onPressed: () => context.push('/leave-request/new'),
         child: const Icon(Icons.add),
       ),

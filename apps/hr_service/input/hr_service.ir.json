@@ -3,6 +3,7 @@
   "name": "hr_service",
   "attributes": {
     "stateManagement": "bloc",
+    "locale": "both",
     "auth": {
       "roles": [
         "employee",

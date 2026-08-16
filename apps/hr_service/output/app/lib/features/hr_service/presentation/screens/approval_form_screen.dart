@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_hr_service/core/components.dart';
 import 'package:rasheed_replica_hr_service/core/theme.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/presentation/state/approval_list.dart';
+import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/approval.dart';
 
 
@@ -96,7 +97,7 @@ class _ApprovalFormScreenBodyState extends State<_ApprovalFormScreenBody> {
         }),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
-            label: widget.id == null ? 'Create' : 'Save',
+            label: widget.id == null ? AppStrings.of(context).create : AppStrings.of(context).save,
             onPressed: () async {
               final item = Approval(
         id: widget.id ?? DateTime.now().millisecondsSinceEpoch.toString(),

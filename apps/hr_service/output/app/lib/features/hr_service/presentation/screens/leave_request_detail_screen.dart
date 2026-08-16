@@ -9,6 +9,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 
 
+import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 
 class LeaveRequestDetailScreen extends StatelessWidget {
   const LeaveRequestDetailScreen({super.key});
@@ -19,14 +20,14 @@ class LeaveRequestDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Leave Request details'),
       actions: [
-        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/leave-request/${id}/edit')),
-        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<LeaveRequestListCubit>().delete(id!); if (context.mounted) context.go('/leave-request'); }),
+        IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/leave-request/${id}/edit')),
+        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<LeaveRequestListCubit>().delete(id!); if (context.mounted) context.go('/leave-request'); }),
       ]),
       body: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
         builder: (context, state) {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();
         if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage);
-            if (state.leaveRequests.isEmpty) return const Center(child: Text('No data'));
+            if (state.leaveRequests.isEmpty) return Center(child: Text(AppStrings.of(context).noData));
             final item = state.leaveRequests.firstWhere((e) => e.id == id, orElse: () => state.leaveRequests.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),

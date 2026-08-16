@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasLocale, localeOf } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -29,7 +29,11 @@ export function generatePubspec(feature: FeatureModel, decision?: ArchitectureDe
   const routingDep = decision?.routing === "go_router" ? "  go_router: ^17.1.0\n" : "";
   const persistence = persistenceFor(decision?.persistence ?? "none");
   const persistenceDep = persistence.package ? `  ${persistence.package}: ${persistence.version}\n` : "";
-  const infraDeps = `${smDep}${diDep}${routingDep}${persistenceDep}`;
+  // L4: flutter_localizations is an SDK package (no version pin, like `flutter:` itself) —
+  // GlobalMaterialLocalizations/GlobalWidgetsLocalizations/GlobalCupertinoLocalizations live
+  // there, required for real RTL (Arabic) Directionality resolution.
+  const localizationsDep = hasLocale(feature) ? `  flutter_localizations:\n    sdk: flutter\n` : "";
+  const infraDeps = `${smDep}${diDep}${routingDep}${persistenceDep}${localizationsDep}`;
 
   return `# [generated] generator=ProjectGenerator template=pubspec.v1 class=structural ownership=generated
 # Do not hand-edit this file; regenerate from IR.
@@ -69,8 +73,32 @@ flutter:
 `;
 }
 
+// L4: MaterialApp.router's title+locale block — shared by generateMain/generateMultiMain so
+// single- and multi-feature apps wire RTL identically. Locale-unaware apps (the default) get back
+// the exact pre-L4 `title: 'Generated app',` line, byte-identical. Locale-aware apps swap to
+// onGenerateTitle (needs a BuildContext with the MaterialApp's own resolved Localizations — a
+// plain `title:` string is evaluated before that scope exists) + explicit locale/supportedLocales/
+// delegates. "both" boots English; Arabic is the opt-in RTL option, not a silent default —
+// supportedLocales always carries both either way, so both directions are actually reachable.
+function titleAndLocaleBlock(locale: "en" | "ar" | "both" | undefined): string {
+  if (!locale) return `title: 'Generated app',`;
+  const supported = locale === "both" ? "Locale('en'), Locale('ar')" : `Locale('${locale}')`;
+  const boot = locale === "ar" ? "ar" : "en";
+  return `onGenerateTitle: (context) => AppStrings.of(context).appTitle,
+        locale: const Locale('${boot}'),
+        supportedLocales: const [${supported}],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],`;
+}
+
 export function generateMain(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
   const entityNames = feature.entities.map((e) => e.name).join(", ");
+  const locale = localeOf(feature);
+  const titleAndLocale = titleAndLocaleBlock(locale);
+  const l10nImport = locale ? `import 'package:flutter_localizations/flutter_localizations.dart';\nimport 'core/app_strings.dart';\n` : "";
 
   // Every screen's state owns a cubit that must be available to its route — a single-feature
   // app with one list screen only ever needed screens[0], but multi-entity samples (Task +
@@ -91,7 +119,7 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
     const buildReturn = sm === "riverpod"
       ? `    return ProviderScope(
       child: MaterialApp.router(
-        title: 'Generated app',
+        ${titleAndLocale}
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
       ),
@@ -99,7 +127,7 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
       : `    return ${[...distinctStates]
           .map((st, i) => `BlocProvider<${st}Cubit>(\n      create: (_) => sl<${st}Cubit>()..load(),\n      child: `)
           .join("")}MaterialApp.router(
-        title: 'Generated app',
+        ${titleAndLocale}
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
       )${distinctStates.map(() => ")").join("")};`;
@@ -115,7 +143,7 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-${providerImport}
+${l10nImport}${providerImport}
 ${generatedImport}import 'core/router.dart';
 ${diImport}
 void main() {
@@ -178,14 +206,16 @@ class ReplicaApp extends StatelessWidget {
 // with one entry per distinct state; for riverpod no extra wiring is needed at all — providers
 // self-register on first `ref.watch`, so the body is identical to generateMain's riverpod branch
 // regardless of feature or screen count.
-export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc"): string {
+export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc", locale?: "en" | "ar" | "both"): string {
   // MF4: same split-state inclusion as generateMain above, per feature.
   const distinctStates = Array.from(new Set(features.flatMap((f) => [...(f.screens ?? []).map((s) => s.state), ...splitStateNames(f)])));
+  const titleAndLocale = titleAndLocaleBlock(locale);
+  const l10nImport = locale ? `import 'package:flutter_localizations/flutter_localizations.dart';\nimport 'core/app_strings.dart';\n` : "";
 
   const buildReturn = sm === "riverpod"
     ? `    return ProviderScope(
       child: MaterialApp.router(
-        title: 'Generated app',
+        ${titleAndLocale}
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
       ),
@@ -195,7 +225,7 @@ export function generateMultiMain(features: FeatureModel[], sm: StateManagementP
 ${distinctStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<${s}Cubit>()..load()),`).join("\n")}
       ],
       child: MaterialApp.router(
-        title: 'Generated app',
+        ${titleAndLocale}
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
       ),
@@ -211,7 +241,7 @@ ${distinctStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<$
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-${providerImport}
+${l10nImport}${providerImport}
 ${generatedImport}import 'core/router.dart';
 ${diImport}
 void main() {

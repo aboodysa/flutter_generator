@@ -9,6 +9,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 
 
+import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 
 class ApprovalListScreen extends StatelessWidget {
   const ApprovalListScreen({super.key});
@@ -55,7 +56,7 @@ class ApprovalListScreen extends StatelessWidget {
                               leading: AppAvatar(label: item.id),
                               title: Text(item.id),
                               subtitle: Text('${((item.decidedAt?.toIso8601String() ?? '').split('T').first)}'),
-                              trailing: IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () => context.read<ApprovalListCubit>().delete(item.id)),
+                              trailing: IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () => context.read<ApprovalListCubit>().delete(item.id)),
                               onTap: () => context.push('/approval/${item.id}/edit'),
                             ),
                           );
@@ -69,7 +70,7 @@ class ApprovalListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'New Approval',
+        tooltip: '${AppStrings.of(context).newLabel} Approval',
         onPressed: () {
           final id = GoRouterState.of(context).uri.queryParameters['leaveRequestId'];
           context.push(id != null ? '/approval/new?leaveRequestId=$id' : '/approval/new');

@@ -2,6 +2,8 @@
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/app_strings.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'generated.dart';import 'core/router.dart';
 import 'core/di.dart';
@@ -24,7 +26,14 @@ class ReplicaApp extends StatelessWidget {
       child: BlocProvider<ApprovalListCubit>(
       create: (_) => sl<ApprovalListCubit>()..load(),
       child: MaterialApp.router(
-        title: 'Generated app',
+        onGenerateTitle: (context) => AppStrings.of(context).appTitle,
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
       )));

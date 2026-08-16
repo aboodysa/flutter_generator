@@ -1,5 +1,5 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -211,6 +211,124 @@ ${pumpWidget}
     await tester.pumpAndSettle();
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });
+}
+`;
+}
+
+/**
+ * L10nTestGenerator — structural, deterministic, 0% LLM (L4).
+ * Emitted only when hasLocale(feature). Two independent proofs:
+ *  1. AppStrings.of(context) actually swaps per locale (a synthetic Builder — reliable and
+ *     entity-agnostic, doesn't depend on any real screen showing translated chrome text visibly).
+ *  2. The app's first real screen (same "screens[0] is the app's testable identity" convention
+ *     generateGoldenTest/generateMain already use) flips Directionality per locale, throws no
+ *     exception under RTL (proves no overflow — Flutter's test binding surfaces a RenderFlex
+ *     overflow as a caught FlutterError, which tester.takeException() would return non-null),
+ *     and captures both an EN (LTR) and AR (RTL) golden.
+ */
+export function generateL10nTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  if (!hasLocale(feature)) return null;
+  const screen = feature.screens?.[0];
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  const fontLoader = `  setUpAll(() async {
+    final font = FontLoader('Roboto');
+    for (final f in const ['Roboto-Regular', 'Roboto-Medium', 'Roboto-Bold']) {
+      font.addFont(rootBundle.load('assets/fonts/\$f.ttf'));
+    }
+    await font.load();
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('assets/fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
+  });`;
+
+  const localizationsBlock = `      supportedLocales: const [Locale('en'), Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],`;
+
+  const swapTest = `  testWidgets('AppStrings.of swaps strings per locale', (tester) async {
+    Widget wrap(Locale locale) => MaterialApp(
+      locale: locale,
+${localizationsBlock}
+      home: Builder(builder: (context) => Text(AppStrings.of(context).save)),
+    );
+
+    await tester.pumpWidget(wrap(const Locale('en')));
+    await tester.pumpAndSettle();
+    expect(find.text('Save'), findsOneWidget);
+
+    await tester.pumpWidget(wrap(const Locale('ar')));
+    await tester.pumpAndSettle();
+    expect(find.text('حفظ'), findsOneWidget);
+  });`;
+
+  if (!screen) {
+    return `// [generated] generator=L10nTestGenerator template=l10n.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:${pkg}/core/app_strings.dart';
+
+void main() {
+${fontLoader}
+
+${swapTest}
+}
+`;
+  }
+
+  const goldenName = screen.name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  const wrapScreen = (localeExpr: string) =>
+    sm === "riverpod"
+      ? `ProviderScope(child: MaterialApp(\n        locale: ${localeExpr},\n${localizationsBlock}\n        theme: buildTheme(),\n        home: ${screen.name}(),\n      ))`
+      : `BlocProvider<${screen.state}Cubit>(\n        create: (_) => sl<${screen.state}Cubit>()..load(),\n        child: MaterialApp(\n          locale: ${localeExpr},\n${localizationsBlock}\n          theme: buildTheme(),\n          home: ${screen.name}(),\n        ),\n      )`;
+  const libImport = sm === "riverpod"
+    ? `import 'package:flutter_riverpod/flutter_riverpod.dart';`
+    : `import 'package:flutter_bloc/flutter_bloc.dart';`;
+  const diImport = sm === "riverpod" ? "" : `import 'package:${pkg}/core/di.dart';`;
+  const setupDi = sm === "riverpod" ? "" : `    setupDependencies();`;
+
+  const rtlTest = `  testWidgets('${screen.name} flips Directionality per locale, no RTL overflow, AR+EN goldens', (tester) async {
+${setupDi}
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(${wrapScreen("const Locale('en')")});
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow or other error under EN/LTR');
+    expect(Directionality.of(tester.element(find.byType(${screen.name}))), TextDirection.ltr);
+    await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/l10n_en.png'));
+
+    await tester.pumpWidget(${wrapScreen("const Locale('ar')")});
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow or other error under AR/RTL');
+    expect(Directionality.of(tester.element(find.byType(${screen.name}))), TextDirection.rtl);
+    await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/l10n_ar.png'));
+  });`;
+
+  return `// [generated] generator=L10nTestGenerator template=l10n_${sm}.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+${libImport}
+${diImport}import 'package:${pkg}/generated.dart';
+import 'package:${pkg}/core/theme.dart';
+import 'package:${pkg}/core/app_strings.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+void main() {
+${fontLoader}
+
+${swapTest}
+
+${rtlTest}
 }
 `;
 }

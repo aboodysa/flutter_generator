@@ -1,4 +1,5 @@
 import { FeatureModel } from "../types";
+import { hasLocale } from "../operations";
 
 /**
  * Component registry (§8) — Tokens → Foundations → Atoms → Molecules → Organisms → Templates → Pages.
@@ -166,13 +167,23 @@ export const COMPONENT_REGISTRY: ComponentDef[] = [
  * Emits the design system (tokens → atoms → molecules) from the registry above.
  * Screens reference these by semantic contract; they never hardcode tokens.
  */
-export function generateComponents(_f: FeatureModel): string {
+export function generateComponents(f: FeatureModel): string {
+  // L4: ErrorState's fallback message goes through AppStrings when the app is locale-aware —
+  // same widget structure either way, just a different string source. LoadingState stays
+  // spinner-only (its `loading` string isn't shown anywhere today, locale-aware or not — adding
+  // new visible text there is a UI change beyond this slice's "swap strings" scope).
+  const locale = hasLocale(f);
+  const errorFallback = locale ? "AppStrings.of(context).error" : "'Something went wrong'";
+  // Leading "\n" folded into the value itself (not a separate always-present template line) so a
+  // non-locale app's import block gains zero extra blank lines — same byte-identical-when-unused
+  // guarantee every other conditional-import hook (MF5's budgetImport, L3's exportImport) keeps.
+  const l10nImport = locale ? "\nimport 'app_strings.dart';" : "";
   return `// [generated] generator=ComponentRegistryGenerator template=components.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 // Component registry (DESIGN §8): Tokens → Atoms → Molecules.
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'theme.dart';
+import 'theme.dart';${l10nImport}
 
 abstract final class AppTokens {
   static const spacing = 16.0;
@@ -209,7 +220,7 @@ class ErrorState extends StatelessWidget {
   const ErrorState({super.key, this.message});
   final String? message;
   @override
-  Widget build(BuildContext context) => Center(child: Text(message ?? 'Something went wrong'));
+  Widget build(BuildContext context) => Center(child: Text(message ?? ${errorFallback}));
 }
 
 /// semanticContract: { role: text, accessibleName: {source: message}, states: [empty] }
