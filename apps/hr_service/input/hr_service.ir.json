@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "1",
+  "name": "hr_service",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "LeaveType",
+      "values": ["annual", "sick", "unpaid"]
+    },
+    {
+      "name": "LeaveStatus",
+      "values": ["open", "approved", "rejected"]
+    }
+  ],
+  "entities": [
+    {
+      "name": "LeaveRequest",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "name", "type": "String", "required": true, "nullable": false },
+        { "name": "leaveType", "type": "enum", "required": true, "nullable": false, "of": "LeaveType", "default": "annual" },
+        { "name": "startDate", "type": "DateTime", "required": true, "nullable": false },
+        { "name": "endDate", "type": "DateTime", "required": true, "nullable": false },
+        { "name": "days", "type": "int", "required": true, "nullable": false },
+        { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "LeaveStatus", "default": "open" },
+        { "name": "reason", "type": "String", "required": false, "nullable": true }
+      ]
+    },
+    {
+      "name": "Approval",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "leaveRequestId", "type": "String", "required": true, "nullable": false },
+        { "name": "approver", "type": "String", "required": true, "nullable": false },
+        { "name": "note", "type": "String", "required": false, "nullable": true },
+        { "name": "decidedAt", "type": "DateTime", "required": false, "nullable": true }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "LongLeave",
+      "entity": "LeaveRequest",
+      "result": "true",
+      "conditions": [
+        { "field": "days", "operator": ">", "value": "10" }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "LeaveRequestRepository",
+      "operations": [
+        { "name": "listLeaveRequests", "returns": "Future<List<LeaveRequest>>", "params": [] },
+        { "name": "getLeaveRequest", "returns": "Future<LeaveRequest>", "params": [{ "name": "id", "type": "String", "named": false }] },
+        { "name": "createLeaveRequest", "returns": "Future<LeaveRequest>", "params": [{ "name": "leaveRequest", "type": "LeaveRequest", "named": false }] },
+        { "name": "updateLeaveRequest", "returns": "Future<void>", "params": [{ "name": "leaveRequest", "type": "LeaveRequest", "named": false }] },
+        { "name": "deleteLeaveRequest", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
+    },
+    {
+      "name": "ApprovalRepository",
+      "operations": [
+        { "name": "listApprovals", "returns": "Future<List<Approval>>", "params": [] },
+        { "name": "getApproval", "returns": "Future<Approval>", "params": [{ "name": "id", "type": "String", "named": false }] },
+        { "name": "createApproval", "returns": "Future<Approval>", "params": [{ "name": "approval", "type": "Approval", "named": false }] },
+        { "name": "updateApproval", "returns": "Future<void>", "params": [{ "name": "approval", "type": "Approval", "named": false }] },
+        { "name": "deleteApproval", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
+    }
+  ],
+  "states": [
+    { "name": "LeaveRequestList", "entity": "LeaveRequest" },
+    { "name": "ApprovalList", "entity": "Approval" }
+  ],
+  "screens": [
+    { "name": "LeaveRequestListScreen", "entity": "LeaveRequest", "type": "list", "state": "LeaveRequestList" },
+    { "name": "LeaveRequestDetailScreen", "entity": "LeaveRequest", "type": "detail", "state": "LeaveRequestList" },
+    { "name": "ApprovalListScreen", "entity": "Approval", "type": "list", "state": "ApprovalList" }
+  ],
+  "useCases": [
+    { "name": "ListLeaveRequests", "repository": "LeaveRequestRepository", "operation": "listLeaveRequests", "paramType": "NoParams", "returnType": "List<LeaveRequest>" },
+    { "name": "GetLeaveRequest", "repository": "LeaveRequestRepository", "operation": "getLeaveRequest", "paramType": "String", "returnType": "LeaveRequest" },
+    { "name": "CreateLeaveRequest", "repository": "LeaveRequestRepository", "operation": "createLeaveRequest", "paramType": "LeaveRequest", "returnType": "LeaveRequest" },
+    { "name": "UpdateLeaveRequest", "repository": "LeaveRequestRepository", "operation": "updateLeaveRequest", "paramType": "LeaveRequest", "returnType": "void" },
+    { "name": "DeleteLeaveRequest", "repository": "LeaveRequestRepository", "operation": "deleteLeaveRequest", "paramType": "String", "returnType": "void" },
+    { "name": "ListApprovals", "repository": "ApprovalRepository", "operation": "listApprovals", "paramType": "NoParams", "returnType": "List<Approval>" },
+    { "name": "GetApproval", "repository": "ApprovalRepository", "operation": "getApproval", "paramType": "String", "returnType": "Approval" },
+    { "name": "CreateApproval", "repository": "ApprovalRepository", "operation": "createApproval", "paramType": "Approval", "returnType": "Approval" },
+    { "name": "UpdateApproval", "repository": "ApprovalRepository", "operation": "updateApproval", "paramType": "Approval", "returnType": "void" },
+    { "name": "DeleteApproval", "repository": "ApprovalRepository", "operation": "deleteApproval", "paramType": "String", "returnType": "void" }
+  ]
+}

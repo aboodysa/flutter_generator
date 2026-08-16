@@ -1,0 +1,22 @@
+{
+  "rule": "NeedsManagerReview",
+  "entity": "WorkAuth",
+  "cases": [
+    {
+      "input": { "id": "w-1", "name": "Ada", "country": "SA", "jobTitle": "Engineer", "durationDays": 90, "status": "draft" },
+      "expected": true
+    },
+    {
+      "input": { "id": "w-2", "name": "Bea", "country": "AE", "jobTitle": "Analyst", "durationDays": 61, "status": "submitted" },
+      "expected": true
+    },
+    {
+      "input": { "id": "w-3", "name": "Cy", "country": "SA", "jobTitle": "Designer", "durationDays": 60, "status": "draft" },
+      "expected": false
+    },
+    {
+      "input": { "id": "w-4", "name": "Deb", "country": "SA", "jobTitle": "Manager", "durationDays": 30, "status": "approved" },
+      "expected": false
+    }
+  ]
+}

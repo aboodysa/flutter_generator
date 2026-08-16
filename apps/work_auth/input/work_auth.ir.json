@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1",
+  "name": "work_auth",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "WorkAuthStatus",
+      "values": ["draft", "submitted", "approved", "issued"]
+    }
+  ],
+  "entities": [
+    {
+      "name": "WorkAuth",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "name", "type": "String", "required": true, "nullable": false },
+        { "name": "country", "type": "String", "required": true, "nullable": false },
+        { "name": "jobTitle", "type": "String", "required": true, "nullable": false },
+        { "name": "startDate", "type": "DateTime", "required": true, "nullable": false },
+        { "name": "durationDays", "type": "int", "required": true, "nullable": false },
+        { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "WorkAuthStatus", "default": "draft" }
+      ]
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "NeedsManagerReview",
+      "entity": "WorkAuth",
+      "result": "true",
+      "conditions": [
+        { "field": "durationDays", "operator": ">", "value": "60" }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "WorkAuthRepository",
+      "operations": [
+        { "name": "listWorkAuths", "returns": "Future<List<WorkAuth>>", "params": [] },
+        { "name": "createWorkAuth", "returns": "Future<WorkAuth>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] },
+        { "name": "updateWorkAuth", "returns": "Future<void>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] }
+      ]
+    }
+  ],
+  "states": [
+    { "name": "WorkAuthList", "entity": "WorkAuth" },
+    { "name": "WorkAuthWizard", "entity": "WorkAuth" }
+  ],
+  "screens": [
+    { "name": "WorkAuthListScreen", "entity": "WorkAuth", "type": "list", "state": "WorkAuthList" },
+    {
+      "name": "WorkAuthWizardScreen",
+      "entity": "WorkAuth",
+      "type": "wizard",
+      "state": "WorkAuthWizard",
+      "steps": [
+        {
+          "id": "submit",
+          "title": "Submit Work Authorization",
+          "fields": ["name", "country", "jobTitle", "durationDays"]
+        },
+        {
+          "id": "manager-review",
+          "title": "Manager Review Required",
+          "when": "NeedsManagerReview"
+        },
+        {
+          "id": "review",
+          "title": "Review"
+        },
+        {
+          "id": "result",
+          "title": "Result"
+        }
+      ]
+    }
+  ],
+  "useCases": [
+    { "name": "ListWorkAuths", "repository": "WorkAuthRepository", "operation": "listWorkAuths", "paramType": "NoParams", "returnType": "List<WorkAuth>" },
+    { "name": "CreateWorkAuth", "repository": "WorkAuthRepository", "operation": "createWorkAuth", "paramType": "WorkAuth", "returnType": "WorkAuth" },
+    { "name": "UpdateWorkAuth", "repository": "WorkAuthRepository", "operation": "updateWorkAuth", "paramType": "WorkAuth", "returnType": "void" }
+  ]
+}

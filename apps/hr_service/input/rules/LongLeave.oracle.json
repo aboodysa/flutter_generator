@@ -1,0 +1,22 @@
+{
+  "rule": "LongLeave",
+  "entity": "LeaveRequest",
+  "cases": [
+    {
+      "input": { "id": "l-1", "name": "Ada", "leaveType": "annual", "days": 14, "status": "open" },
+      "expected": true
+    },
+    {
+      "input": { "id": "l-2", "name": "Bea", "leaveType": "sick", "days": 11, "status": "open" },
+      "expected": true
+    },
+    {
+      "input": { "id": "l-3", "name": "Cy", "leaveType": "unpaid", "days": 10, "status": "open" },
+      "expected": false
+    },
+    {
+      "input": { "id": "l-4", "name": "Deb", "leaveType": "annual", "days": 2, "status": "approved" },
+      "expected": false
+    }
+  ]
+}

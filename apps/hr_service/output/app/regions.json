@@ -1,0 +1,12 @@
+{
+  "list_leave_requests.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "get_leave_request.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "create_leave_request.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "update_leave_request.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "delete_leave_request.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "list_approvals.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "get_approval.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "create_approval.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "update_approval.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "delete_approval.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac"
+}
