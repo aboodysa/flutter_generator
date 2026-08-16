@@ -1,0 +1,498 @@
+{
+  "schemaVersion": "1",
+  "name": "ledgerly",
+  "attributes": {
+    "stateManagement": "bloc",
+    "auth": {
+      "roles": [
+        "employee",
+        "manager",
+        "finance"
+      ],
+      "home": {
+        "employee": "ExpenseClaim",
+        "manager": "ExpenseClaim",
+        "finance": "Approval"
+      },
+      "allow": {
+        "employee": [
+          "ExpenseClaim",
+          "Approval",
+          "MealBudget"
+        ],
+        "manager": [
+          "ExpenseClaim",
+          "Approval",
+          "MealBudget"
+        ],
+        "finance": [
+          "ExpenseClaim",
+          "Approval",
+          "User",
+          "MealBudget"
+        ]
+      }
+    },
+    "budget": {
+      "entity": "MealBudget",
+      "limitField": "limit",
+      "committedField": "committed",
+      "actualField": "actual",
+      "scope": "category",
+      "period": "monthly"
+    }
+  },
+  "features": [
+    {
+      "name": "auth",
+      "enums": [
+        {
+          "name": "UserRole",
+          "values": [
+            "employee",
+            "manager",
+            "finance"
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "name": "User",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "email",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "role",
+              "type": "enum",
+              "required": true,
+              "nullable": false,
+              "of": "UserRole"
+            }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "UserRepository",
+          "operations": [
+            {
+              "name": "listUsers",
+              "returns": "Future<List<User>>",
+              "params": []
+            }
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "UserList",
+          "entity": "User"
+        }
+      ],
+      "screens": [
+        {
+          "name": "UserListScreen",
+          "entity": "User",
+          "type": "list",
+          "state": "UserList"
+        }
+      ],
+      "useCases": [
+        {
+          "name": "ListUsers",
+          "repository": "UserRepository",
+          "operation": "listUsers",
+          "paramType": "NoParams",
+          "returnType": "List<User>"
+        }
+      ]
+    },
+    {
+      "name": "expenses",
+      "enums": [
+        {
+          "name": "ClaimStatus",
+          "values": [
+            "pending",
+            "approved",
+            "rejected"
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "name": "ExpenseClaim",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "amount",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            },
+            {
+              "name": "status",
+              "type": "enum",
+              "required": true,
+              "nullable": false,
+              "of": "ClaimStatus",
+              "default": "pending"
+            }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "ExpenseClaimRepository",
+          "operations": [
+            {
+              "name": "listExpenseClaims",
+              "returns": "Future<List<ExpenseClaim>>",
+              "params": []
+            },
+            {
+              "name": "createExpenseClaim",
+              "returns": "Future<ExpenseClaim>",
+              "params": [
+                {
+                  "name": "claim",
+                  "type": "ExpenseClaim",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "updateExpenseClaim",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "claim",
+                  "type": "ExpenseClaim",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "deleteExpenseClaim",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "id",
+                  "type": "String",
+                  "named": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "ExpenseClaimList",
+          "entity": "ExpenseClaim"
+        }
+      ],
+      "screens": [
+        {
+          "name": "ExpenseClaimListScreen",
+          "entity": "ExpenseClaim",
+          "type": "list",
+          "state": "ExpenseClaimList"
+        },
+        {
+          "name": "ExpenseClaimDetailScreen",
+          "entity": "ExpenseClaim",
+          "type": "detail",
+          "state": "ExpenseClaimList"
+        }
+      ],
+      "useCases": [
+        {
+          "name": "ListExpenseClaims",
+          "repository": "ExpenseClaimRepository",
+          "operation": "listExpenseClaims",
+          "paramType": "NoParams",
+          "returnType": "List<ExpenseClaim>"
+        },
+        {
+          "name": "CreateExpenseClaim",
+          "repository": "ExpenseClaimRepository",
+          "operation": "createExpenseClaim",
+          "paramType": "ExpenseClaim",
+          "returnType": "ExpenseClaim"
+        },
+        {
+          "name": "UpdateExpenseClaim",
+          "repository": "ExpenseClaimRepository",
+          "operation": "updateExpenseClaim",
+          "paramType": "ExpenseClaim",
+          "returnType": "void"
+        },
+        {
+          "name": "DeleteExpenseClaim",
+          "repository": "ExpenseClaimRepository",
+          "operation": "deleteExpenseClaim",
+          "paramType": "String",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "name": "approvals",
+      "enums": [
+        {
+          "name": "ApprovalDecision",
+          "values": [
+            "pending",
+            "approved",
+            "rejected"
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "name": "Approval",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "decision",
+              "type": "enum",
+              "required": true,
+              "nullable": false,
+              "of": "ApprovalDecision",
+              "default": "pending"
+            }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "ApprovalRepository",
+          "operations": [
+            {
+              "name": "listApprovals",
+              "returns": "Future<List<Approval>>",
+              "params": []
+            }
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "ApprovalList",
+          "entity": "Approval"
+        }
+      ],
+      "screens": [
+        {
+          "name": "ApprovalListScreen",
+          "entity": "Approval",
+          "type": "list",
+          "state": "ApprovalList"
+        }
+      ],
+      "useCases": [
+        {
+          "name": "ListApprovals",
+          "repository": "ApprovalRepository",
+          "operation": "listApprovals",
+          "paramType": "NoParams",
+          "returnType": "List<Approval>"
+        }
+      ]
+    },
+    {
+      "name": "budgets",
+      "entities": [
+        {
+          "name": "MealBudget",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "limit",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            },
+            {
+              "name": "committed",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            },
+            {
+              "name": "actual",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "MealBudgetRepository",
+          "operations": [
+            {
+              "name": "listMealBudgets",
+              "returns": "Future<List<MealBudget>>",
+              "params": []
+            },
+            {
+              "name": "createMealBudget",
+              "returns": "Future<MealBudget>",
+              "params": [
+                {
+                  "name": "budget",
+                  "type": "MealBudget",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "updateMealBudget",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "budget",
+                  "type": "MealBudget",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "deleteMealBudget",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "id",
+                  "type": "String",
+                  "named": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "MealBudgetList",
+          "entity": "MealBudget"
+        }
+      ],
+      "screens": [
+        {
+          "name": "MealBudgetListScreen",
+          "entity": "MealBudget",
+          "type": "list",
+          "state": "MealBudgetList"
+        },
+        {
+          "name": "MealBudgetDetailScreen",
+          "entity": "MealBudget",
+          "type": "detail",
+          "state": "MealBudgetList"
+        }
+      ],
+      "useCases": [
+        {
+          "name": "ListMealBudgets",
+          "repository": "MealBudgetRepository",
+          "operation": "listMealBudgets",
+          "paramType": "NoParams",
+          "returnType": "List<MealBudget>"
+        },
+        {
+          "name": "CreateMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "createMealBudget",
+          "paramType": "MealBudget",
+          "returnType": "MealBudget"
+        },
+        {
+          "name": "UpdateMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "updateMealBudget",
+          "paramType": "MealBudget",
+          "returnType": "void"
+        },
+        {
+          "name": "DeleteMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "deleteMealBudget",
+          "paramType": "String",
+          "returnType": "void"
+        }
+      ]
+    }
+  ]
+}
