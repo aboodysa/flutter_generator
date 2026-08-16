@@ -1,6 +1,6 @@
 import { FeatureModel } from "../types";
 import { GenContext } from "../dart";
-import { authPersonas } from "../operations";
+import { authPersonas, hasLocale } from "../operations";
 
 /**
  * AuthSessionGenerator — structural, deterministic, 0% LLM.
@@ -74,11 +74,19 @@ ${personasLiteral(ir)}
 `;
 }
 
-export function generateAuthLoginScreen(_ir: FeatureModel, ctx?: GenContext): string {
+export function generateAuthLoginScreen(ir: FeatureModel, ctx?: GenContext): string {
   const componentsImport = ctx ? `import 'package:${ctx.pkg}/core/components.dart';` : "import '../core/components.dart';";
   const themeImport = ctx ? `import 'package:${ctx.pkg}/core/theme.dart';` : "import '../core/theme.dart';";
   const sessionImport = ctx ? `import 'package:${ctx.pkg}/core/session.dart';` : "import 'session.dart';";
   const routerImport = ctx ? `import 'package:${ctx.pkg}/core/router.dart';` : "import 'router.dart';";
+  // G-L4-2: route the two login-screen literals through AppStrings for locale-aware apps only —
+  // byte-identical output for non-locale apps (mirrors crud_form.ts's saveLabel/AppStrings
+  // gating). Without this, an AR/RTL session still showed "Sign in"/"Choose a demo account" in
+  // English — the only screen L4's own AppStrings rollout missed.
+  const locale = hasLocale(ir);
+  const appStringsImport = locale ? (ctx ? `import 'package:${ctx.pkg}/core/app_strings.dart';\n` : "import 'app_strings.dart';\n") : "";
+  const signInTitle = locale ? "Text(AppStrings.of(context).signIn)" : "const Text('Sign in')";
+  const chooseAccountText = locale ? "Text(AppStrings.of(context).chooseDemoAccount, style: const TextStyle(fontWeight: FontWeight.w600))" : "const Text('Choose a demo account', style: TextStyle(fontWeight: FontWeight.w600))";
 
   return `// [generated] generator=AuthLoginGenerator template=auth_login.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
@@ -88,7 +96,7 @@ ${componentsImport}
 ${themeImport}
 ${sessionImport}
 ${routerImport}
-
+${appStringsImport}
 /// Demo login — one tappable AppListCard per persona (kPersonas from session.dart). Tapping
 /// signs the session in and navigates to that role's home route (kHomeRoutes from router.dart).
 class AuthLoginScreen extends StatelessWidget {
@@ -97,11 +105,11 @@ class AuthLoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(title: ${signInTitle}),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          const Text('Choose a demo account', style: TextStyle(fontWeight: FontWeight.w600)),
+          ${chooseAccountText},
           const SizedBox(height: AppSpacing.sm),
           for (final p in kPersonas)
             Padding(

@@ -312,6 +312,39 @@ ${setupDi}
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/l10n_ar.png'));
   });`;
 
+  // G-L4-2: the login screen is the one screen every locale-aware auth app boots to before
+  // anything else, and it's a StatelessWidget with no Cubit/Provider dependency (unlike
+  // wrapScreen's targets above) — a minimal MaterialApp wrap is enough, no setupDependencies().
+  const loginRtlTest = hasAuth(feature)
+    ? `
+  testWidgets('AuthLoginScreen flips Directionality per locale, no RTL overflow, AR+EN goldens', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Widget wrapLogin(Locale locale) => MaterialApp(
+      locale: locale,
+${localizationsBlock}
+      theme: buildTheme(),
+      home: const AuthLoginScreen(),
+    );
+
+    await tester.pumpWidget(wrapLogin(const Locale('en')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow or other error under EN/LTR');
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(Directionality.of(tester.element(find.byType(AuthLoginScreen))), TextDirection.ltr);
+    await expectLater(find.byType(AuthLoginScreen), matchesGoldenFile('goldens/l10n_login_en.png'));
+
+    await tester.pumpWidget(wrapLogin(const Locale('ar')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow or other error under AR/RTL');
+    expect(find.text('تسجيل الدخول'), findsOneWidget);
+    expect(Directionality.of(tester.element(find.byType(AuthLoginScreen))), TextDirection.rtl);
+    await expectLater(find.byType(AuthLoginScreen), matchesGoldenFile('goldens/l10n_login_ar.png'));
+  });`
+    : "";
+
   return `// [generated] generator=L10nTestGenerator template=l10n_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
@@ -329,6 +362,7 @@ ${fontLoader}
 ${swapTest}
 
 ${rtlTest}
+${loginRtlTest}
 }
 `;
 }

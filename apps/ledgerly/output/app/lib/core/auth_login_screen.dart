@@ -6,6 +6,7 @@ import 'package:rasheed_replica_ledgerly/core/components.dart';
 import 'package:rasheed_replica_ledgerly/core/theme.dart';
 import 'package:rasheed_replica_ledgerly/core/session.dart';
 import 'package:rasheed_replica_ledgerly/core/router.dart';
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 /// Demo login — one tappable AppListCard per persona (kPersonas from session.dart). Tapping
 /// signs the session in and navigates to that role's home route (kHomeRoutes from router.dart).
@@ -15,11 +16,11 @@ class AuthLoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(title: Text(AppStrings.of(context).signIn)),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          const Text('Choose a demo account', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(AppStrings.of(context).chooseDemoAccount, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: AppSpacing.sm),
           for (final p in kPersonas)
             Padding(

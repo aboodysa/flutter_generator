@@ -19,6 +19,8 @@ class AppStrings {
     'delete': 'Delete',
     'noData': 'No data',
     'newLabel': 'New',
+    'signIn': 'Sign in',
+    'chooseDemoAccount': 'Choose a demo account',
   };
 
   static const Map<String, String> _ar = <String, String>{
@@ -33,6 +35,8 @@ class AppStrings {
     'delete': 'حذف',
     'noData': 'لا توجد بيانات',
     'newLabel': 'جديد',
+    'signIn': 'تسجيل الدخول',
+    'chooseDemoAccount': 'اختر حساباً تجريبياً',
   };
 
   /// Resolves from the nearest Localizations ancestor (MaterialApp sets this up from its own
@@ -54,4 +58,6 @@ class AppStrings {
   String get delete => _values['delete']!;
   String get noData => _values['noData']!;
   String get newLabel => _values['newLabel']!;
+  String get signIn => _values['signIn']!;
+  String get chooseDemoAccount => _values['chooseDemoAccount']!;
 }
