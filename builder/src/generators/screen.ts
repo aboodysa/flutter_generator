@@ -431,7 +431,10 @@ ${rowsBlock}${splitBlock}${childRows}
     const moneyTypeNames = stepFieldDefs.some(isMoneyField) ? ["Money"] : [];
     wizardTypeImports = importsFromTypes([...enumTypeNames, ...moneyTypeNames], ctx).join("\n");
 
-    body = `            if (state.status == ${statusEnum}.success) return const Center(child: Text('All done!'));
+    // B1: `wizardStatus`, not `status` — state.ts's generateWizardState namespaces the wizard's
+    // internal flow-status field so it can't collide with an entity field the wizard also binds
+    // (e.g. a review step bound to the entity's own `status`).
+    body = `            if (state.wizardStatus == ${statusEnum}.success) return const Center(child: Text('All done!'));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

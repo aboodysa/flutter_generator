@@ -104,7 +104,8 @@
         },
         {
           "id": "review",
-          "title": "Review"
+          "title": "Review",
+          "field": "status"
         },
         {
           "id": "result",

@@ -278,8 +278,15 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
     return { name: fname, type: `${f ? fieldDartType(f) : "String"}?`, default: undefined };
   });
 
+  // B1: named `wizardStatus`, not `status` — a wizard step is free to bind the entity's own
+  // `status` field (stepFieldNames below would add a second `status` StateField alongside this
+  // one otherwise), which produced a duplicate_definition/duplicate_field_formal_parameter
+  // analyzer error in fieldDecl/ctorParam/copyWithParam/props. Namespacing this internal flow-
+  // status field removes the collision at the root instead of forbidding entity fields named
+  // `status` from ever being wizard-collected (work_auth.ir.json's review step had worked around
+  // it that way — restored to bind `status` again to prove this fix).
   const fields: StateField[] = [
-    { name: "status", type: "STATUS", default: "initial" },
+    { name: "wizardStatus", type: "STATUS", default: "initial" },
     { name: "currentStep", type: "int", default: "0" },
     ...stepStateFields,
     { name: "errorMessage", type: "String?", default: undefined },
@@ -288,7 +295,10 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
   const fieldDecl = (f: StateField) => `  final ${f.type === "STATUS" ? statusEnum : f.type} ${f.name};`;
   const ctorParam = (f: StateField) => {
     const t = f.type === "STATUS" ? statusEnum : f.type;
-    if (f.default !== undefined) return `    this.${f.name} = ${f.name === "status" ? `${statusEnum}.${f.default}` : f.default},`;
+    // B1: type-based (not name-based) — the wizard's flow-status field is `wizardStatus`, not
+    // `status`, so the default's enum-qualification has to key off the STATUS sentinel type
+    // rather than a hardcoded field name (which would silently stop firing after the rename).
+    if (f.default !== undefined) return `    this.${f.name} = ${f.type === "STATUS" ? `${statusEnum}.${f.default}` : f.default},`;
     if (t.endsWith("?")) return `    this.${f.name},`;
     return `    required this.${f.name},`;
   };
@@ -438,10 +448,10 @@ ${draftGetter}${canAdvanceGetter}${visibilityMembers}
     // No persistence target: building the entity would be a genuinely unused local
     // (`unused_local_variable`), so finish() just completes the flow.
     if (!entityModel || !(useUseCase && createUc)) {
-      return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    ${assign(`status: ${statusEnum}.success`)};\n  }`;
+      return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    ${assign(`wizardStatus: ${statusEnum}.success`)};\n  }`;
     }
     const persistCall = `    if (_${camelize(createUc.name)} != null) await _${camelize(createUc.name)}!.call(result);\n`;
-    return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    final result = ${entity}(\n${finishArgs}\n      );\n${persistCall}    ${assign(`status: ${statusEnum}.success`)};\n  }`;
+    return `  Future<void> finish() async {\n    if (!state.canAdvance) return;\n    final result = ${entity}(\n${finishArgs}\n      );\n${persistCall}    ${assign(`wizardStatus: ${statusEnum}.success`)};\n  }`;
   };
 
   const flowMethods = (assign: (expr: string) => string, useUseCase: boolean): string => `
