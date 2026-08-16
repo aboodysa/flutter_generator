@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 52,
+  "artifactCount": 56,
   "entries": [
     {
       "artifact": "enum:LeaveType",
@@ -469,6 +469,39 @@
       "class": "structural"
     },
     {
+      "artifact": "core:export",
+      "generator": "ExportCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/export.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:audit",
+      "generator": "AuditCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/audit.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:audit_log_screen",
+      "generator": "AuditLogScreenGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/audit_log_screen.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "core:session",
       "generator": "SessionGenerator",
       "schema": "core",
@@ -573,6 +606,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/back_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:audit",
+      "generator": "AuditTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/audit_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

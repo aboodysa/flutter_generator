@@ -9,13 +9,34 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 
 
+import 'package:rasheed_replica_hr_service/core/export.dart';
+import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_request.dart';
+
 class LeaveRequestListScreen extends StatelessWidget {
   const LeaveRequestListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Leave Requests')),
+      appBar: AppBar(title: const Text('Leave Requests'),
+      actions: [
+        IconButton(
+          tooltip: 'Export CSV',
+          icon: const Icon(Icons.download),
+          onPressed: () async {
+            final rows = context.read<LeaveRequestListCubit>().state.leaveRequests.map((item) => <String, dynamic>{'id': item.id, 'name': item.name, 'leaveType': item.leaveType.name, 'startDate': (item.startDate.toIso8601String().split('T').first), 'endDate': (item.endDate.toIso8601String().split('T').first), 'days': item.days.toString(), 'status': item.status.name, 'reason': item.reason ?? '—', 'exported': (item.exported ? 'yes' : 'no')}).toList();
+            final csv = toCsv(rows, const ['id', 'name', 'leaveType', 'startDate', 'endDate', 'days', 'status', 'reason', 'exported']);
+            for (final row in context.read<LeaveRequestListCubit>().state.leaveRequests) {
+              if (!row.exported) {
+                await context.read<LeaveRequestListCubit>().update(LeaveRequest(id: row.id, name: row.name, leaveType: row.leaveType, startDate: row.startDate, endDate: row.endDate, days: row.days, status: row.status, reason: row.reason, exported: true));
+              }
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported ${rows.length} rows to CSV (${csv.length} chars)')));
+            }
+          },
+        ),
+      ]),
       body: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
         builder: (context, state) {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();

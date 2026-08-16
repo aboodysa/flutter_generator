@@ -1,6 +1,6 @@
 import { RepositoryImplModel, RepositoryModel, OperationModel, OperationParam, EntityModel } from "../types";
 import { GenContext, variantSampleArgs, importsFromTypes } from "../dart";
-import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolveBudget } from "../operations";
+import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolveBudget, isAudited, exportLockedEntity } from "../operations";
 
 /**
  * RepositoryImplGenerator — structural, deterministic, 0% LLM.
@@ -22,6 +22,18 @@ import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolv
  * behavior only changes for apps whose IR opts into auth. Demo seed rows are cycled across the
  * auth personas' tenants so each demo account "owns" a subset — the first iPhone impression of
  * tenant isolation.
+ *
+ * L3 (audit): when the entity opts into `audited: true`, every create/update/delete also builds
+ * an AuditEvent (before/after snapshots via `${Entity}Model.fromEntity(e).toJson()`, actor from
+ * the signed-in Session) and appends it to the app-wide AuditLog — a compliance record of who
+ * changed what, independent of whether that entity is also export-locked.
+ *
+ * L3 (export immutability): when the entity is shown by a resolved `export:` list screen
+ * (operations.ts's exportLockedEntity), update/delete first check the row's own `exported` field —
+ * a row that's already been exported throws (StateError), the same "loud failure over silent wrong
+ * behavior" posture `[money]`/`[oracle]` hold elsewhere. The generated form's saveGuard is the
+ * primary defense (disables Save before the user can even attempt it); this is defense in depth
+ * against any other code path reaching the repo directly.
  */
 
 function paramStr(p: OperationParam): string {
@@ -90,6 +102,16 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
 
   const kinds = repo && entityName ? crudOperations(repo, entityName) : {};
   const scoped = ready && entity ? hasTenantScoping(ctx?.ir, entityName) : false;
+  // L3: audited (recordMutation on every CRUD write) and export-locked (reject a write once
+  // `exported == true`) are independent per-entity facts — an entity can be neither, either, or
+  // both. Both default false/undefined (no ctx.ir, e.g. a bare unit-test call site), so every
+  // existing call site without an IR stays on the pre-L3 code path unchanged.
+  const audited = ready && ctx?.ir ? isAudited(ctx.ir, entityName!) : false;
+  const exportLock = ready && ctx?.ir ? exportLockedEntity(ctx.ir, entityName!) : undefined;
+  // Session.actorId is String? even when isAuthenticated is true (Dart can't type-promote across
+  // two different getters) — `??` both satisfies the non-nullable `actor` param and covers the
+  // same "not signed in" fallback the isAuthenticated ternary would have.
+  const actorExpr = "Session.instance.actorId ?? 'system'";
   const implementedOps: OperationModel[] = [];
   const methods: string[] = [];
 
@@ -114,9 +136,19 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
     const paramName = kinds.create.params.find((p) => p.type === entityName)?.name ?? "item";
     const voidReturn = kinds.create.returns === "Future<void>";
     const stamped = scoped ? `_stampTenant(${paramName})` : paramName;
+    const auditAppend = audited
+      ? `    AuditLog.instance.append(recordMutation(\n` +
+        `      entity: '${entityName}',\n` +
+        `      entityId: ${stamped}.${identityField}.toString(),\n` +
+        `      action: 'create',\n` +
+        `      actor: ${actorExpr},\n` +
+        `      after: ${entityName}Model.fromEntity(${stamped}).toJson(),\n` +
+        `    ));\n`
+      : "";
     methods.push(
       `  @override\n  Future<${voidReturn ? "void" : entityName}> ${kinds.create.name}(${opSig(kinds.create)}) async {\n` +
       `    _items.add(${stamped});\n` +
+      auditAppend +
       (voidReturn ? `  }` : `    return ${stamped};\n  }`),
     );
   }
@@ -125,10 +157,37 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
     implementedOps.push(kinds.update);
     const paramName = kinds.update.params.find((p) => p.type === entityName)?.name ?? "item";
     const voidReturn = kinds.update.returns === "Future<void>";
+    // L3 (export immutability): checked BEFORE the write — a row already stamped `exported` can
+    // never be overwritten again, defense in depth behind the form's saveGuard (which is the
+    // primary defense: the user can't even reach Save on an exported record).
+    const exportGuard = exportLock
+      ? `    if (idx != -1 && _items[idx].exported == true) {\n` +
+        `      throw StateError('${entityName} \${_items[idx].${identityField}} is exported and immutable — corrections require void + clone, not edit.');\n` +
+        `    }\n`
+      : "";
+    // L3 (audit): the pre-write snapshot has to be captured before `_items[idx]` is overwritten.
+    const auditBefore = audited
+      ? `    final before = idx != -1 ? ${entityName}Model.fromEntity(_items[idx]).toJson() : null;\n`
+      : "";
+    const auditAppend = audited
+      ? `    if (idx != -1) {\n` +
+        `      AuditLog.instance.append(recordMutation(\n` +
+        `        entity: '${entityName}',\n` +
+        `        entityId: ${paramName}.${identityField}.toString(),\n` +
+        `        action: 'update',\n` +
+        `        actor: ${actorExpr},\n` +
+        `        before: before,\n` +
+        `        after: ${entityName}Model.fromEntity(${scoped ? `_stampTenant(${paramName})` : paramName}).toJson(),\n` +
+        `      ));\n` +
+        `    }\n`
+      : "";
     methods.push(
       `  @override\n  Future<${voidReturn ? "void" : entityName}> ${kinds.update.name}(${opSig(kinds.update)}) async {\n` +
       `    final idx = _items.indexWhere((e) => e.${identityField} == ${paramName}.${identityField}${scoped ? " && _inScope(e)" : ""});\n` +
+      exportGuard +
+      auditBefore +
       `    if (idx != -1) _items[idx] = ${scoped ? `_stampTenant(${paramName})` : paramName};\n` +
+      auditAppend +
       (voidReturn ? `  }` : `    return ${paramName};\n  }`),
     );
   }
@@ -136,9 +195,35 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
   if (ready && kinds.delete) {
     implementedOps.push(kinds.delete);
     const idParam = kinds.delete.params[0]?.name ?? "id";
+    const scopedCond = scoped ? " && _inScope(e)" : "";
+    // Only needed (and only emitted) when this delete must check export-lock or record an audit
+    // event — `removeWhere` alone never gives back a reference to what it removed.
+    const findExisting = exportLock || audited
+      ? `    final _matches = _items.where((e) => e.${identityField} == ${idParam}${scopedCond});\n` +
+        `    final _existing = _matches.isEmpty ? null : _matches.first;\n`
+      : "";
+    const exportGuard = exportLock
+      ? `    if (_existing != null && _existing.exported == true) {\n` +
+        `      throw StateError('${entityName} \${${idParam}} is exported and immutable — corrections require void + clone, not delete.');\n` +
+        `    }\n`
+      : "";
+    const auditAppend = audited
+      ? `    if (_existing != null) {\n` +
+        `      AuditLog.instance.append(recordMutation(\n` +
+        `        entity: '${entityName}',\n` +
+        `        entityId: ${idParam}.toString(),\n` +
+        `        action: 'delete',\n` +
+        `        actor: ${actorExpr},\n` +
+        `        before: ${entityName}Model.fromEntity(_existing).toJson(),\n` +
+        `      ));\n` +
+        `    }\n`
+      : "";
     methods.push(
       `  @override\n  Future<void> ${kinds.delete.name}(${opSig(kinds.delete)}) async {\n` +
+      findExisting +
+      exportGuard +
       `    _items.removeWhere((e) => e.${identityField} == ${idParam}${scoped ? " && _inScope(e)" : ""});\n` +
+      auditAppend +
       `  }`,
     );
   }
@@ -170,7 +255,11 @@ function buildImpl(implName: string, contract: string, ctx?: GenContext): string
     refTypes.push(op.returns);
     for (const p of op.params) refTypes.push(p.type);
   }
-  if (scoped) refTypes.push("Session");
+  if (scoped || audited) refTypes.push("Session");
+  // L3: `AuditLog` pulls in the whole core/audit.dart file (AuditEvent + recordMutation live
+  // there too, importsFromTypes only needs one name per file to resolve the import), and
+  // `${entityName}Model` is the data-layer JSON snapshot before/after captures from.
+  if (audited) refTypes.push("AuditLog", `${entityName}Model`);
   const entityImports = importsFromTypes(refTypes, ctx).join("\n");
 
   const methodBlock = methods.join("\n\n");

@@ -27,6 +27,14 @@
     "state": {
       "type": "string"
     },
+    "export": {
+      "enum": [
+        "csv",
+        "json",
+        "csv+json"
+      ],
+      "description": "L3: only meaningful on a \"list\" screen — adds an Export action; requires the shown entity to declare a bool field named 'exported'."
+    },
     "steps": {
       "type": "array",
       "items": {

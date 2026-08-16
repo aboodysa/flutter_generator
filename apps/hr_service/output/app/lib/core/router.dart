@@ -8,6 +8,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/scre
 import 'package:rasheed_replica_hr_service/features/hr_service/presentation/screens/leave_request_form_screen.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/presentation/screens/approval_form_screen.dart';
 import 'package:rasheed_replica_hr_service/core/auth_login_screen.dart';
+import 'package:rasheed_replica_hr_service/core/audit_log_screen.dart';
 
 final kHomeRoutes = <String, String>{
   'employee': '/leave-request',
@@ -16,7 +17,7 @@ final kHomeRoutes = <String, String>{
 
 const kAllowedRoutes = <String, List<String>>{
   'employee': ['/leave-request', '/approval'],
-  'hr_admin': ['/leave-request', '/approval'],
+  'hr_admin': ['/leave-request', '/approval', '/audit-log'],
 };
 
 String? guardPath(String path) {
@@ -46,5 +47,6 @@ final appRouter = GoRouter(
       GoRoute(path: '/leave-request', builder: (_, __) => const LeaveRequestListScreen()),
       GoRoute(path: '/leave-request/:id', builder: (_, __) => const LeaveRequestDetailScreen()),
       GoRoute(path: '/approval', builder: (_, __) => const ApprovalListScreen()),
+      GoRoute(path: '/audit-log', builder: (_, __) => const AuditLogScreen()),
   ],
 );

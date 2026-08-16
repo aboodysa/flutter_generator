@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -223,6 +223,18 @@ function flattenedEntities(ir: any): any[] {
   return [];
 }
 
+function flattenedScreens(ir: any): any[] {
+  if (Array.isArray(ir.screens)) return ir.screens;
+  if (Array.isArray(ir.features)) return ir.features.flatMap((f: any) => f.screens ?? []);
+  return [];
+}
+
+// L3: `audited: true` is declared inside entities[] (feature-local, not an app-level attribute
+// like budget), so it needs the same flattening treatment for the raw multi-feature IR shape.
+function flattenedIr(ir: any): any {
+  return { ...ir, entities: flattenedEntities(ir), screens: flattenedScreens(ir) };
+}
+
 // MF5: a declared `attributes.budget` must (a) resolve against a real entity + three actual Money
 // fields (operations.ts's resolveBudget — mirrors [split]'s per-group structural validity check)
 // and (b) actually emit core/budget.dart — mirrors [attachment]'s presence check. Deliberately no
@@ -246,6 +258,71 @@ function budgetCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// L3: every entity that opts into `audited: true` requires `attributes.auth` — an AuditEvent's
+// `actor` is the signed-in Session's actorId (repository_impl.ts), so an audited entity with no
+// real identity source would silently log a lie about who acted; types.ts's EntityModel.audited
+// doc comment states this as a hard requirement, not an implicit assumption. When resolved, the
+// app must actually emit core/audit.dart + core/audit_log_screen.dart — mirrors [attachment].
+function auditCheck(ir: any, files: string[]): string[] {
+  const flat = flattenedIr(ir);
+  if (!hasAudit(flat)) return [];
+  const issues: string[] = [];
+  const audited = auditedEntities(flat);
+  if (!hasAuth(flat)) {
+    const names = audited.map((e: any) => e.name).join(", ");
+    issues.push(
+      `[audit] entit${audited.length === 1 ? "y" : "ies"} '${names}' declare audited: true but the app has no attributes.auth — an audit event's actor requires a real signed-in identity`,
+    );
+  }
+  if (!files.some((f) => f.endsWith("/core/audit.dart"))) {
+    issues.push(`[audit] app has audited entities but generated output has no core/audit.dart (AuditEvent/recordMutation/AuditLog)`);
+  }
+  if (!files.some((f) => f.endsWith("/core/audit_log_screen.dart"))) {
+    issues.push(`[audit] app has audited entities but generated output has no core/audit_log_screen.dart (AuditLogScreen)`);
+  }
+  return issues;
+}
+
+// L3: every list screen that declares `export:` must resolve against a real `exported: bool`
+// field (operations.ts's resolveExport) — mirrors [split]'s categoryField requirement. When at
+// least one resolves, the app must emit core/export.dart. Also re-asserts, on the GENERATED
+// screen source, that no secret-typed field ever became an export column — defense in depth
+// behind exportableFields() already excluding them at generation time, same "prove it on the
+// output, don't just trust the generator" posture [money]/[tenant] already take.
+function exportCheck(ir: any, files: string[]): string[] {
+  const flat = flattenedIr(ir);
+  const declared = declaredExportScreens(flat);
+  if (!declared.length) return [];
+  const issues: string[] = [];
+  let anyResolved = false;
+  for (const screen of declared as any[]) {
+    const resolved = resolveExport(flat, screen);
+    if (!resolved) {
+      issues.push(
+        `[export] screen '${screen.name}' declares export: '${screen.export}' on entity '${screen.entity}' but that entity has no bool field named 'exported' — unverifiable`,
+      );
+      continue;
+    }
+    anyResolved = true;
+    const secretFields = resolved.entity.fields.filter((f: any) => f.secret);
+    if (secretFields.length) {
+      const screenFile = files.find((f) => f.endsWith(`/${fileName(screen.name)}`));
+      if (screenFile) {
+        const src = fs.readFileSync(screenFile, "utf8");
+        for (const sf of secretFields) {
+          if (new RegExp(`'${sf.name}':`).test(src)) {
+            issues.push(`[export] ${screenFile}: secret-typed field '${sf.name}' appears in an export row — must be excluded`);
+          }
+        }
+      }
+    }
+  }
+  if (anyResolved && !files.some((f) => f.endsWith("/core/export.dart"))) {
+    issues.push(`[export] app has a resolved export screen but generated output has no core/export.dart (toCsv/toJson)`);
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -262,6 +339,8 @@ export interface ValidationResult {
   auth: number;      // count of auth-guard markers missing from a declared-auth app's router (MF2)
   attachment: number; // count of attachment-capable apps missing core/attachment.dart (MF3)
   budget: number;    // count of budget-declaration issues: unresolved entity/fields, or missing core/budget.dart (MF5)
+  audit: number;     // count of audit issues: audited entity with no auth, or missing core/audit.dart|audit_log_screen.dart (L3)
+  exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   files: number;
   issues: string[];
 }
@@ -353,7 +432,20 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...budgetIssues);
   const budget = budgetIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, files: files.length, issues };
+  // Audit log (L3): every audited entity requires attributes.auth; a resolved audit trail must
+  // emit core/audit.dart + core/audit_log_screen.dart.
+  const auditIssues = auditCheck(ir, files);
+  issues.push(...auditIssues);
+  const audit = auditIssues.length;
+
+  // Export (L3): every declared export must resolve to a real `exported: bool` field, no
+  // secret-typed field may appear in an export row, and a resolved export must emit
+  // core/export.dart.
+  const exportIssues = exportCheck(ir, files);
+  issues.push(...exportIssues);
+  const exportGate = exportIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, audit, exportGate, files: files.length, issues };
 }
 
 function main() {
@@ -375,7 +467,9 @@ function main() {
   console.log(`[auth] ${r.auth === 0 ? "PASS" : "FAIL (" + r.auth + ")"}`);
   console.log(`[attachment] ${r.attachment === 0 ? "PASS" : "FAIL (" + r.attachment + ")"}`);
   console.log(`[budget] ${r.budget === 0 ? "PASS" : "FAIL (" + r.budget + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget > 0;
+  console.log(`[audit] ${r.audit === 0 ? "PASS" : "FAIL (" + r.audit + ")"}`);
+  console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget + r.audit + r.exportGate > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

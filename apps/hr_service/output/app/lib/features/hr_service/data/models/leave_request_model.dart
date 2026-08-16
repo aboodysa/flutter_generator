@@ -14,6 +14,7 @@ class LeaveRequestModel {
     required this.days,
     required this.status,
     this.reason,
+    required this.exported,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class LeaveRequestModel {
   final int days;
   final LeaveStatus status;
   final String? reason;
+  final bool exported;
 
   factory LeaveRequestModel.fromJson(Map<String, dynamic> json) => LeaveRequestModel(
       id: json['id'] as String,
@@ -34,6 +36,7 @@ class LeaveRequestModel {
       days: json['days'] as int,
       status: LeaveStatus.values.byName(json['status'] as String),
       reason: json['reason'] as String?,
+      exported: json['exported'] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -45,6 +48,7 @@ class LeaveRequestModel {
       'days': days,
       'status': status.name,
       'reason': reason,
+      'exported': exported,
   };
 
   LeaveRequest toEntity() => LeaveRequest(
@@ -56,6 +60,7 @@ class LeaveRequestModel {
     days: days,
     status: status,
     reason: reason,
+    exported: exported,
   );
 
   factory LeaveRequestModel.fromEntity(LeaveRequest e) => LeaveRequestModel(
@@ -67,5 +72,6 @@ class LeaveRequestModel {
     days: e.days,
     status: e.status,
     reason: e.reason,
+    exported: e.exported,
   );
 }

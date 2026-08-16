@@ -29,7 +29,8 @@
           "ExpenseClaim",
           "Approval",
           "User",
-          "MealBudget"
+          "MealBudget",
+          "AuditLog"
         ]
       }
     },
@@ -144,6 +145,7 @@
           "identity": {
             "field": "id"
           },
+          "audited": true,
           "fields": [
             {
               "name": "id",
@@ -172,6 +174,13 @@
               "nullable": false,
               "of": "ClaimStatus",
               "default": "pending"
+            },
+            {
+              "name": "exported",
+              "type": "bool",
+              "required": true,
+              "nullable": false,
+              "default": false
             }
           ]
         }
@@ -232,7 +241,8 @@
           "name": "ExpenseClaimListScreen",
           "entity": "ExpenseClaim",
           "type": "list",
-          "state": "ExpenseClaimList"
+          "state": "ExpenseClaimList",
+          "export": "csv"
         },
         {
           "name": "ExpenseClaimDetailScreen",

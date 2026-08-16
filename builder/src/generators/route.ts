@@ -2,7 +2,7 @@ import { FeatureModel } from "../types";
 import { PkgContext, kebab } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { screenPath } from "../routing";
-import { crudFormTargets, crudFormScreenName, hasAuth, authOf, authRoles } from "../operations";
+import { crudFormTargets, crudFormScreenName, hasAuth, authOf, authRoles, hasAudit } from "../operations";
 
 /**
  * RouteGenerator — structural, deterministic, 0% LLM.
@@ -50,11 +50,15 @@ export function generateRoutes(feature: FeatureModel, ctx?: PkgContext, decision
     ].join("\n");
   });
 
+  // L3: the audit log is app-level (not tied to any entity's own screen), so it's a bespoke static
+  // route the same way `/login` is below — no collision risk (fully static, no dynamic segment).
+  const auditRoute = hasAudit(feature) ? [`      GoRoute(path: '/audit-log', builder: (_, __) => const AuditLogScreen()),`] : [];
+
   // Form routes first: `/task/new` (static) must be registered before `/task/:id` (detail,
   // dynamic) so go_router matches the literal segment rather than capturing "new" as an :id.
-  const routes = [...formRoutes, ...screenRoutes].join("\n");
+  const routes = [...formRoutes, ...screenRoutes, ...auditRoute].join("\n");
 
-  const names = [...screens.map((s) => s.name), ...formTargets.map((t) => crudFormScreenName(t.entity)), ...(hasAuth(feature) ? ["AuthLoginScreen"] : [])];
+  const names = [...screens.map((s) => s.name), ...formTargets.map((t) => crudFormScreenName(t.entity)), ...(hasAuth(feature) ? ["AuthLoginScreen"] : []), ...(hasAudit(feature) ? ["AuditLogScreen"] : [])];
   const imports = names
     .map((n) => (ctx?.symbols.get(n) ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(n)}';` : `import '${n.toLowerCase()}.dart';`))
     .join("\n");

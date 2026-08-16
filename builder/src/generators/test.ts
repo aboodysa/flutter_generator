@@ -1,10 +1,11 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget } from "../operations";
-import { kebab, collectionField, camelize, fieldLabel } from "../naming";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations } from "../operations";
+import { kebab, collectionField, camelize, fieldLabel, fileName } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
+import { GenContext } from "../gen_context";
 
 // MF2: shared auth-aware test plumbing. The router boots to /login when unauthenticated (route.ts's
 // guardPath), so the app-boot regression tests MUST sign in before pumping the real ReplicaApp.
@@ -1035,6 +1036,148 @@ void main() {
     expect(line.remaining.minorUnits, 42000, reason: 'remainingAfter must not mutate the original line');
   });
 }
+`;
+}
+
+/**
+ * AuditTestGenerator — structural, deterministic, 0% LLM (L3).
+ * Covers three independent pieces, only emitting the sections that apply:
+ *  1. core/audit.dart (when hasAudit): recordMutation stamps every field; AuditLog is append-only
+ *     (its `events` getter is an unmodifiable snapshot, not just "please don't mutate this").
+ *  2. core/export.dart (when hasExport): toCsv quotes/escapes per RFC 4180; the header-driven
+ *     shape itself proves secret exclusion (a key never in `headers` never appears in the output —
+ *     the mechanism screen.ts's exportableFields() relies on, tested here entity-agnostically).
+ *  3. Immutability (when a resolved export screen exists): the stash-proofed case — a repo update
+ *     on an already-exported row throws. This one IS entity-specific (it drives the first resolved
+ *     export-locked entity's real generated repository impl), unlike 1/2 which stay generic.
+ */
+export function generateAuditTest(feature: FeatureModel, ctx?: GenContext): string | null {
+  const audited = hasAudit(feature);
+  const exportResolved = resolvedExportScreens(feature);
+  if (!audited && !exportResolved.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  const auditTests = audited
+    ? `
+  test('recordMutation stamps who/what/before/after/reason/at', () {
+    final event = recordMutation(
+      entity: 'Widget',
+      entityId: 'w-1',
+      action: 'update',
+      actor: 'user-1',
+      before: {'status': 'draft'},
+      after: {'status': 'submitted'},
+      reason: 'submitted for review',
+    );
+    expect(event.entity, 'Widget');
+    expect(event.entityId, 'w-1');
+    expect(event.action, 'update');
+    expect(event.actor, 'user-1');
+    expect(event.before, {'status': 'draft'});
+    expect(event.after, {'status': 'submitted'});
+    expect(event.reason, 'submitted for review');
+    expect(event.timestamp, isA<DateTime>());
+    expect(event.id, isNotEmpty);
+  });
+
+  test('AuditLog is append-only: events() is an unmodifiable snapshot', () {
+    final log = AuditLog.instance;
+    final before = log.events.length;
+    log.append(recordMutation(entity: 'Widget', entityId: 'w-2', action: 'create', actor: 'user-1', after: {'status': 'draft'}));
+    expect(log.events.length, before + 1, reason: 'append must be reflected');
+    expect(
+      () => log.events.add(recordMutation(entity: 'Widget', entityId: 'w-3', action: 'create', actor: 'user-1')),
+      throwsUnsupportedError,
+      reason: 'events() must return an unmodifiable list — there is no way to un-append an event',
+    );
+  });
+`
+    : "";
+
+  const exportTests = exportResolved.length
+    ? `
+  test('toCsv quotes/escapes commas, quotes, and embedded newlines (RFC 4180)', () {
+    final rows = [
+      {'name': 'Simple', 'note': 'plain'},
+      {'name': 'Has, comma', 'note': 'plain'},
+      {'name': 'Has "quotes"', 'note': 'plain'},
+      {'name': 'Has\\nnewline', 'note': 'plain'},
+    ];
+    final csv = toCsv(rows, const ['name', 'note']);
+    final lines = csv.split('\\n');
+    expect(lines[0], 'name,note');
+    expect(lines[2], '"Has, comma",plain');
+    expect(lines[3], '"Has ""quotes""",plain');
+    expect(csv.contains('"Has\\nnewline",plain'), isTrue);
+  });
+
+  test('toCsv only ever includes the caller-declared headers — a key left out of headers never leaks', () {
+    // Mirrors how screen.ts's export button builds headers from exportableFields(), which already
+    // excludes secret-typed fields — this proves the MECHANISM generically: toCsv has no way to
+    // surface a row key that isn't in the caller-declared header list.
+    final rows = [
+      {'name': 'Alice', 'ssn': '123-45-6789'},
+    ];
+    final csv = toCsv(rows, const ['name']);
+    expect(csv.contains('123-45-6789'), isFalse);
+    expect(csv.contains('Alice'), isTrue);
+  });
+
+  test('toJson renders the same rows as a JSON array', () {
+    final rows = [
+      {'name': 'Alice', 'age': 30},
+    ];
+    final json = toJson(rows);
+    expect(jsonDecode(json), [
+      {'name': 'Alice', 'age': 30},
+    ]);
+  });
+`
+    : "";
+
+  // Immutability (the stash-proofed case): drives the first resolved export-locked entity's real
+  // generated repository impl directly (not via the barrel — an auto `${repo}InMemoryImpl` with no
+  // declared repositoryImpls entry isn't barrel-exported, see project.ts's generateBarrel).
+  let immutabilityTest = "";
+  let repoImport = "";
+  const target = exportResolved[0];
+  const repo = target ? findRepoForEntity(feature.repositories, target.entity.name) : undefined;
+  const kinds = repo && target ? crudOperations(repo, target.entity.name) : undefined;
+  if (target && repo && kinds?.list && kinds?.update) {
+    const declaredImpl = (feature.repositoryImpls ?? []).find((ri) => ri.contract === repo.name);
+    const implName = declaredImpl ? declaredImpl.name : `${repo.name}InMemoryImpl`;
+    const entity = target.entity;
+    const reconstruct = entity.fields
+      .map((f) => (f.name === target.exportedField.name ? "exported: true" : `${f.name}: original.${f.name}`))
+      .join(", ");
+    // `feature.name` is wrong for the multi-feature merged IR (it's the APP name, not the owning
+    // feature's own name the repo impl actually lives under) — ctx.symbols is per-feature-path-
+    // aware (built by accumulating each feature's own buildSymbols(f) call) and resolves correctly
+    // for both shapes; fall back to feature.name only for the single-feature/no-ctx case where
+    // they're the same thing anyway.
+    const implPath = ctx?.symbols.get(implName) ?? `features/${feature.name}/data/repositories/${fileName(implName)}`;
+    repoImport = `import 'package:${pkg}/${implPath}';\n`;
+    immutabilityTest = `
+  test('a repo update on an already-exported ${entity.name} row throws (immutability)', () async {
+    final repo = ${implName}();
+    final items = await repo.${kinds.list.name}();
+    final original = items.first;
+    final exported = ${entity.name}(${reconstruct});
+    await repo.${kinds.update.name}(exported); // not-yet-exported -> exported: allowed
+    expect(repo.${kinds.update.name}(exported), throwsA(isA<StateError>()), reason: 'already-exported rows are immutable — corrections require void + clone');
+  });
+`;
+  }
+
+  const needsConvert = exportResolved.length > 0;
+
+  return `// [generated] generator=AuditTestGenerator template=audit_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+${needsConvert ? "import 'dart:convert';\n" : ""}import 'package:${pkg}/generated.dart';
+${repoImport}
+void main() {${auditTests}${exportTests}${immutabilityTest}}
 `;
 }
 

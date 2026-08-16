@@ -22,6 +22,12 @@ export interface Field {
   // all special-case `semanticType === "Money"` into the generated `Money` value object (integer
   // minor units + this code), before the generic single-primitive VO fallback ever runs.
   currency?: string;
+  // L3: marks a field as holding sensitive data (SSN, salary, card number, ...) — export.ts's
+  // header-building excludes it from any CSV/JSON export regardless of `export:` being set on the
+  // list screen; the `[export]` gate re-asserts this on the generated output. Explicit marker, not
+  // a name-pattern guess (same reasoning `semanticType: "Money"` is explicit, not inferred from a
+  // field named "amount") — additive, absent = not secret (today's behavior, byte-identical).
+  secret?: boolean;
 }
 
 export interface EntityModel {
@@ -30,6 +36,12 @@ export interface EntityModel {
   fields: Field[];
   equality?: "identity" | "full" | "none";
   immutability?: boolean;
+  // L3: this entity's create/update/delete mutations are recorded to the app-wide audit log
+  // (core/audit.dart's AuditLog). Additive — absent = no audit trail, byte-identical output.
+  // Requires `attributes.auth` (an audit entry's `actor` is the signed-in Session's actorId; an
+  // audit log without a real identity source is a compliance feature that lies about who acted) —
+  // enforced by the `[audit]` gate, not silently assumed.
+  audited?: boolean;
 }
 
 export interface EnumModel {
@@ -224,6 +236,12 @@ export interface ScreenModel {
   state: string; // state/cubit name
   hero?: string; // optional: field name or headline to render as the screen's focal point
   steps?: WizardStep[]; // P8-W1: only meaningful when type === "wizard" (composition archetype "wizard")
+  // L3: only meaningful on a "list" screen. Adds an Export action that computes CSV/JSON of the
+  // currently-listed rows (core/export.dart's toCsv/toJson) and stamps them `exported: true` —
+  // after which the immutability rule blocks further edits (form saveGuard + repo-impl reject).
+  // Requires the shown entity to declare a `bool` field literally named `exported` — enforced by
+  // the `[export]` gate (mirrors [split]'s categoryField requirement), not silently ignored.
+  export?: "csv" | "json" | "csv+json";
 }
 
 // P8-W3: an inline branching condition — `field` names an entity/step field, compared against a

@@ -15,6 +15,7 @@ class LeaveRequest extends Equatable {
     required this.days,
     required this.status,
     this.reason,
+    required this.exported,
   });
 
   final String id;
@@ -25,7 +26,8 @@ class LeaveRequest extends Equatable {
   final int days;
   final LeaveStatus status;
   final String? reason;
+  final bool exported;
 
   @override
-  List<Object?> get props => [id, name, leaveType, startDate, endDate, days, status, reason];
+  List<Object?> get props => [id, name, leaveType, startDate, endDate, days, status, reason, exported];
 }

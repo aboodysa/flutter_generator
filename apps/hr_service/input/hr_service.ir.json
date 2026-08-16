@@ -19,7 +19,8 @@
         ],
         "hr_admin": [
           "LeaveRequest",
-          "Approval"
+          "Approval",
+          "AuditLog"
         ]
       }
     }
@@ -48,6 +49,7 @@
       "identity": {
         "field": "id"
       },
+      "audited": true,
       "fields": [
         {
           "name": "id",
@@ -100,6 +102,13 @@
           "type": "String",
           "required": false,
           "nullable": true
+        },
+        {
+          "name": "exported",
+          "type": "bool",
+          "required": true,
+          "nullable": false,
+          "default": false
         }
       ]
     },
@@ -281,7 +290,8 @@
       "name": "LeaveRequestListScreen",
       "entity": "LeaveRequest",
       "type": "list",
-      "state": "LeaveRequestList"
+      "state": "LeaveRequestList",
+      "export": "csv"
     },
     {
       "name": "LeaveRequestDetailScreen",

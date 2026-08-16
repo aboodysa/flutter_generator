@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -268,6 +268,12 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // MF5: budget_test.dart's generated cases reference BudgetLine directly — same reasoning as
   // Money/SplitLine/ReceiptAttachment.
   if (resolveBudget(feature)) names.push("BudgetLine");
+  // L3: audit_test.dart's generated cases reference AuditEvent/AuditLog/recordMutation and
+  // toCsv/toJson directly — one representative name per file (AuditEvent/recordMutation also
+  // resolve to core/audit.dart; pushing all three would produce duplicate_export lines, same
+  // pitfall the attachment comment above already documents).
+  if (hasAudit(feature)) names.push("AuditLog");
+  if (hasExport(feature)) names.push("toCsv");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

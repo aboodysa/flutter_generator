@@ -1,6 +1,6 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -481,6 +481,14 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   // MF4: split section inline on the form — see splitWiring()'s own doc comment. Empty for any
   // entity with no split group.
   const split = splitWiring(entity, ctx);
+  // L3: immutability-after-export, primary defense — Save is disabled the instant the record
+  // being edited is already exported (`widget.initial` is null on create, so a brand-new record
+  // is never affected). Repository_impl.ts's throw on an exported-row update is the secondary,
+  // defense-in-depth check for any path that reaches the repo without going through this form.
+  const exportLock = ctx?.ir ? exportLockedEntity(ctx.ir, entity.name) : undefined;
+  const exportGuard = exportLock
+    ? `widget.initial?.${exportLock.exportedField.name} == true\n                ? null\n                : `
+    : "";
 
   const queryParamsCtorArg = hasRelation ? ", required this.queryParams" : "";
   const queryParamsField = hasRelation ? "  final Map<String, String> queryParams;\n" : "";
@@ -528,7 +536,7 @@ ${fieldWidgets}
 ${policy.panelCall}${split.panelCall}          const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',
-            onPressed: ${policy.saveGuard}${split.saveGuard}() async {
+            onPressed: ${policy.saveGuard}${split.saveGuard}${exportGuard}() async {
               final item = ${policy.itemExpr};
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).

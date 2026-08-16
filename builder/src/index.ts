@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,12 +36,15 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
 import { generateAttachmentCore } from "./generators/attachment";
 import { generateBudgetCore } from "./generators/budget";
+import { generateAuditCore } from "./generators/audit";
+import { generateExportCore } from "./generators/export";
+import { generateAuditLogScreen } from "./generators/audit_log_screen";
 import { generateSession, generateAuthLoginScreen } from "./generators/auth";
 
 /**
@@ -138,6 +141,19 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (resolveBudget(ir)) {
     core.push(["budget.dart", generateBudgetCore()]);
   }
+  // L3: gated on hasExport succeeding (>=1 list screen's `export:` resolves against a real
+  // `exported: bool` field), same defensive posture as budget — a declared-but-unresolved export
+  // emits nothing here and is reported by validate.ts's [export] gate instead.
+  if (hasExport(ir)) {
+    core.push(["export.dart", generateExportCore()]);
+  }
+  // L3: gated on hasAudit (>=1 entity opts into `audited: true`). AuditLogScreen is app-level
+  // (like session.dart/auth_login_screen.dart below) since it aggregates across every audited
+  // entity regardless of which feature declared it.
+  if (hasAudit(ir)) {
+    core.push(["audit.dart", generateAuditCore()]);
+    core.push(["audit_log_screen.dart", generateAuditLogScreen(ir, ctx)]);
+  }
   // MF2: auth is app-level state, not a feature's domain. session.dart (Persona + Session
   // singleton + kPersonas list) and auth_login_screen.dart (persona-picker login) are emitted
   // once per app, next to the rest of core — non-auth apps stay byte-identical (the guards above
@@ -162,6 +178,9 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "split.dart": "SplitCoreGenerator",
     "attachment.dart": "AttachmentCoreGenerator",
     "budget.dart": "BudgetCoreGenerator",
+    "export.dart": "ExportCoreGenerator",
+    "audit.dart": "AuditCoreGenerator",
+    "audit_log_screen.dart": "AuditLogScreenGenerator",
     "session.dart": "SessionGenerator",
     "auth_login_screen.dart": "AuthLoginScreenGenerator",
   };
@@ -236,7 +255,7 @@ function writeWebScaffold(outDir: string, pkg: string): string[] {
 // navigational relationship. generateWidgetTest/generateUnitTest/generateGoldenTest don't have
 // this problem (they only ever look at `entities[0]`/`screens[0]`, which for a merged model is
 // already feature[0]'s own — no scoping needed there).
-function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string, flowTestScope: FeatureModel = ir): { files: string[]; planEntries: PlanEntry[] } {
+function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string, flowTestScope: FeatureModel = ir, ctx?: GenContext): { files: string[]; planEntries: PlanEntry[] } {
   fs.mkdirSync(testDir, { recursive: true });
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -372,6 +391,21 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:budget", generator: "BudgetTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // L3 regression guard — recordMutation stamps who/what/before/after/reason/at, AuditLog is
+  // append-only, toCsv/toJson quote/escape and stay row-shape-agnostic, and — the stash-proofed
+  // case — a repo mutation on an already-exported row throws. References AuditEvent/AuditLog/
+  // toCsv/toJson directly via the generated.dart barrel, so dropping core/audit.dart or
+  // core/export.dart fails to compile the test.
+  const auditTest = generateAuditTest(ir, ctx);
+  if (auditTest) {
+    const f = path.join(testDir, "audit_test.dart");
+    fs.writeFileSync(f, auditTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:audit", generator: "AuditTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -731,7 +765,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   files.push(...writeWebScaffold(outDir, pkg));
   const testDir = path.join(outDir, "test");
-  const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg);
+  const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg, ir, ctx);
   files.push(...testsResult.files);
   planEntries.push(...testsResult.planEntries);
   planEntries.push(
@@ -881,7 +915,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // scope must see app-level auth that feature[0] itself doesn't carry. For non-auth apps
   // app.attributes carries no `auth` either way, so hasAuth()==false and output is unchanged.
   const flowTestScope: FeatureModel = { ...app.features[0]!, name: app.name, attributes: app.attributes };
-  const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope);
+  const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope, ctx);
   files.push(...testsResult.files);
   planEntries.push(...testsResult.planEntries);
   planEntries.push(

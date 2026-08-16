@@ -303,6 +303,79 @@ export function resolveBudget(ir: FeatureModel): ResolvedBudget | undefined {
   return { model, entity, limitField, committedField, actualField, scopeField: budgetScopeField(entity) };
 }
 
+// L3: audit log — a per-entity opt-in (`EntityModel.audited`), not an app-wide `attributes.audit`
+// toggle (types.ts's doc comment explains why: a real audit trail is selective by design — Ledgerly
+// wants ExpenseClaim/Approval mutations logged, not User; auditing every entity indiscriminately
+// would drown the compliance-relevant signal in noise). Mirrors hasMoneyFields/hasSplitGroups above:
+// a single source of truth every generator (index.ts's core-file gate, repository_impl.ts's
+// recordMutation hook, route.ts's /audit-log route, validate.ts's [audit] gate) shares.
+export function auditedEntities(ir: FeatureModel): EntityModel[] {
+  return (ir.entities ?? []).filter((e) => e.audited === true);
+}
+
+export function hasAudit(ir: FeatureModel): boolean {
+  return auditedEntities(ir).length > 0;
+}
+
+export function isAudited(ir: FeatureModel, entityName: string): boolean {
+  return auditedEntities(ir).some((e) => e.name === entityName);
+}
+
+// L3: export — the fields a CSV/JSON export ever includes: every scalar field EXCEPT `secret:
+// true` ones (types.ts's doc comment) and non-scalar `reference`/`List` fields (there is no
+// single-cell CSV representation for those, and JSON export stays a flat row shape to match CSV
+// 1:1 rather than silently branching into a richer nested shape for one format only).
+export function exportableFields(entity: EntityModel): Field[] {
+  return entity.fields.filter((f) => !f.secret && f.type !== "reference" && f.type !== "List");
+}
+
+export interface ResolvedExport {
+  screen: ScreenModel;
+  entity: EntityModel;
+  exportedField: Field;
+}
+
+// Resolves a `export:`-declared list screen against the entity it shows — undefined (never a
+// throw) when the entity doesn't actually declare the `bool` field named `exported` the
+// immutability rule needs somewhere to stamp, so a malformed declaration fails validate.ts's
+// [export] gate loudly instead of the export button silently having nowhere to write the flag.
+// Mirrors resolveBudget's defensive-resolution posture exactly.
+export function resolveExport(ir: FeatureModel, screen: ScreenModel): ResolvedExport | undefined {
+  if (!screen.export) return undefined;
+  const entity = (ir.entities ?? []).find((e) => e.name === screen.entity);
+  if (!entity) return undefined;
+  const exportedField = entity.fields.find((f) => f.name === "exported" && f.type === "bool");
+  if (!exportedField) return undefined;
+  return { screen, entity, exportedField };
+}
+
+// Every screen that DECLARES `export:` (used by validate.ts's [export] gate, which must flag a
+// declared-but-unresolved export separately from "no export declared at all").
+export function declaredExportScreens(ir: FeatureModel): ScreenModel[] {
+  return (ir.screens ?? []).filter((s) => !!s.export);
+}
+
+// Every screen whose `export:` actually resolves (used to gate core/export.dart emission and the
+// UI's export-button wiring — same "emit nothing on a malformed declaration" posture as budget).
+export function resolvedExportScreens(ir: FeatureModel): ResolvedExport[] {
+  return declaredExportScreens(ir)
+    .map((s) => resolveExport(ir, s))
+    .filter((r): r is ResolvedExport => !!r);
+}
+
+export function hasExport(ir: FeatureModel): boolean {
+  return resolvedExportScreens(ir).length > 0;
+}
+
+// Whether an entity is import-locked-after-export — i.e. some resolved export screen shows it, so
+// its repository impl must refuse to mutate a row once `exported == true` (repository_impl.ts) and
+// its generated form must disable Save on an already-exported record (crud_form.ts). An entity can
+// be export-locked without being audited, and vice versa — orthogonal L3 capabilities composed on
+// the same entity in the common case (a compliance record usually wants both), never coupled.
+export function exportLockedEntity(ir: FeatureModel, entityName: string): ResolvedExport | undefined {
+  return resolvedExportScreens(ir).find((r) => r.entity.name === entityName);
+}
+
 // The split child's own generated list-state name (if it declares one via `states`) — used to
 // (a) provide its Cubit app-wide (project.ts's generateMain/generateMultiMain, since the split
 // child deliberately has no `screens` entry and would otherwise never appear in the app's own

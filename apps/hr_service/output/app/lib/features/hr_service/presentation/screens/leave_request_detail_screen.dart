@@ -9,6 +9,7 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 
 
+
 class LeaveRequestDetailScreen extends StatelessWidget {
   const LeaveRequestDetailScreen({super.key});
 
@@ -66,6 +67,11 @@ class LeaveRequestDetailScreen extends StatelessWidget {
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Reason', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.reason ?? '—', style: Theme.of(context).textTheme.bodyMedium),
+              ]),
+              const SizedBox(height: 4.0),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Exported', style: Theme.of(context).textTheme.bodySmall),
+                Text((item.exported ? 'yes' : 'no'), style: Theme.of(context).textTheme.bodyMedium),
               ]),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),

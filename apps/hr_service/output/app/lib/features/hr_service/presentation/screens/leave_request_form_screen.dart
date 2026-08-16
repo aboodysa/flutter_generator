@@ -56,6 +56,7 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
   final _reason = TextEditingController();
   LeaveType _leaveType = LeaveType.values.first;
   LeaveStatus _status = LeaveStatus.values.first;
+  bool _exported = false;
   final _nameFocus = FocusNode();
 
 
@@ -71,6 +72,7 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
     _days.text = i?.days.toString() ?? '';
     if (i != null) _status = i.status;
     _reason.text = i?.reason ?? '';
+    if (i != null) _exported = i.exported;
 
   }
 
@@ -106,10 +108,13 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
         TextField(controller: _days, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Days')),
         Wrap(spacing: AppSpacing.sm, children: LeaveStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
         TextField(controller: _reason, decoration: const InputDecoration(labelText: 'Reason')),
+        CheckboxListTile(title: const Text('Exported'), value: _exported, onChanged: (v) => setState(() => _exported = v ?? false)),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',
-            onPressed: () async {
+            onPressed: widget.initial?.exported == true
+                ? null
+                : () async {
               final item = LeaveRequest(
         id: widget.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         name: _name.text,
@@ -119,6 +124,7 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
         days: (int.tryParse(_days.text) ?? 0),
         status: _status,
         reason: (_reason.text.isEmpty ? null : _reason.text),
+        exported: _exported,
               );
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).

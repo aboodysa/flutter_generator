@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -204,6 +204,11 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const budgetLineExpr = (item: string) =>
     `BudgetLine(scope: ${item}.${resolvedBudget!.scopeField?.name ?? identityField}, limit: ${item}.${resolvedBudget!.limitField.name}, committed: ${item}.${resolvedBudget!.committedField.name}, actual: ${item}.${resolvedBudget!.actualField.name})`;
 
+  // L3: this screen's `export:` resolves against a real `exported: bool` field — see the export
+  // button construction near appBarActions below. No-op for every screen this capability doesn't
+  // touch (undeclared export, unresolved declaration, or a non-"list" screen type).
+  const resolvedExport = ctx?.ir ? resolveExport(ctx.ir, s) : undefined;
+
   // §5.2-F1: create/edit/delete affordances, gated on what the entity's repository actually
   // supports (crudFormTargets is the single source shared with route.ts/index.ts/symbols.ts).
   const crudTarget = ctx?.ir ? crudFormTargets(ctx.ir).get(s.entity) : undefined;
@@ -238,6 +243,23 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
     ? (ctx?.symbols.get("BudgetLine")
         ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get("BudgetLine")}';`
         : "import '../../core/budget.dart';")
+    : "";
+  // L3: toCsv/toJson import — importsFromTypes only resolves capitalized type references, and
+  // core/export.dart has none (both exported functions are lowercase), so this needs a manual
+  // import line the same way budgetImport/splitStateImport do. Also imports the entity TYPE
+  // itself — every other reference to `item` in this file is inferred (property access needs no
+  // import), but the export button's stamping loop is the first place a list screen ever writes
+  // the bare `${Entity}(...)` constructor, which Dart does require an import for. Leading "\n"
+  // folded into each value (not a separate template line) so a non-export screen's import block
+  // gains zero extra blank lines — the same byte-identical-when-unused guarantee every other
+  // L3/MF5 hook keeps.
+  const exportImport = resolvedExport && s.type === "list"
+    ? "\n" +
+      (ctx?.symbols.get("toCsv") ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get("toCsv")}';` : "import '../../core/export.dart';") +
+      "\n" +
+      (ctx?.symbols.get(resolvedExport.entity.name)
+        ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(resolvedExport.entity.name)}';`
+        : `import '../domain/entities/${resolvedExport.entity.name.toLowerCase()}.dart';`)
     : "";
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
@@ -559,6 +581,46 @@ ${heroBlock}
   // and the nested BlocBuilder/Builder body can use it (§5.2-F1).
   const preBuild = comp.layout === "detail" ? `    final id = GoRouterState.of(context).pathParameters['id'];\n` : "";
 
+  // L3: export action(s) on a list screen whose `export:` resolves against a real `exported: bool`
+  // field (operations.ts's resolveExport) — bloc-only this iteration, same documented-gap posture
+  // MF4's split-breakdown block already takes ("no current sample combines riverpod with X").
+  // Each button (a) computes CSV/JSON of the CURRENTLY listed rows via the field-aware `fieldValue`
+  // expressions already used for on-screen rendering (Money → .format(), enum → .name, ...), (b)
+  // stamps every not-yet-exported row `exported: true` through the existing update() Cubit method
+  // (no new repo/usecase surface — reuses §5.2-F1's CRUD machinery), guarding already-exported rows
+  // so a second click is a safe no-op instead of hitting repository_impl.ts's immutability throw.
+  const exportButtons: string[] = [];
+  if (s.type === "list" && sm !== "riverpod" && resolvedExport) {
+    const exportEntity = resolvedExport.entity;
+    const exportedFieldName = resolvedExport.exportedField.name;
+    const fields = exportableFields(exportEntity);
+    const headerList = fields.map((f) => `'${f.name}'`).join(", ");
+    const rowEntries = fields.map((f) => `'${f.name}': ${fieldValue(f, "item")}`).join(", ");
+    const reconstruct = exportEntity.fields
+      .map((f) => (f.name === exportedFieldName ? "exported: true" : `${f.name}: row.${f.name}`))
+      .join(", ");
+    const stampAndSnack = (formatLabel: string, varName: string, computeExpr: string) =>
+      `        IconButton(\n` +
+      `          tooltip: 'Export ${formatLabel}',\n` +
+      `          icon: const Icon(Icons.download),\n` +
+      `          onPressed: () async {\n` +
+      `            final rows = context.read<${s.state}Cubit>().state.${collection}.map((item) => <String, dynamic>{${rowEntries}}).toList();\n` +
+      `            ${computeExpr}\n` +
+      `            for (final row in context.read<${s.state}Cubit>().state.${collection}) {\n` +
+      `              if (!row.${exportedFieldName}) {\n` +
+      `                await ${readMutator("update", `${exportEntity.name}(${reconstruct})`)};\n` +
+      `              }\n` +
+      `            }\n` +
+      `            if (context.mounted) {\n` +
+      `              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported \${rows.length} rows to ${formatLabel} (\${${varName}.length} chars)')));\n` +
+      `            }\n` +
+      `          },\n` +
+      `        ),\n`;
+    const mode = resolvedExport.screen.export!;
+    if (mode === "csv" || mode === "csv+json") exportButtons.push(stampAndSnack("CSV", "csv", `final csv = toCsv(rows, const [${headerList}]);`));
+    if (mode === "json" || mode === "csv+json") exportButtons.push(stampAndSnack("JSON", "json", `final json = toJson(rows);`));
+  }
+
   // tooltip: doubles as the accessible/semantic label for these icon-only buttons (Flutter maps
   // IconButton/FloatingActionButton `tooltip` to the semantics label) — required for CDP flow
   // drivers (research/cdp_flow_test.json) to locate them by aria-label, not just a11y hygiene.
@@ -567,7 +629,9 @@ ${heroBlock}
       (canEditCreate ? `        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('${formPath}/\${id}/edit')),\n` : "") +
       (canDelete ? `        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
       `      ]`
-    : "";
+    : exportButtons.length
+      ? `,\n      actions: [\n${exportButtons.join("")}      ]`
+      : "";
 
   // G6: on a child list screen (reached via a parent's "View <Child>s" link, e.g. FollowUps under
   // a Task), the create-FAB must carry the SAME `?<fk>=<parentId>` query param forward into the
@@ -628,7 +692,7 @@ ${themeImport}
 ${stateImport}
 ${wizardTypeImports}
 ${splitStateImport}
-${budgetImport}
+${budgetImport}${exportImport}
 
 ${widgetBody}
 `;

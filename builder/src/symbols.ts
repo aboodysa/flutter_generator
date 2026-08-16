@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments, resolveBudget } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments, resolveBudget, hasAudit, hasExport } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -65,6 +65,20 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   }
   if (resolveBudget(ir)) {
     m.set("BudgetLine", "core/budget.dart");
+  }
+  // L3: unlike MF2's auth symbols, `audited`/`export:` are per-entity/per-screen facts declared
+  // WITHIN a feature (not app-level attributes), so a per-feature buildSymbols(f) call already
+  // sees them correctly — no addAuditSymbols-after-merge step needed (contrast the comment on
+  // addAuthSymbols below).
+  if (hasAudit(ir)) {
+    m.set("AuditEvent", "core/audit.dart");
+    m.set("recordMutation", "core/audit.dart");
+    m.set("AuditLog", "core/audit.dart");
+    m.set("AuditLogScreen", "core/audit_log_screen.dart");
+  }
+  if (hasExport(ir)) {
+    m.set("toCsv", "core/export.dart");
+    m.set("toJson", "core/export.dart");
   }
   addAuthSymbols(m, ir);
   return m;

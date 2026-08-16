@@ -79,6 +79,11 @@
       "type": "boolean",
       "default": true
     },
+    "audited": {
+      "type": "boolean",
+      "default": false,
+      "description": "L3: this entity's create/update/delete mutations are recorded to the app-wide audit log (core/audit.dart) — requires attributes.auth."
+    },
     "actor": {
       "type": "string"
     },
@@ -175,6 +180,11 @@
           "type": "string",
           "pattern": "^[A-Z]{3}$",
           "description": "P7-L1: ISO 4217 currency code (e.g. SAR, USD) — required companion to semanticType: \"Money\"; the field is emitted as Money (integer minor units), never double."
+        },
+        "secret": {
+          "type": "boolean",
+          "default": false,
+          "description": "L3: marks a field as holding sensitive data — export.ts's header-building excludes it from any CSV/JSON export regardless of a list screen's export: flag."
         },
         "actor": {
           "type": "string"

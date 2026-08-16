@@ -13,6 +13,7 @@ void main() {
         'endDate': '2024-01-01T00:00:00.000Z',
         'days': 0,
         'status': 'open',
+        'exported': false,
         'reason': null,
     };
     final m = LeaveRequestModel.fromJson(json);
@@ -20,7 +21,7 @@ void main() {
   });
 
   test('LeaveRequest equality by identity', () {
-    final a = LeaveRequest(id: 'x', name: 'x', leaveType: LeaveType.values.first, startDate: DateTime(2024), endDate: DateTime(2024), days: 0, status: LeaveStatus.values.first);
+    final a = LeaveRequest(id: 'x', name: 'x', leaveType: LeaveType.values.first, startDate: DateTime(2024), endDate: DateTime(2024), days: 0, status: LeaveStatus.values.first, exported: false);
     expect(a, equals(a));
   });
 }
