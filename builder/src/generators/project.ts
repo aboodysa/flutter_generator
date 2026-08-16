@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -256,6 +256,10 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // directly — same reasoning as Money above. Both symbols resolve to the same core/split.dart,
   // so only one needs pushing here (the barrel exports the whole file either way).
   if (hasSplitGroups(feature)) names.push("SplitLine");
+  // MF2: generated tests (auth_test.dart + the guarded boot-tests) reference Session/Persona —
+  // resolved via the barrel the same way Money/SplitLine are (the barrel exports the whole
+  // core/session.dart through either name).
+  if (hasAuth(feature)) names.push("Session", "AuthLoginScreen");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

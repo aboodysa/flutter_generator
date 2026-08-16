@@ -8,11 +8,13 @@ import 'package:rasheed_replica_hr_service/core/router.dart';
 import 'package:rasheed_replica_hr_service/generated.dart';
 import 'package:rasheed_replica_hr_service/core/di.dart';
 
+
 void main() {
   setUp(() => GetIt.instance.reset());
 
   testWidgets('LeaveRequest: detail screen back button returns to the list', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.push('/leave-request');
@@ -27,6 +29,7 @@ void main() {
 
   testWidgets('Approval: child list (via LeaveRequest) back button returns to parent detail', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.push('/leave-request/x');

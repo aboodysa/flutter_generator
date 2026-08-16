@@ -56,8 +56,7 @@ export function sampleArgs(entity: EntityModel, enums: any[], valueObjects: Valu
 // instead of silently staying null and rendering as "Untitled".
 const TITLE_FIELDS = ["title", "name", "merchant", "label", "subject"];
 
-export function variantSampleArgs(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], index: number): string {
-  if (index === 0) return sampleArgs(entity, enums, valueObjects);
+export function variantSampleArgs(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], index: number, overrides?: Record<string, string>): string {
   const titleField = entity.fields.find((f) => TITLE_FIELDS.includes(f.name));
   const identityField = entity.identity?.field ?? "id";
   const literal = (f: Field): string => {
@@ -77,5 +76,23 @@ export function variantSampleArgs(entity: EntityModel, enums: any[], valueObject
     if (f.type === "DateTime") return "DateTime(2025)";
     return sampleArgFor(f, enums, valueObjects);
   };
-  return entity.fields.map((f) => `${f.name}: ${literal(f)}`).join(", ");
+
+  // Build the args as a field->literal map so `overrides` can swap a specific field (e.g. a
+  // tenant-scoped repo cycling `tenantId` across demo rows) at the end, then render in field
+  // order. Preserves the pre-existing per-index rendering exactly (verified byte-identical):
+  // index 0 emits only required fields (the `sampleArgs` shape), indexes 1+ emit every field.
+  const parts = new Map<string, string>();
+  if (index === 0) {
+    for (const f of entity.fields) {
+      if (!f.required) continue;
+      if (f.type === "String" && titleField && f.name === titleField.name) parts.set(f.name, `'Sample ${entity.name}'`);
+      else parts.set(f.name, sampleArgFor(f, enums, valueObjects));
+    }
+  } else {
+    for (const f of entity.fields) parts.set(f.name, literal(f));
+  }
+  for (const [k, v] of Object.entries(overrides ?? {})) {
+    if (parts.has(k)) parts.set(k, v); // never add a field the base shape didn't emit
+  }
+  return [...parts.entries()].map(([k, v]) => `${k}: ${v}`).join(", ");
 }

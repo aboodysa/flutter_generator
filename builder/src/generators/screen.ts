@@ -88,8 +88,12 @@ export function childLinks(entityName: string, entities: Array<{ name: string; f
 // any) — shared by listFilterExpr (row filtering) AND the create-FAB below (G6: the FAB must
 // carry the SAME `?<fk>=<id>` forward into the create form so it can prefill the field), so both
 // resolve the field once, never re-deriving the same `endsWith("Id")` heuristic independently.
+// MF2: `tenantId` is excluded — it LOOKS like a `<Parent>Id` FK structurally but is the tenant
+// boundary (a cross-cutting concern, not a navigation relationship). Treating it as a child FK
+// would wrap the tenant scoping in query-param navigation semantics (child-list filtering + FAB
+// `?tenantId=` forwarding) that fight repository_impl.ts's own session scoping.
 function childForeignKey(entity: EntityModel | undefined): Field | undefined {
-  return entity?.fields.find((f) => f.name.endsWith("Id") && f.name !== "id");
+  return entity?.fields.find((f) => f.name.endsWith("Id") && f.name !== "id" && f.name !== "tenantId");
 }
 
 // Child list query-param filter: if this list screen's entity is a child (has `<Parent>Id` fields),

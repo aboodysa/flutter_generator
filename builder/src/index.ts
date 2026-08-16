@@ -3,7 +3,7 @@ import * as path from "path";
 import Ajv from "ajv";
 import { FeatureModel, AppModel } from "./types";
 import { fileName, GenContext } from "./dart";
-import { pkgName, buildSymbols } from "./symbols";
+import { pkgName, buildSymbols, addAuthSymbols } from "./symbols";
 import { enforceWriteAcl } from "./acl";
 import { generateEntity } from "./generators/entity";
 import { generateEnum } from "./generators/enum";
@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,10 +36,11 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
+import { generateSession, generateAuthLoginScreen } from "./generators/auth";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -126,6 +127,14 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasSplitGroups(ir)) {
     core.push(["split.dart", generateSplitCore()]);
   }
+  // MF2: auth is app-level state, not a feature's domain. session.dart (Persona + Session
+  // singleton + kPersonas list) and auth_login_screen.dart (persona-picker login) are emitted
+  // once per app, next to the rest of core — non-auth apps stay byte-identical (the guards above
+  // earlier in this file still return the exact same list for them).
+  if (hasAuth(ir)) {
+    core.push(["session.dart", generateSession(ir)]);
+    core.push(["auth_login_screen.dart", generateAuthLoginScreen(ir, ctx)]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -140,6 +149,8 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "money.dart": "MoneyGenerator",
     "policy.dart": "PolicyCoreGenerator",
     "split.dart": "SplitCoreGenerator",
+    "session.dart": "SessionGenerator",
+    "auth_login_screen.dart": "AuthLoginScreenGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -320,6 +331,21 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:split", generator: "SplitTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+
+  // MF2 regression guard — the full login/guard/tenant-sign-in flow for auth apps:
+  // personas rendered, unauthenticated deep link → /login, tap → own home, denied area
+  // → own home, sign-out → /login again. None of the boot tests above would catch a broken
+  // redirect, so this one is scoped against the whole IR (auth is app-level state).
+  const authTest = generateAuthTest(ir);
+  if (authTest) {
+    const f = path.join(testDir, "auth_test.dart");
+    fs.writeFileSync(f, authTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:auth", generator: "AuthTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -728,6 +754,10 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     businessRules: app.features.flatMap((f) => f.businessRules ?? []),
   };
 
+  // MF2: per-feature buildSymbols (above) never sees app-level attributes.auth — the auth symbols
+  // (Session/Persona/AuthLoginScreen) exist for the whole app, so map them onto the merged table.
+  addAuthSymbols(symbols, merged);
+
   const arch = decideArchitecture(merged);
   const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };
 
@@ -796,8 +826,12 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // flow/crud-flow tests are scoped to the first feature only (same "feature[0] is the app's
   // testable identity" convention initialLocation/generateMain/generateGoldenTest already use) —
   // `name` overridden to the app's own pkg name since generateFlowTest/generateCrudFlowTest derive
-  // their `package:...` imports from `feature.name` internally.
-  const flowTestScope: FeatureModel = { ...app.features[0]!, name: app.name };
+  // their `package:...` imports from `feature.name` internally. Attributes overridden to the
+  // app-level ones (MF2): auth is declared on app.attributes, but hasAuth()/isTargetReachable()
+  // read feature.attributes — the boot tests must sign in as the first persona, so the flow/crud
+  // scope must see app-level auth that feature[0] itself doesn't carry. For non-auth apps
+  // app.attributes carries no `auth` either way, so hasAuth()==false and output is unchanged.
+  const flowTestScope: FeatureModel = { ...app.features[0]!, name: app.name, attributes: app.attributes };
   const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope);
   files.push(...testsResult.files);
   planEntries.push(...testsResult.planEntries);

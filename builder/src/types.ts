@@ -81,6 +81,37 @@ export interface AppModel {
   features: FeatureModel[];
 }
 
+// MF2: one demo account shown on the generated login screen. `actorId` is the stable identity the
+// signed-in actor's created rows claim when the app is tenant-scoped; `tenantId` is the data
+// boundary every tenant-scoped repository filters on and stamps (see repository_impl.ts).
+export interface PersonaModel {
+  name: string;
+  role: string; // must be one of `roles`
+  actorId: string;
+  tenantId: string;
+}
+
+// MF2: multi-user auth + roles + tenant scoping (app-level capability, § CAPABILITIES MF2).
+//
+// `roles` is the authoritative role vocabulary — the generated router emits one home route per
+// role. `home` maps EVERY role to the ENTITY NAME whose list screen is that role's landing route
+// (works for both single-feature and multi-feature apps — routes are resolved from kebab(entity)).
+// `allow` (optional) lists, per role, ADDITIONAL entities whose list/detail/form routes that role
+// may also access (a path is reachable iff it starts with the role's home prefix or an allowed
+// entity prefix). A role with no allow entry can only reach its own home area — this is what the
+// generated guardPath() asserts and what the generated auth_test regression-guards.
+//
+// `personas` (optional) pins the demo accounts; when absent the generator derives one persona per
+// role deterministically (operations.ts authPersonas — 0% LLM). `loginEntity` (optional) names an
+// entity that may expose the users as a visible directory; it has no effect on the login flow.
+export interface AuthModel {
+  roles: string[];
+  home: Record<string, string>; // role -> entity whose list screen is that role's home
+  allow?: Record<string, string[]>; // role -> additional reachable entities
+  personas?: PersonaModel[];
+  loginEntity?: string;
+}
+
 /** Explicit IR attributes consumed by the §5.2 pattern-selection scoring function. */
 export interface AppAttributes {
   refreshCadence?: "static" | "occasional" | "frequent" | "realtime";
@@ -90,6 +121,7 @@ export interface AppAttributes {
   permissionScope?: "none" | "basic" | "sensitive";
   stateManagement?: StateManagementProvider; // explicit provider override (wins over scoring)
   persistence?: PersistenceKind; // explicit DB override (wins over scoring)
+  auth?: AuthModel; // MF2: multi-user auth + roles + tenant scoping (additive — absent = no auth)
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";

@@ -3,7 +3,8 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth } from "./operations";
+import { fileName } from "./dart";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -161,6 +162,50 @@ function splitCheck(ir: any, oracleDir: string): string[] {
   return issues;
 }
 
+// MF2 trust boundary, generated-side: any entity whose IR declares a `tenantId` field and a
+// repository must have that repository's generated impl enforcing tenant isolation — the scoped
+// snapshot marker set below (read filter + write stamp + session tenant + the list-query tail)
+// NEVER appears in unscoped repos (repository_impl.ts gates every one of them), so any miss means
+// a code path fell through to the unscoped branch and would leak one tenant's rows to another.
+// Unlike the whole-app linters above, this is per-repo-file so a single unscoped impl can't hide
+// behind another scoped one.
+const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
+function tenantCheck(ir: any, files: string[]): string[] {
+  const issues: string[] = [];
+  const scoped = new Set(tenantScopedEntities(ir).map((e) => e.name));
+  if (!scoped.size) return issues;
+  for (const repo of ir.repositories ?? []) {
+    const entityName = listEntityName(repo);
+    if (!entityName || !scoped.has(entityName)) continue;
+    const declared = (ir.repositoryImpls ?? []).find((ri: any) => ri.contract === repo.name);
+    const implBase = fileName(declared ? declared.name : `${repo.name}InMemoryImpl`);
+    const f = files.find((p) => path.basename(p) === implBase);
+    if (!f) {
+      issues.push(`[tenant] repo '${repo.name}' (entity '${entityName}' has tenantId): generated impl '${implBase}' not found`);
+      continue;
+    }
+    const src = fs.readFileSync(f, "utf8");
+    for (const m of TENANT_MARKERS) {
+      if (!src.includes(m)) issues.push(`[tenant] ${f}: missing '${m}' — tenant scoping not enforced on '${repo.name}'`);
+    }
+  }
+  return issues;
+}
+
+// MF2 trust boundary, routing-side: an app declaring `attributes.auth` must boot to the persona
+// gate and enforce per-role reachability — the guard scaffold (route.ts's auth branch) carries all
+// four of these markers; once again each is gated on hasAuth, so a straight non-auth router that
+// happened to keep `/login` would fail this check.
+const AUTH_GUARD_MARKERS = ["kHomeRoutes", "guardPath", "AuthLoginScreen", "initialLocation: '/login'"];
+function authGuardCheck(ir: any, files: string[]): string[] {
+  if (!hasAuth(ir)) return [];
+  const router = files.find((p) => path.basename(p) === "router.dart");
+  if (!router) return [`[auth] app declares attributes.auth but no lib/core/router.dart exists`];
+  const src = fs.readFileSync(router, "utf8");
+  const missing = AUTH_GUARD_MARKERS.filter((m) => !src.includes(m));
+  return missing.map((m) => `[auth] lib:core/router.dart missing '${m}' — auth guard not enforced`);
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -173,6 +218,8 @@ export interface ValidationResult {
   datepicker: number; // count of DateTime fields rendered as a bare TextField, no showDatePicker (G2)
   verdict: number;   // count of severity'd rules with invalid severity, empty message, or missing oracle (L2)
   split: number;     // count of split-group issues: missing/zero-case Split oracle, or a split child with no category field (MF4)
+  tenant: number;    // count of tenantId-carrying repos whose generated impl lacks the scoped marker set (MF2)
+  auth: number;      // count of auth-guard markers missing from a declared-auth app's router (MF2)
   files: number;
   issues: string[];
 }
@@ -238,7 +285,17 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...splitIssues);
   const split = splitIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, files: files.length, issues };
+  // Tenant scoping (MF2): every tenantId-carrying repo's impl must actually filter/stamp rows.
+  const tenantIssues = tenantCheck(ir, files);
+  issues.push(...tenantIssues);
+  const tenant = tenantIssues.length;
+
+  // Auth guard (MF2): a declared-auth app must boot to the persona gate and route per-role.
+  const authIssues = authGuardCheck(ir, files);
+  issues.push(...authIssues);
+  const auth = authIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, files: files.length, issues };
 }
 
 function main() {
@@ -256,7 +313,9 @@ function main() {
   console.log(`[datepicker] ${r.datepicker === 0 ? "PASS" : "FAIL (" + r.datepicker + ")"}`);
   console.log(`[verdict] ${r.verdict === 0 ? "PASS" : "FAIL (" + r.verdict + ")"}`);
   console.log(`[split] ${r.split === 0 ? "PASS" : "FAIL (" + r.split + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split > 0;
+  console.log(`[tenant] ${r.tenant === 0 ? "PASS" : "FAIL (" + r.tenant + ")"}`);
+  console.log(`[auth] ${r.auth === 0 ? "PASS" : "FAIL (" + r.auth + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

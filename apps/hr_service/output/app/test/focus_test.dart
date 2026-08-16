@@ -7,11 +7,14 @@ import 'package:rasheed_replica_hr_service/main.dart';
 import 'package:rasheed_replica_hr_service/core/router.dart';
 import 'package:rasheed_replica_hr_service/core/di.dart';
 
+import 'package:rasheed_replica_hr_service/core/session.dart';
+
 void main() {
   setUp(() => GetIt.instance.reset());
 
   testWidgets('LeaveRequest: create form wires a focus-bypass FocusNode on its first field', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('/leave-request/new');
@@ -26,6 +29,7 @@ void main() {
 
   testWidgets('LeaveRequest: edit form wires a focus-bypass FocusNode on its first field', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('/leave-request/x/edit');
@@ -40,6 +44,7 @@ void main() {
 
   testWidgets('Approval: create form wires a focus-bypass FocusNode on its first field', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('/approval/new');
@@ -54,6 +59,7 @@ void main() {
 
   testWidgets('Approval: edit form wires a focus-bypass FocusNode on its first field', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('/approval/x/edit');

@@ -2,7 +2,7 @@
 // naming.ts (both dependency-free themselves). Single source of truth for "what CRUD kind is this
 // operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
 // drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel, AuthModel, PersonaModel } from "./types";
 import { capitalize, camelize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
@@ -256,4 +256,112 @@ export function splitStateNames(ir: FeatureModel): string[] {
     if (st) names.push(st.name);
   }
   return names;
+}
+
+// MF2 auth/tenant helpers — the single source of truth for "is this app auth-scoped / which
+// accounts / which entities are tenant-scoped", shared by every generator that emits auth code
+// (auth.ts, route.ts, repository_impl.ts, crud_form.ts, test.ts, symbols.ts, index.ts, and the
+// validate.ts [tenant] gate) so none of them ever re-derives a competing heuristic.
+
+export function hasAuth(ir: FeatureModel): boolean {
+  return !!ir.attributes?.auth;
+}
+
+export function authOf(ir: FeatureModel): AuthModel | undefined {
+  return ir.attributes?.auth;
+}
+
+export function authRoles(ir: FeatureModel): string[] {
+  return authOf(ir)?.roles ?? [];
+}
+
+// Deterministic demo accounts for the generated login screen + generated tests: explicit IR
+// `personas` win verbatim; otherwise one persona is derived per role with stable names/actor ids
+// and a tenantCycled from a fixed pool, so a 2+-role app demos cross-tenant isolation instead of
+// every account sharing one tenant. Same IR always yields the same accounts (0% LLM).
+const TENANT_POOL = ["acme", "globex"];
+const DEFAULT_PERSONA_NAMES: Record<string, string> = {
+  employee: "Sara Ahmed",
+  manager: "Khalid Aziz",
+  finance: "Rana Yousef",
+  "hr-admin": "Omar Khalid",
+};
+export function authPersonas(ir: FeatureModel): PersonaModel[] {
+  const auth = authOf(ir);
+  if (!auth) return [];
+  const declared = auth.personas ?? [];
+  if (declared.length) return declared;
+  return auth.roles.map((r, i) => ({
+    name: DEFAULT_PERSONA_NAMES[r] ?? `Demo ${capitalize(r)}`,
+    role: r,
+    actorId: `user-${i + 1}`,
+    tenantId: TENANT_POOL[i % TENANT_POOL.length] ?? "acme",
+  }));
+}
+
+// The distinct tenant ids the demo accounts use — the set every tenant-scoped app seeds its demo
+// rows across (repository_impl.ts cycles these so each tenant "owns" some rows).
+export function authTenantIds(ir: FeatureModel): string[] {
+  return Array.from(new Set(authPersonas(ir).map((p) => p.tenantId)));
+}
+
+// Tenant scoping marker: an entity carrying a field literally named `tenantId` is the boundary of
+// a tenant — every one of its repository's CRUD operations must be isolated to the signed-in
+// session's tenant (see repository_impl.ts's _inScope/_stampTenant). This is the structural marker
+// the validate.ts [tenant] gate asserts ON THE GENERATED CODE (a repo that lost its scoping while
+// the IR still claims a tenantId field fails validation — same philosophy as money/datepicker).
+export function hasTenantScoping(ir: FeatureModel, entityName?: string): boolean {
+  const entities = entityName
+    ? (ir.entities ?? []).filter((e) => e.name === entityName)
+    : (ir.entities ?? []);
+  return entities.some((e) => (e.fields ?? []).some((f) => f.name === "tenantId"));
+}
+
+// All entities in the IR that are tenant-scoped (carry tenantId) — used by validate.ts's [tenant]
+// gate and (optionally) by generators that need to know the scoped set.
+export function tenantScopedEntities(ir: FeatureModel): EntityModel[] {
+  return (ir.entities ?? []).filter((e) => (e.fields ?? []).some((f) => f.name === "tenantId"));
+}
+
+// MF2 auth-aware generated test bootstrap: the app-boot regression tests (flow/crud/focus/back/
+// policy/split) pump the whole ReplicaApp through the guard-protected router, which boots to the
+// login screen when unauthenticated — so auth apps must sign in as a persona FIRST. This returns
+// the exact `Session.instance.signIn(...)` statement for the FIRST persona (the role whose home
+// area the evidence samples shape to cover those tests' routes), or "" for non-auth apps.
+export function authBootstrapStatement(ir: FeatureModel, indent: string): string {
+  const p = authPersonas(ir)[0];
+  if (!p) return "";
+  return `${indent}Session.instance.signIn(role: '${p.role}', actorId: '${p.actorId}', tenantId: '${p.tenantId}', displayName: '${p.name}');\n`;
+}
+
+// The set of entity names the FIRST persona may reach (its home entity + any allow entities) —
+// the "reachable area" the per-test generators filter their targets against so a test never
+// navigates to a route the signed-in role is deliberately denied (denial IS asserted by
+// auth_test, not by the boot-tests). Returns an empty set for non-auth apps, which every caller
+// treats as "unrestricted" so no-auth output stays byte-identical.
+export function firstPersonaReachableEntities(ir: FeatureModel): Set<string> {
+  const auth = authOf(ir);
+  if (!auth) return new Set<string>();
+  const first = authPersonas(ir)[0]?.role;
+  if (!first || !auth.home?.[first]) return new Set<string>();
+  const out = new Set<string>([auth.home[first]]);
+  for (const e of auth.allow?.[first] ?? []) out.add(e);
+  return out;
+}
+
+// Whether a given test-target entity is inside the first persona's reachable area. Non-auth apps
+// (or an auth app with no resolvable first persona) are always reachable — backward compatible.
+export function isTargetReachable(ir: FeatureModel, entityName: string): boolean {
+  const reach = firstPersonaReachableEntities(ir);
+  return reach.size === 0 || reach.has(entityName);
+}
+
+// The first entity with a `tenantId` field that also has a declared repository — the target the
+// generated auth_test uses for its tenant-scope case (read/list filter + create stamp).
+export function firstScopedRepoEntity(ir: FeatureModel): { entity: EntityModel; repo: RepositoryModel } | undefined {
+  for (const e of tenantScopedEntities(ir)) {
+    const repo = findRepoForEntity(ir.repositories, e.name);
+    if (repo) return { entity: e, repo };
+  }
+  return undefined;
 }

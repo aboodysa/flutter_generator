@@ -1,6 +1,6 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -40,7 +40,7 @@ function stateVarDecl(f: Field): string {
   return `  ${enumType} _${f.name} = ${enumType}.values.first;`;
 }
 
-function initStateLine(f: Field, roleCtx?: FieldRoleContext): string | null {
+function initStateLine(f: Field, roleCtx?: FieldRoleContext, scopedEntity?: boolean): string | null {
   // A single `i?.` already short-circuits the whole chain when `i` is null; a second `?.` on a
   // field that isn't itself nullable is redundant (Dart flags it: "can't be used because of
   // short-circuiting") — so the second link only gets `?.` when the field's own type is nullable.
@@ -59,6 +59,12 @@ function initStateLine(f: Field, roleCtx?: FieldRoleContext): string | null {
       // value always wins regardless, since `widget.queryParams` is empty coming from the edit
       // route. Every other String field is unaffected (blank on create, exactly as before).
       const isRelation = fieldRole(f, roleCtx) === "relation";
+      // MF2: a tenant-scoped entity's `tenantId` pre-fills from the signed-in session on CREATE.
+      // The repository still re-stamps it from Session on create/update regardless — this prefill
+      // is a UX default (the field is visible and editable), never the security boundary.
+      if (f.name === "tenantId" && scopedEntity) {
+        return `    _${f.name}.text = i?.${f.name} ?? Session.instance.tenantId ?? '';`;
+      }
       return isRelation
         ? `    _${f.name}.text = i?.${f.name} ?? widget.queryParams['${f.name}'] ?? '';`
         : `    _${f.name}.text = i?.${f.name} ?? '';`;
@@ -442,11 +448,14 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   // all — everything else stays exactly as before (no unused widget field, no dead parameter).
   const relationFields = editable.filter((f) => fieldRole(f, roleCtx) === "relation");
   const hasRelation = relationFields.length > 0;
+  // MF2: a tenant-scoped entity's tenantId field pre-fills from the signed-in session on create
+  // (initStateLine's tenantId branch) and the form imports core/session.dart.
+  const scopedEntity = ctx?.ir ? hasTenantScoping(ctx.ir, target.entity) : false;
 
   const controllerFields = editable.filter(usesController).map(controllerDecl).join("\n");
   const stateFields = editable.filter((f) => !usesController(f)).map(stateVarDecl).join("\n");
   const focusNodeField = firstFocusable ? focusNodeDecl(firstFocusable) : "";
-  const initLines = editable.map((f) => initStateLine(f, roleCtx)).filter((l): l is string => !!l).join("\n");
+  const initLines = editable.map((f) => initStateLine(f, roleCtx, scopedEntity)).filter((l): l is string => !!l).join("\n");
   const disposeLines = [
     ...editable.filter(usesController).map((f) => `    _${f.name}.dispose();`),
     ...(firstFocusable ? [`    _${firstFocusable.name}Focus.dispose();`] : []),
@@ -600,6 +609,9 @@ ${hasRelation ? "            queryParams: GoRouterState.of(context).uri.queryPar
     if (f.semanticType) refTypes.push(f.semanticType);
     else if (f.type === "enum") refTypes.push(f.of || capitalize(f.name));
   }
+  // MF2: the tenant-aware initStateLine above writes `Session.instance.tenantId` literally —
+  // resolve the Session import the same way every other generated type reference is resolved.
+  if (scopedEntity) refTypes.push("Session");
   const typeImports = importsFromTypes(refTypes, ctx).join("\n");
 
   return `// [generated] generator=CrudFormGenerator template=crud_form_${sm}.v1 class=structural ownership=generated

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 49,
+  "artifactCount": 52,
   "entries": [
     {
       "artifact": "enum:LeaveType",
@@ -469,6 +469,28 @@
       "class": "structural"
     },
     {
+      "artifact": "core:session",
+      "generator": "SessionGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/session.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:auth_login_screen",
+      "generator": "AuthLoginScreenGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/auth_login_screen.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:widget",
       "generator": "WidgetTestGenerator",
       "schema": "test",
@@ -551,6 +573,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/back_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:auth",
+      "generator": "AuthTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/auth_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:rasheed_replica_hr_service/main.dart';
 import 'package:rasheed_replica_hr_service/core/di.dart';
 
+import 'package:rasheed_replica_hr_service/core/session.dart';
+
 void main() {
   testWidgets('LeaveRequest: create -> edit -> delete', (tester) async {
     setupDependencies();
+    Session.instance.signIn(role: 'employee', actorId: 'user-1', tenantId: 'acme', displayName: 'Sara Ahmed');
     await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
 

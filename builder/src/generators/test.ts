@@ -1,10 +1,27 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, authPersonas, authBootstrapStatement, isTargetReachable } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
+
+// MF2: shared auth-aware test plumbing. The router boots to /login when unauthenticated (route.ts's
+// guardPath), so the app-boot regression tests MUST sign in before pumping the real ReplicaApp.
+// `authSession` is the non-empty `Session.instance.signIn(...)` line for the FIRST persona (the
+// role whose home/auth.allow area the evidence samples shape to cover these tests' routes), or ""
+// for non-auth apps so their output stays byte-identical. The `core/session.dart` IMPORT is
+// emitted only when the caller does NOT import `generated.dart` (which re-exports
+// `core/session.dart` + `core/auth_login_screen.dart`): flow/crud-flow/focus/scroll tests use the
+// direct import, back_test (which always imports generated.dart) passes `sessionViaBarrel=true`
+// so it does not emit a redundant import.
+function authSession(feature: FeatureModel, pkg: string, indent: string, sessionViaBarrel = false): { import: string; boot: string } {
+  if (!hasAuth(feature)) return { import: "", boot: "" };
+  return {
+    import: sessionViaBarrel ? "" : `import 'package:${pkg}/core/session.dart';\n`,
+    boot: authBootstrapStatement(feature, indent),
+  };
+}
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -207,10 +224,14 @@ export function generateFlowTest(feature: FeatureModel): string {
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
 
   const generatedImport = detail ? `import 'package:${pkg}/generated.dart';` : "";
-  const nav = detail
+  const session = authSession(feature, pkg, "    ");
+  // MF2: don't assert the list→detail nav when the first persona is deliberately denied the
+  // detail entity's area — per-role denial is auth_test.dart's job, not this boot test's.
+  const navDefined = !!detail && isTargetReachable(feature, detail.entity);
+  const nav = navDefined
     ? `    await tester.tap(find.byType(ListTile).first);
     await tester.pumpAndSettle();
-    expect(find.byType(${detail.name}), findsOneWidget);`
+    expect(find.byType(${detail!.name}), findsOneWidget);`
     : "";
 
   return `// [generated] generator=FlowTestGenerator template=flow.v1 class=structural ownership=generated
@@ -220,11 +241,11 @@ import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/di.dart';
 import 'package:flutter/material.dart';
 ${generatedImport}
-
+${session.import}
 void main() {
   testWidgets('app boots and navigates', (tester) async {
     setupDependencies();
-    await tester.pumpWidget(const ReplicaApp());
+${session.boot}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     expect(find.byType(Scaffold), findsWidgets);
 ${nav}
@@ -253,7 +274,10 @@ export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementP
   const target = [...crudFormTargets(feature).values()].find(
     (t) => t.delete && (feature.screens ?? []).some((s) => s.entity === t.entity && s.type === "detail"),
   );
-  if (!target) return null;
+  // MF2: skip the whole CRUD flow when the first persona is denied the target's area (denial is
+  // asserted by auth_test, not this boot test) — e.g. an employee persona whose role's home is
+  // leave-requests while the only full-CRUD target lives in the admin area.
+  if (!target || !isTargetReachable(feature, target.entity)) return null;
 
   const entity = feature.entities.find((e) => e.name === target.entity);
   const identityField = entity?.identity?.field ?? "id";
@@ -267,7 +291,8 @@ export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementP
   const updateExpect = money ? `1,999.25 ${currency}` : updateValue;
 
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  const session = authSession(feature, pkg, "    ");
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
 
   return `// [generated] generator=CrudFlowTestGenerator template=crud_flow_${sm}.v1 class=structural ownership=generated
@@ -276,6 +301,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:${pkg}/main.dart';
 ${diImport}
+${session.import}
 void main() {
   testWidgets('${target.entity}: create -> edit -> delete', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
@@ -325,11 +351,14 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
  * not just exists).
  */
 export function generateFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
-  const targets = [...crudFormTargets(feature).values()];
+  // MF2: only exercise targets the first persona can actually reach — a boot test navigates the
+  // real guarded router, so a denied area would redirect away from the form it wants to drive.
+  const targets = [...crudFormTargets(feature).values()].filter((t) => isTargetReachable(feature, t.entity));
   if (!targets.length) return null;
 
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  const session = authSession(feature, pkg, "    ");
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
 
   const focusCase = (entityName: string, route: string, label: string) => `  testWidgets('${entityName}: ${label} form wires a focus-bypass FocusNode on its first field', (tester) async {
@@ -373,6 +402,7 @@ import 'package:flutter/material.dart';
 ${getItImport}import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 ${diImport}
+${session.import}
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }
@@ -536,7 +566,10 @@ ${cases.map((c) => c.test).join("\n\n")}
  */
 export function generateBackTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  const setup = sm === "bloc" ? "    setupDependencies();\n" : "";
+  // back_test always imports generated.dart (which re-exports core/session.dart) → no direct
+  // session import, avoiding an unnecessary_import lint.
+  const session = authSession(feature, pkg, "    ", true);
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
 
   const cases: string[] = [];
@@ -545,6 +578,9 @@ export function generateBackTest(feature: FeatureModel, sm: StateManagementProvi
   // (1) detail screens: push list -> push detail -> back -> list screen reappears.
   for (const s of screens) {
     if (s.type !== "detail") continue;
+    // MF2: skip shapes the first persona is denied (the guarded router would redirect, never
+    // render the pushed route) — per-role denial is auth_test.dart's concern.
+    if (!isTargetReachable(feature, s.entity)) continue;
     const listScreen = screens.find((ls) => ls.entity === s.entity && ls.type === "list");
     if (!listScreen) continue;
     cases.push(`  testWidgets('${s.entity}: detail screen back button returns to the list', (tester) async {
@@ -569,6 +605,8 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     for (const c of childLinks(entity.name, feature.entities)) {
       const childListScreen = screens.find((s) => s.entity === c.child && s.type === "list");
       if (!childListScreen) continue;
+      // MF2: both the parent detail and the child list must be inside the first persona's area.
+      if (!isTargetReachable(feature, entity.name) || !isTargetReachable(feature, c.child)) continue;
       cases.push(`  testWidgets('${c.child}: child list (via ${entity.name}) back button returns to parent detail', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
@@ -601,6 +639,7 @@ ${getItImport}import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 import 'package:${pkg}/generated.dart';
 ${diImport}
+${session.import}
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }
@@ -636,11 +675,12 @@ function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): strin
 }
 
 export function generatePolicyTest(feature: FeatureModel): string | null {
-  const targets = [...crudFormTargets(feature).values()];
+  const targets = [...crudFormTargets(feature).values()].filter((t) => isTargetReachable(feature, t.entity));
   if (!targets.length) return null;
 
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  const setup = "    setupDependencies();\n";
+  const session = authSession(feature, pkg, "    ");
+  const setup = `    setupDependencies();\n${session.boot}`;
 
   const cases: string[] = [];
   let waiveCaseWritten = false;
@@ -758,7 +798,8 @@ export function generateSplitTest(feature: FeatureModel, oracle: OracleFile | nu
   if (!targets.length) return null;
 
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
-  const setup = "    setupDependencies();\n";
+  const session = authSession(feature, pkg, "    ");
+  const setup = `    setupDependencies();\n${session.boot}`;
 
   const domainCases = (oracle?.cases ?? [])
     .map((c, i) => {
@@ -775,7 +816,8 @@ export function generateSplitTest(feature: FeatureModel, oracle: OracleFile | nu
     })
     .join("\n\n");
 
-  const uiCases = targets
+  const uiTargets = targets.filter((t) => isTargetReachable(feature, t.entity));
+  const uiCases = uiTargets
     .map((t) => {
       const base = `/${kebab(t.entity)}`;
       return `  testWidgets('${t.entity}: split must sum to exactly 100% before Save is enabled', (tester) async {
@@ -821,9 +863,153 @@ import 'package:${pkg}/core/router.dart';
 import 'package:${pkg}/core/components.dart';
 import 'package:${pkg}/core/di.dart';
 import 'package:${pkg}/generated.dart';
+${session.import}
 
 void main() {
 ${getItReset}${cases}
 }
 `;
+}
+
+/**
+ * AuthTestGenerator — structural, deterministic, 0% LLM.
+ * Emits an end-to-end auth regression test for apps that declare `attributes.auth`:
+ *  1. The login screen presents every persona from the IR (via kPersonas).
+ *  2. An unauthenticated deep link is redirected to /login.
+ *  3. Tapping a persona signs the session in and lands on that role's home list.
+ *  4. (denial case, emitted only when some screen's entity is outside the first persona's area)
+ *     A denied route is redirected to the sign-in-"d" role's own home.
+ *  5. Signing out puts the (re-navigating) router back on /login.
+ * This mirrors the REQUIREMENTS — demo login w/ personas + guardPath + tenant-ready Session —
+ * and is the after-commit oracle for the stash-proof regression (see RCA).
+ */
+export function generateAuthTest(feature: FeatureModel): string | null {
+  if (!hasAuth(feature)) return null;
+  const personas = authPersonas(feature);
+  if (!personas.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const auth = feature.attributes?.auth;
+  const first = personas[0];
+  if (!first) return null;
+  const roleHome = auth ? auth.home[first.role] ?? first.role : first.role;
+  const homeRoute = `/${kebab(roleHome)}`;
+  const homeScreen = homeScreenFor(feature, roleHome);
+
+  const denied = firstDeniedScreenEntity(feature);
+  const denial = denied && homeScreen
+    ? `  testWidgets('role denied an area is redirected to its own home', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${first.name}'));
+    await tester.pumpAndSettle();
+    appRouter.go('/${kebab(denied)}/x');
+    await tester.pumpAndSettle();
+    expect(find.byType(${homeScreen}), findsOneWidget);
+  });
+`
+    : "";
+
+  const homeExpect = homeScreen ? `expect(find.byType(${homeScreen}), findsOneWidget);` : `expect(Session.instance.isAuthenticated, isTrue);`;
+
+  const personaLines = personas
+    .map((p) => `    expect(find.text('${p.name}'), findsWidgets);`)
+    .join("\n");
+
+  return `// [generated] generator=AuthTestGenerator template=auth.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/core/di.dart';
+import 'package:${pkg}/generated.dart';
+
+void main() {
+  // GetIt reset + signOut so each test starts fresh (Session is a plucked singleton, not in GetIt).
+  setUp(() {
+    GetIt.instance.reset();
+    Session.instance.signOut();
+  });
+
+  testWidgets('login presents every persona from IR', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    expect(find.byType(AuthLoginScreen), findsOneWidget);
+${personaLines}
+  });
+
+  testWidgets('unauthenticated deep link redirects to login', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('/${kebab(firstNonLoginEntity(feature))}');
+    await tester.pumpAndSettle();
+    expect(find.byType(AuthLoginScreen), findsOneWidget);
+  });
+
+  testWidgets('tapping a persona signs in and lands on the ${first.role} home', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${first.name}').last);
+    await tester.pumpAndSettle();
+    expect(Session.instance.isAuthenticated, isTrue);
+    expect(Session.instance.role, '${first.role}');
+    expect(Session.instance.displayName, '${first.name}');
+    expect(Session.instance.tenantId, '${first.tenantId}');
+    expect(appRouter.routerDelegate.currentConfiguration.uri.path, '${homeRoute}');
+    ${homeExpect}
+  });
+${denial}
+  testWidgets('sign out returns to login gate', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${first.name}').last);
+    await tester.pumpAndSettle();
+    expect(Session.instance.isAuthenticated, isTrue);
+    Session.instance.signOut();
+    await tester.pumpAndSettle();
+    appRouter.go('${homeRoute}');
+    await tester.pumpAndSettle();
+    expect(Session.instance.isAuthenticated, isFalse);
+    expect(find.byType(AuthLoginScreen), findsOneWidget);
+  });
+}
+`;
+}
+
+// MF2: small helpers for AuthTestGenerator (kept local so the test file stays self-contained).
+
+// Home screen class for an entity: prefers its ListScreen, else its DetailScreen, else null.
+function homeScreenFor(feature: FeatureModel, entityName: string): string | null {
+  const screens = feature.screens ?? [];
+  return (
+    screens.find((s) => s.entity === entityName && s.type === "list")?.name ??
+    screens.find((s) => s.entity === entityName && s.type === "detail")?.name ??
+    null
+  );
+}
+
+// First entity with a screen whose area is NOT in the first persona's reachable set — used to
+// emit the denial assertion. Null when every screen is reachable to the first persona.
+function firstDeniedScreenEntity(feature: FeatureModel): string | null {
+  const screens = feature.screens ?? [];
+  for (const e of feature.entities) {
+    if (!isTargetReachable(feature, e.name) && screens.some((s) => s.entity === e.name)) return e.name;
+  }
+  return null;
+}
+
+// First entity with a screen (list or detail) — the deep-link the guard must bounce to login.
+function firstNonLoginEntity(feature: FeatureModel): string {
+  const screens = feature.screens ?? [];
+  const list = screens.find((s) => s.type === "list")?.entity;
+  if (list) return list;
+  const detail = screens.find((s) => s.type === "detail")?.entity;
+  if (detail) return detail;
+  return feature.entities[0]?.name ?? "home";
 }

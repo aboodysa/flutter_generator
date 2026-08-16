@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -55,5 +55,21 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
     m.set("validateSplit", "core/split.dart");
     m.set("SplitRowControllers", "core/split.dart");
   }
+  addAuthSymbols(m, ir);
   return m;
+}
+
+// MF2: auth core symbols (Session/Persona live in core/session.dart, the login screen in
+// core/auth_login_screen.dart; every named persona also resolves there since its type is just
+// Persona). Exported separately because the multi-feature path (index.ts) builds one merged
+// symbol table from each feature's buildSymbols() — app-level `attributes.auth` isn't attached to
+// any single feature, so the per-feature buildSymbols calls never add these; generateMultiFeatureApp
+// calls this after merging instead. Single-feature buildSymbols() calls it itself.
+export function addAuthSymbols(m: Map<string, string>, ir: FeatureModel): void {
+  if (!hasAuth(ir)) return;
+  m.set("Session", "core/session.dart");
+  m.set("Persona", "core/session.dart");
+  for (const p of authPersonas(ir)) m.set(p.name, "core/session.dart");
+  m.set("kPersonas", "core/session.dart");
+  m.set("AuthLoginScreen", "core/auth_login_screen.dart");
 }
