@@ -5,7 +5,10 @@
 > implement → verify (typecheck/validate/flutter) → commit → (run + test in CFT).
 > Each phase has entry + exit criteria. Lean; full narrative lives in DESIGN.md/PHASE_PLAN.md.
 
-## Where we are (2026-08-14)
+## Where we are (2026-08-16)
+- 📥 `research/EXTERNAL_REVIEW.md` received (third-party review of `research/DESIGN_OPTS.md` +
+  `research/PAYMENTS_OPTS.md`) — verdict: strong direction, convert to a capability-driven platform.
+  Folded in below as P10–P13 (additive; does not reorder P1–P9).
 - ✅ Phase 1 deterministic core — plan.json, region hash, lockfile tuple, arch/security/determinism gates
 - ✅ Phase 2 pattern gen — component registry, 8-input scoring + `none` branch, forms, state machines
 - ✅ Phase 3a semantic lane — BusinessRuleAgent (NL→`RuleModel`, schema+field cross-check, provenance, `extensionQueue`)
@@ -119,6 +122,125 @@ Entry: v1 + P4 shipped.
 Exit: 3-way merge (§11.4) for scaffold migration; full a11y semantics generator + gate; grammar-growth reconciliation (§2.4); reverse extraction completed.
 Slices: E1 3-way merge; E2 full a11y; E3 grammar reconciliation.
 
+## External review integration (P10–P13, added 2026-08-16)
+
+`research/EXTERNAL_REVIEW.md` reviewed `DESIGN_OPTS.md` + `PAYMENTS_OPTS.md` and recommended
+converting the generator from "enhancement backlogs" into a **capability-driven platform**
+(capability contract, agent contract, manifest, decision trace, payment levels/state-machine/
+contract-tests, golden budget, UX linter). Its own reorder puts this platform layer (its "Phase A")
+*before* design/payments work. We do **not** reorder P1–P9 — P6/P7 are already in flight and the
+platform layer is additive metadata/tooling, not a generator rewrite — but P10 should start in
+parallel now since it's low-risk (docs + a manifest emitter, no change to existing generator output
+or goldens). P11 folds in `DESIGN_OPTS.md`'s already-scoped Slices D1–D4 verbatim (don't
+re-plan them here) plus the review's UX-linter/pattern-engine layer on top. P12 folds in
+`PAYMENTS_OPTS.md` §5–§7 ("Now" slice) as the flagship capability, applying the review's levels/
+state-machine/contract-test rigor so a `provider: mock` app never looks more production-ready than
+its actual capability level. P13 is process only.
+
+### P10 — Generator platform foundations: capability contract, agent contract, manifest, decision trace, golden impact
+Entry: none — independent of P6/P7 CRUD work; doc + tooling only, no change to existing generator
+output, so it carries zero golden-churn risk and can run in parallel with anything in flight.
+Exit (acceptance):
+- **Capability contract format** documented (`CAPABILITY_CONTRACT.md`): id, version, inputs (e.g.
+  `attributes.payments`), outputs (emitted file paths), dependencies (e.g. `money.v1`), validators,
+  runtime (offline/deterministic), testing (unit/golden/CDP), fallback (e.g. `provider: mock`).
+  Retrofit **one** existing capability (`money.v1` in `builder/src/generators/infra.ts`) as the
+  worked example — documentation only, no code move.
+- **Agent contract** (`GENERATOR_CONTRACT.md`, new file next to `AGENTS.md`): machine-checkable
+  rules already implicit in `validate.ts`'s `archCheck`/secret/idiom gates, made explicit — never
+  modify generated output; no provider logic in `core/`; money never `double` (already enforced);
+  no secrets in generated artifacts; every new capability ships schema+validator+generator+unit
+  tests+determinism test+fixture; goldens frozen unless a slice explicitly says they churn.
+- **Generator manifest**: emit `.generator-manifest.json` per generated app (`generatorVersion`,
+  `schemaVersion`, `capabilities[]`, `providers{}`, `features[]`) alongside existing output —
+  additive file, answers "which capability produced this" without reverse-engineering.
+- **Decision trace**: instrument the existing pattern-selection points (`scoring.ts`'s 8-input
+  scoring, `composition.ts`'s archetype pick) to emit `{screen, decisions:[{rule, reason, result}]}`
+  — logging on top of decisions already made deterministically, not new decision logic.
+- **Golden impact report**: wrap the existing golden-regeneration step in `validate.ts`/test runner
+  to summarize `{Changed, Added, Deleted}` per run, so a slice can't silently touch unrelated
+  goldens.
+Slices: G1 capability contract doc + `money.v1` worked example; G2 `GENERATOR_CONTRACT.md` (rules
+extracted from current `validate.ts` gates, nothing new enforced yet); G3 manifest emitter; G4
+decision trace on `scoring.ts` + `composition.ts`; G5 golden impact report in `validate.ts` output.
+
+### P11 — UX pattern engine + design-system slices (absorbs `DESIGN_OPTS.md` D1–D4, adds UX linter)
+Entry: independent of P10 (design work doesn't need the manifest/contract yet), though P10-G1's
+capability-contract shape is worth having before U3 formalizes the pattern-selection pipeline.
+Exit (acceptance):
+- **D1–D4 land exactly as scoped in `DESIGN_OPTS.md` §10** (theme wiring incl. `buildTheme()` fix +
+  dark mode; CTA+feedback; composition breadth incl. max-width/tonal surfaces; motion+a11y states) —
+  referenced, not re-planned; that doc is the source of truth for these slices' detail.
+- **UX pattern engine, formalized**: name the existing `scoring.ts` 8-input scoring +
+  `composition.ts` archetype selection as an explicit rule catalog (IR → semantic analysis →
+  pattern selection → composition → component selection) — this documents/labels current logic so
+  future rules extend a named pipeline instead of growing ad hoc `if/else` in `screen.ts`; not a
+  rewrite of working code.
+- **UX linter gate**: new `[ux]` validator in `validate.ts` covering the mechanically-checkable
+  subset of the review's UX001–UX012 that this generator already has the data for — touch target
+  <44px, missing empty/error state, contrast (reuses the a11y contrast check `DESIGN_OPTS.md` §7
+  already calls for), heading hierarchy. Others (primary-action-below-fold, excessive nesting)
+  deferred — they need the Visual QA/CDP loop (P6-F3/P13), not static IR analysis.
+Slices: U1 land D1+D2 per `DESIGN_OPTS.md`; U2 land D3+D4 per `DESIGN_OPTS.md`; U3 document the UX
+pattern-engine rule catalog (no behavior change); U4 `[ux]` validator gate (touch target, empty/
+error state, contrast, heading hierarchy) wired into `validate.ts`.
+
+### P12 — Payments capability: levels, state machine, contract tests (absorbs `PAYMENTS_OPTS.md` §5–§7 "Now" slice)
+Entry: P10-G1 (capability contract shape) should exist first — payments is the review's own
+flagship "MISSION" example (§ Strongest recommendation) and the biggest single generator addition
+in either source doc, so it's the capability most worth contract-shaping before writing code.
+Does not need P9 (backend) for L0–L2; L3+ explicitly waits for P9 per `PAYMENTS_OPTS.md` §7.
+Exit (acceptance):
+- **Payment capability levels** L0 none (default, zero artifacts) · L1 mock UI · L2 provider
+  checkout (adapter shells) · L3 backend intent · L4 webhooks+reconciliation · L5 refunds ·
+  L6 payouts — derived from `attributes.payments.provider` + whether a P9 backend is configured, so
+  a generated app never *looks* more capable than what's actually wired (review §10/§Strongest rec).
+  This phase ships L0–L2 only; L3–L6 are P9-era per `PAYMENTS_OPTS.md` §7.
+- **`PaymentGateway` port + `MockPaymentGateway` + DTOs** exactly per `PAYMENTS_OPTS.md` §5.1–5.6:
+  new `payments.ts` registry + `payments.v1` generator (mirrors how `persistence.ts`/`money.v1`
+  already do real-adapter-with-in-memory-fallback), `Money`-based `PaymentRequest`, idempotency
+  registry, method picker + status stepper + receipt UI.
+- **Payment state machine as a first-class artifact**: `created→requiresAction→processing→paid`;
+  `created|requiresAction|processing→failed`; `paid→refunded|partiallyRefunded` — reuses the
+  existing `generators/state_machine.ts` pattern already used elsewhere in the generator; validator
+  rejects any emitted/mocked transition outside this graph.
+- **Provider capability matrix**: `{provider, capabilities:{mada, applePay, stcPay, googlePay,
+  bnpl, refund, partialRefund, subscriptions}}` per provider, driving the method-picker order
+  deterministically (`PAYMENTS_OPTS.md` §5.6 order: mada → Apple Pay (device-gated) → STC Pay →
+  cards → BNPL).
+- **`PaymentGatewayContractTest`**, run against the mock and every adapter shell: idempotency
+  deterministic, different key → different payment, requiresAction/success/failure/refund/partial-
+  refund paths, invalid amount rejected, currency mismatch rejected.
+- **`[payments]` security validator** in `validate.ts`: blocks entity fields named
+  `cardNumber`/`cvc`/`pan`/`expiry…` unless typed `PaymentToken`; blocks secret-key-shaped strings
+  in generated Dart — mirrors the existing `[money]` never-double gate.
+Slices: PAY1 `payments.ts` registry + port + `MockPaymentGateway` + DTOs, `provider: none|mock`
+(`PAYMENTS_OPTS.md` §7 "Now" step 1); PAY2 state-machine artifact + impossible-transition validator;
+PAY3 capability levels L0–L2 wired to `attributes.payments` + provider capability matrix; PAY4
+adapter shells in `PAYMENTS_OPTS.md` §6 order (moyasar → Tap → Stripe) + `PaymentGatewayContractTest`
+per adapter; PAY5 `[payments]` security validator; PAY6 CDP Pay→Paid flow test + iPhone goldens on
+≥2 sample app types of different domains (per the CAPABILITIES.md "≥2 app types" acceptance rule).
+
+### P13 — Specialized agent roles + strict workflow gate (process only, no generator code)
+Entry: P10 (capability contract + agent contract exist to hand agents a bounded mission).
+Exit (acceptance):
+- Document the review's specialized-agent roles (Architect, Generator Engineer, Validator Engineer,
+  Test Engineer, Visual QA Agent, Adversarial Reviewer, Integrator) as capability-sized **mission
+  briefs**, mapped onto this project's actual tooling (`opencode/deepseek-v4-pro`, the CFT/CDP
+  driver, the oracle gate) — a workflow doc, not new infrastructure.
+  - Worked example: a `payments.v1` mission brief (the review's own example) with success criteria
+    (schema exists; `provider:none` → zero artifacts; `provider:mock` → deterministic flow; port +
+    state machine + idempotency + `[payments]` validator all enforced; adapters compile + pass
+    `PaymentGatewayContractTest`; works offline; CDP Pay→Paid passes; no unrelated golden changes;
+    `npm run typecheck:builder` passes) — this becomes the template every later capability mission
+    copies.
+- Staple the review's `DISCOVER → PLAN → SCHEMA → GENERATE → VALIDATE → TEST → VISUAL QA →
+  ADVERSARIAL QA → REVIEW` gate onto the existing "Standing loop" below as an explicit Definition-
+  of-Done addendum — codifies "code compiles is not done" without changing what the loop already
+  does.
+Slices: AG1 mission-brief template + `payments.v1` worked example; AG2 stage-gate checklist added
+to Definition of Done.
+
 ## Standing loop (never stops between phases)
 ```
 slice → implement (claude in tmux when available, else me) → verify
@@ -137,3 +259,7 @@ LLM model = `opencode/deepseek-v4-pro`; agents read AGENTS.md + briefs in `~/tem
 5. P6+: the CDP flow test drives list → create → detail → update → delete, asserts each, captures an iPhone flow golden per step; test results feed RCA until green.
 6. P9+: generated NestJS backend — `npm test` green + `npx tsc --noEmit` clean; boots, serves, and an HTTP/CDP smoke drive asserts routes + tenant guard + idempotency.
 7. One logical slice per commit; HANDOFF kept lean; history → `context_history.md`.
+8. P10+: every new capability ships schema + validator + generator + unit tests + determinism test
+   + fixture (agent contract, P10-G2); Golden Impact report (P10-G5) shows no unrelated golden
+   changes; new capability missions follow the P13-AG1 brief template and its DISCOVER→…→REVIEW
+   stage gate.
