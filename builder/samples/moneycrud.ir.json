@@ -12,6 +12,28 @@
       ]
     }
   ],
+  "businessRules": [
+    {
+      "name": "LargeAmount",
+      "entity": "LineItem",
+      "result": "true",
+      "conditions": [
+        { "field": "amount", "operator": ">=", "value": "500" }
+      ],
+      "severity": "warn",
+      "message": "This amount is unusually large — please double-check before saving."
+    },
+    {
+      "name": "VeryLargeAmount",
+      "entity": "LineItem",
+      "result": "true",
+      "conditions": [
+        { "field": "amount", "operator": ">=", "value": "2000" }
+      ],
+      "severity": "requireJustification",
+      "message": "Amounts over 2,000 SAR require a written justification."
+    }
+  ],
   "repositories": [
     {
       "name": "LineItemRepository",

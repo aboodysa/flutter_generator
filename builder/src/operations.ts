@@ -2,7 +2,7 @@
 // naming.ts (both dependency-free themselves). Single source of truth for "what CRUD kind is this
 // operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
 // drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel } from "./types";
 import { capitalize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
@@ -178,4 +178,29 @@ export function fieldRole(field: Field, ctx: FieldRoleContext = {}): FieldRole {
     if (ctx.entityNames?.includes(target)) return "relation";
   }
   return "plain";
+}
+
+// L2 policy engine (generators/policy.ts) — single source of truth for "which rules are policy
+// rules" and "which entities need a generated policy engine", shared by symbols.ts (import
+// resolution), index.ts (file emission), crud_form.ts (verdict-panel wiring), and validate.ts
+// (the [verdict] gate). A rule opts into the policy engine by declaring `severity`; decision-table
+// rules (`rows`) are out of scope for this slice — they classify (e.g. promotionStatus), they
+// don't gate submission, and mixing per-row severity is a separate, larger design (not needed by
+// any current app-type sample) — see report for the full scoping rationale.
+export function isPolicyRule(r: RuleModel): boolean {
+  return !!r.severity && !r.rows;
+}
+
+export function hasPolicyRules(ir: FeatureModel): boolean {
+  return (ir.businessRules ?? []).some(isPolicyRule);
+}
+
+export function policyRulesForEntity(ir: FeatureModel, entityName: string): RuleModel[] {
+  return (ir.businessRules ?? []).filter((r) => r.entity === entityName && isPolicyRule(r));
+}
+
+// Every distinct entity with >=1 policy rule — the set of entities that get a generated
+// evaluate<Entity>Policy() function (one file each, domain/policy/<entity>_policy.dart).
+export function policyEntities(ir: FeatureModel): string[] {
+  return Array.from(new Set((ir.businessRules ?? []).filter(isPolicyRule).map((r) => r.entity)));
 }

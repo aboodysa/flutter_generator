@@ -1,0 +1,10 @@
+{
+  "rule": "VeryLargeAmount",
+  "entity": "LineItem",
+  "cases": [
+    { "input": { "id": "li-1", "amount": 2000, "title": "Server rack" }, "expected": true },
+    { "input": { "id": "li-2", "amount": 2500, "title": "Conference sponsorship" }, "expected": true },
+    { "input": { "id": "li-3", "amount": 1999.99, "title": "Monitor" }, "expected": false },
+    { "input": { "id": "li-4", "amount": 500, "title": "Office chairs" }, "expected": false }
+  ]
+}

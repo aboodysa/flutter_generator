@@ -230,12 +230,20 @@ export type RuleOperator =
   | ">=" | "<=" | ">" | "<" | "==" | "!=" | "contains"
   | "daysSince>" | "daysSince<"; // temporal, scoped to decision-table rows only (§25 Phase 0 slice 3)
 
+// L2: severity a rule's firing is scored at — presence enrolls a FLAT rule (no `rows`) in the
+// generated policy engine (see generators/policy.ts). A rule with no `severity` keeps today's
+// plain boolean/decision-table behavior untouched — this is the entire backward-compat story:
+// existing rules (LargeClaim, HighPriority, ...) are unaffected until an IR author opts a rule in.
+export type PolicySeverity = "autoApprove" | "warn" | "requireJustification" | "block";
+
 export interface RuleModel {
   name: string; // e.g. promotionEligibility
   entity: string; // entity the rule acts on
   conditions: RuleCondition[]; // all must hold (AND) — flat form
   result: string; // flat outcome, or the default outcome when no decision-table row matches
   rows?: DecisionTableRow[]; // decision-table form (additive, optional — §19)
+  severity?: PolicySeverity; // L2, flat-form rules only — see PolicySeverity doc above
+  message?: string; // L2 — plain-language verdict message shown to the user; required when severity is set ([verdict] gate)
 }
 
 export interface DecisionTableRow {

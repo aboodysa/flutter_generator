@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,8 +36,9 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
+import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -118,6 +119,9 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasMoneyFields(ir)) {
     core.push(["money.dart", generateMoney(ir)]);
   }
+  if (hasPolicyRules(ir)) {
+    core.push(["policy.dart", generatePolicyCore()]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -130,6 +134,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "validator.dart": "ValidatorGenerator",
     "no_params.dart": "NoParamsGenerator",
     "money.dart": "MoneyGenerator",
+    "policy.dart": "PolicyCoreGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -283,6 +288,20 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:back", generator: "BackTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // L2 regression guard — block prevents Save, warn allows it with a visible message,
+  // requireJustification blocks until typed, waive requires a reason. Scoped against the full ir
+  // (same reasoning as focus/scroll/back above) since policy verdicts live in the CRUD form, not
+  // behind any particular navigation path.
+  const policyTest = generatePolicyTest(ir);
+  if (policyTest) {
+    const f = path.join(testDir, "policy_test.dart");
+    fs.writeFileSync(f, policyTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:policy", generator: "PolicyTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -495,6 +514,31 @@ function writeFeatureArtifacts(
     artifact: `${artifactPrefix}${e.artifact}`,
     dependsOn: e.dependsOn.map((d) => `${artifactPrefix}${d}`),
   })));
+
+  // L2: one evaluate<Entity>Policy() file per entity that has >=1 severity'd rule (never IR-
+  // declared directly — derived from businessRules, the same shape writeCrudExtras above uses for
+  // "which entities get a CRUD form").
+  const policyDir = path.join(featureRoot, "domain", "policy");
+  for (const entityName of policyEntities(feature)) {
+    const entity = feature.entities.find((e) => e.name === entityName);
+    if (!entity) continue;
+    const rules = policyRulesForEntity(feature, entityName);
+    fs.mkdirSync(policyDir, { recursive: true });
+    const f = path.join(policyDir, fileName(entityName).replace(/\.dart$/, "_policy.dart"));
+    fs.writeFileSync(f, generateEntityPolicy(entity, rules, ctx));
+    files.push(f);
+    planEntries.push({
+      artifact: `${artifactPrefix}policy:${entityName}`,
+      generator: "PolicyEngineGenerator",
+      schema: "policy",
+      layer: "domain/policy",
+      file: path.relative(outDir, f),
+      strategy: "default",
+      dependsOn: [`${artifactPrefix}entity:${entityName}`, ...rules.map((r) => `${artifactPrefix}rule:${r.name}`)],
+      mode: "semantic",
+      class: "semantic",
+    });
+  }
 
   return { files, planEntries };
 }

@@ -2,8 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
-import { oracleCoverage, oracleDirFor } from "./oracle";
-import { isMoneyField } from "./operations";
+import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
+import { isMoneyField, isPolicyRule } from "./operations";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -116,6 +116,30 @@ function datepickerCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// L2: a severity'd rule (see operations.ts's isPolicyRule) drives generated policy-verdict UI —
+// stricter than the general [oracle] gate (which only requires SOME oracle coverage for every
+// rule): a policy rule additionally needs a valid severity value and a non-empty plain-language
+// message (an empty message would mean the whole point of a verdict — "employee sees plain-
+// language reasons before submit" — silently fails at the UI layer, not caught by [oracle]).
+const VALID_SEVERITIES = ["autoApprove", "warn", "requireJustification", "block"];
+function verdictCheck(ir: any, oracleDir: string): string[] {
+  const issues: string[] = [];
+  for (const rule of ir.businessRules ?? []) {
+    if (!isPolicyRule(rule)) continue;
+    if (!VALID_SEVERITIES.includes(rule.severity)) {
+      issues.push(`[verdict] rule '${rule.name}': invalid severity '${rule.severity}'`);
+    }
+    if (!rule.message || !String(rule.message).trim()) {
+      issues.push(`[verdict] rule '${rule.name}': severity '${rule.severity}' requires a non-empty message`);
+    }
+    const oracle = loadOracle(rule.name, oracleDir);
+    if (!oracle || !oracle.cases || oracle.cases.length === 0) {
+      issues.push(`[verdict] rule '${rule.name}': severity'd rule missing/zero-case oracle — unverifiable`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -126,6 +150,7 @@ export interface ValidationResult {
   fidelity: number;  // count of state artifacts whose plan.json strategy doesn't match the emitted template
   money: number;     // count of money-declared fields emitted as double (P7-L1)
   datepicker: number; // count of DateTime fields rendered as a bare TextField, no showDatePicker (G2)
+  verdict: number;   // count of severity'd rules with invalid severity, empty message, or missing oracle (L2)
   files: number;
   issues: string[];
 }
@@ -177,7 +202,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...datepickerIssues);
   const datepicker = datepickerIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, files: files.length, issues };
+  // Policy verdicts (L2): severity'd rules need a valid severity, a non-empty message, and oracle
+  // coverage — stricter than the general [oracle] gate above.
+  const verdictIssues = verdictCheck(ir, oracleDirFor(irPath));
+  issues.push(...verdictIssues);
+  const verdict = verdictIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, files: files.length, issues };
 }
 
 function main() {
@@ -193,7 +224,8 @@ function main() {
   console.log(`[strategy-fidelity] ${r.fidelity === 0 ? "PASS" : "FAIL (" + r.fidelity + ")"}`);
   console.log(`[money] ${r.money === 0 ? "PASS" : "FAIL (" + r.money + ")"}`);
   console.log(`[datepicker] ${r.datepicker === 0 ? "PASS" : "FAIL (" + r.datepicker + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker > 0;
+  console.log(`[verdict] ${r.verdict === 0 ? "PASS" : "FAIL (" + r.verdict + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

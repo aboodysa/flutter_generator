@@ -114,7 +114,9 @@
           "operator": "==",
           "value": "high"
         }
-      ]
+      ],
+      "severity": "block",
+      "message": "High-priority tasks require manager sign-off before creation."
     }
   ],
   "repositories": [

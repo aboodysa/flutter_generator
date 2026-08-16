@@ -1,6 +1,6 @@
-import { EntityModel, Field } from "../types";
+import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -99,21 +99,28 @@ function initStateLine(f: Field, roleCtx?: FieldRoleContext): string | null {
 //   of focusing field 2. Rejected in favor of a per-field, gesture-accurate handler.
 // - `TextInput.finishAutofillContext()`-style hacks: unrelated to this failure mode (that API
 //   addresses autofill session cleanup, not focus/keyboard triggering) — evaluated and dropped.
-function fieldWidget(f: Field, roleCtx?: FieldRoleContext, focusBypassTarget?: boolean): string {
+function fieldWidget(f: Field, roleCtx?: FieldRoleContext, focusBypassTarget?: boolean, policyTriggerField?: boolean): string {
   const label = fieldLabel(f.name);
   const focusBypass = focusBypassTarget ? `focusNode: _${f.name}Focus, onTap: () => _${f.name}Focus.requestFocus(), ` : "";
+  // L2: a controller-backed TextField (String/int/double/Money — enum/bool/DateTime already call
+  // setState on change via their own onSelected/onChanged/onTap) has no listener by default, so a
+  // policy rule that reads this field would compute against a stale value until some UNRELATED
+  // rebuild happened — "verdicts before submit" needs live recompute as the user types. Only
+  // added for fields a policy rule's condition actually reads (policyRuleTriggerFields in
+  // generateCrudFormScreen), so every other field's output is untouched.
+  const policyOnChanged = policyTriggerField ? "onChanged: (_) => setState(() {}), " : "";
   // P7-L1: same decimal-text UI as "double", plus a currency suffix; the typed value is parsed
   // into minor units in valueExpr(), never left as a raw double.
   if (isMoneyField(f)) {
-    return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
+    return `        TextField(controller: _${f.name}, ${focusBypass}${policyOnChanged}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${f.currency}')),`;
   }
   switch (f.type) {
     case "String":
-      return `        TextField(controller: _${f.name}, ${focusBypass}decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}${policyOnChanged}decoration: const InputDecoration(labelText: '${label}')),`;
     case "int":
-      return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}${policyOnChanged}keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}')),`;
     case "double":
-      return `        TextField(controller: _${f.name}, ${focusBypass}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
+      return `        TextField(controller: _${f.name}, ${focusBypass}${policyOnChanged}keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}')),`;
     // G2: a real date picker, not free-typed text — read-only so the on-screen keyboard never
     // opens; onTap drives showDatePicker and writes the pick back into the same controller (still
     // yyyy-MM-dd), so valueExpr()'s DateTime.tryParse(_<f>.text) keeps working unchanged.
@@ -166,6 +173,111 @@ function carryForwardExpr(f: Field): string {
   return `widget.initial?.${f.name} ?? ${sampleArgFor(f, [], [])}`;
 }
 
+// L2: when the entity has >=1 severity'd rule (operations.ts's policyRulesForEntity — the single
+// source of truth shared with index.ts/symbols.ts/test.ts so this can never drift from which
+// entities actually get a generated evaluate<Entity>Policy()), the create/edit form shows the
+// verdicts inline BEFORE submit — the owner's "employee sees plain-language reasons before
+// submit" requirement — gates Save on any unwaived `block`, and requires a non-empty
+// justification for any unwaived `requireJustification` verdict. All of it is empty-string when
+// the entity has no policy rules, so every entity untouched by L2 gets byte-identical output to
+// before this feature existed (the whole backward-compat story for this generator).
+function policyWiring(entity: EntityModel, policyRules: RuleModel[], ctorArgs: string, ctx?: GenContext) {
+  if (!policyRules.length) {
+    return { imports: "", stateFields: "", disposeLines: "", methods: "", panelCall: "", itemExpr: `${entity.name}(\n${ctorArgs}\n              )`, saveGuard: "" };
+  }
+
+  const policyImport = ctx?.symbols.get("PolicyVerdict")
+    ? `import 'package:${ctx.pkg}/${ctx.symbols.get("PolicyVerdict")}';`
+    : `import '../../core/policy.dart';`;
+  const engineImport = ctx?.symbols.get(`evaluate${entity.name}Policy`)
+    ? `import 'package:${ctx.pkg}/${ctx.symbols.get(`evaluate${entity.name}Policy`)}';`
+    : `import '../../domain/policy/${entity.name.toLowerCase()}_policy.dart';`;
+  const imports = `${policyImport}\n${engineImport}`;
+
+  const stateFields = `  final Map<String, TextEditingController> _waiveReasonControllers = {};
+  final Map<String, PolicyVerdict> _waivedVerdicts = {};
+  final _policyJustification = TextEditingController();`;
+
+  const disposeLines = `    for (final c in _waiveReasonControllers.values) {
+      c.dispose();
+    }
+    _policyJustification.dispose();`;
+
+  const methods = `
+  TextEditingController _waiveController(String ruleId) =>
+      _waiveReasonControllers.putIfAbsent(ruleId, () => TextEditingController());
+
+  ${entity.name} _draft() => ${entity.name}(
+${ctorArgs}
+      );
+
+  List<PolicyVerdict> _verdicts() => evaluate${entity.name}Policy(_draft())
+      .map((v) => _waivedVerdicts[v.ruleId] ?? v)
+      .toList();
+
+  Widget _policyPanel() {
+    final visible = _verdicts().where((v) => v.severity != PolicySeverity.autoApprove).toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final v in visible)
+          Card(
+            color: v.isWaived
+                ? Colors.grey.shade200
+                : v.severity == PolicySeverity.block
+                    ? Colors.red.shade50
+                    : v.severity == PolicySeverity.warn
+                        ? Colors.amber.shade50
+                        : Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(v.isWaived ? '\${v.message} (waived)' : v.message),
+                  if (v.requiresJustification) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    TextField(
+                      controller: _policyJustification,
+                      decoration: const InputDecoration(labelText: 'Justification'),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                  if (!v.isWaived) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    TextField(
+                      controller: _waiveController(v.ruleId),
+                      decoration: const InputDecoration(labelText: 'Waive reason'),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    TextButton(
+                      onPressed: _waiveController(v.ruleId).text.trim().isEmpty
+                          ? null
+                          : () => setState(() {
+                                _waivedVerdicts[v.ruleId] = v.waive(
+                                  waivedBy: 'current_user',
+                                  waivedReason: _waiveController(v.ruleId).text,
+                                );
+                              }),
+                      child: const Text('Waive'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+`;
+
+  const panelCall = `          _policyPanel(),\n`;
+  const saveGuard = `_verdicts().any((v) => v.blocksAdvance || (v.requiresJustification && _policyJustification.text.trim().isEmpty))\n                ? null\n                : `;
+
+  return { imports, stateFields, disposeLines, methods, panelCall, itemExpr: "_draft()", saveGuard };
+}
+
 export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityModel, screenName: string, ctx?: GenContext): string {
   const identityField = entity.identity?.field ?? "id";
   const identityFieldDef = entity.fields.find((f) => f.name === identityField);
@@ -204,13 +316,24 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
     ...editable.filter(usesController).map((f) => `    _${f.name}.dispose();`),
     ...(firstFocusable ? [`    _${firstFocusable.name}Focus.dispose();`] : []),
   ].join("\n");
-  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, f === firstFocusable)).join("\n");
+
+  // L2: fields a policy rule's condition actually reads need a live setState on change (see
+  // fieldWidget's own doc comment) so verdicts recompute as the user types, before Save.
+  const policyRules = ctx?.ir ? policyRulesForEntity(ctx.ir, target.entity) : [];
+  const policyTriggerFieldNames = new Set(policyRules.flatMap((r) => r.conditions.map((c) => c.field)));
+
+  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, f === firstFocusable, policyTriggerFieldNames.has(f.name))).join("\n");
 
   const ctorArgs = [
     `        ${identityField}: widget.id ?? ${newIdExpr(identityType)},`,
     ...editable.map((f) => `        ${f.name}: ${valueExpr(f)},`),
     ...carried.map((f) => `        ${f.name}: ${carryForwardExpr(f)},`),
   ].join("\n");
+
+  // L2: policy verdicts inline on the form — see policyWiring()'s own doc comment. Empty for any
+  // entity with no severity'd rules (the common case, and every currently-committed sample except
+  // the ones this feature's own proof adds).
+  const policy = policyWiring(entity, policyRules, ctorArgs, ctx);
 
   const queryParamsCtorArg = hasRelation ? ", required this.queryParams" : "";
   const queryParamsField = hasRelation ? "  final Map<String, String> queryParams;\n" : "";
@@ -229,6 +352,7 @@ class _${screenName}BodyState extends State<${bodyClass}> {
 ${controllerFields}
 ${stateFields}
 ${focusNodeField}
+${policy.stateFields}
 
   @override
   void initState() {
@@ -240,9 +364,10 @@ ${initLines}
   @override
   void dispose() {
 ${disposeLines}
+${policy.disposeLines}
     super.dispose();
   }
-
+${policy.methods}
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -250,13 +375,11 @@ ${disposeLines}
       child: ListView(
         children: [
 ${fieldWidgets}
-          const SizedBox(height: AppSpacing.md),
+${policy.panelCall}          const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',
-            onPressed: () async {
-              final item = ${entity.name}(
-${ctorArgs}
-              );
+            onPressed: ${policy.saveGuard}() async {
+              final item = ${policy.itemExpr};
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).
               await widget.onSubmit(item);
@@ -347,6 +470,7 @@ ${componentsImport}
 ${themeImport}
 ${stateImport}
 ${typeImports}
+${policy.imports}
 
 ${screenWidget}
 

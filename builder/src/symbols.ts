@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -43,5 +43,12 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
   for (const r of ir.businessRules ?? []) add(r.name, "domain/rules", fileName(r.name));
   if ((ir.useCases ?? []).some((u) => u.paramType === "NoParams")) m.set("NoParams", "core/no_params.dart");
   if (hasMoneyFields(ir)) m.set("Money", "core/money.dart");
+  if (hasPolicyRules(ir)) {
+    m.set("PolicyVerdict", "core/policy.dart");
+    m.set("PolicySeverity", "core/policy.dart");
+    for (const entityName of policyEntities(ir)) {
+      m.set(`evaluate${entityName}Policy`, `features/${ir.name}/domain/policy/${fileName(entityName).replace(/\.dart$/, "_policy.dart")}`);
+    }
+  }
   return m;
 }

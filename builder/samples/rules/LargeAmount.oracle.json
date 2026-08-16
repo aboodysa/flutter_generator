@@ -1,0 +1,10 @@
+{
+  "rule": "LargeAmount",
+  "entity": "LineItem",
+  "cases": [
+    { "input": { "id": "li-1", "amount": 500, "title": "Office chairs" }, "expected": true },
+    { "input": { "id": "li-2", "amount": 750, "title": "Laptop" }, "expected": true },
+    { "input": { "id": "li-3", "amount": 499.99, "title": "Pens" }, "expected": false },
+    { "input": { "id": "li-4", "amount": 0, "title": "Sample" }, "expected": false }
+  ]
+}

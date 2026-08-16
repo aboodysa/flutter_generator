@@ -1,6 +1,6 @@
-import { FeatureModel, Field, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity } from "../operations";
-import { kebab, collectionField, camelize } from "../naming";
+import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity } from "../operations";
+import { kebab, collectionField, camelize, fieldLabel } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
 import { nullable } from "../nullability";
@@ -600,6 +600,140 @@ ${getItImport}import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 import 'package:${pkg}/generated.dart';
 ${diImport}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * PolicyTestGenerator — structural, deterministic, 0% LLM (L2 regression guard).
+ * For every entity with >=1 severity'd rule (operations.ts's policyRulesForEntity), drives the
+ * create form to trigger each rule's own condition — never a hardcoded field/value, always read
+ * off the RuleCondition itself, so this generalizes to any app-type's policy rules, not just the
+ * samples this feature happened to add severity to. Only two condition shapes are driveable
+ * generically today: an enum field compared with `==` (tap its ChoiceChip) and a numeric/money
+ * field compared with `>=`/`>` (type a value safely over the threshold) — a rule whose condition
+ * doesn't match either shape is skipped (documented gap, not a silent wrong assertion).
+ * Covers exactly what the task asked for: block prevents Save, warn allows Save with a visible
+ * message, requireJustification blocks until typed, waive requires a reason (and re-enables Save).
+ */
+function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): string | null {
+  const cond = rule.conditions[0];
+  if (!cond) return null;
+  const field = entity.fields.find((f) => f.name === cond.field);
+  if (!field) return null;
+  if (field.type === "enum" && cond.operator === "==") {
+    return `    await tester.tap(find.widgetWithText(ChoiceChip, '${cond.value}'));\n    await tester.pumpAndSettle();`;
+  }
+  const numeric = isMoneyField(field) || field.type === "double" || field.type === "int";
+  if (numeric && (cond.operator === ">=" || cond.operator === ">")) {
+    const triggerValue = String(Math.ceil(parseFloat(cond.value)) + 1);
+    return `    await tester.enterText(find.widgetWithText(TextField, '${fieldLabel(field.name)}'), '${triggerValue}');\n    await tester.pumpAndSettle();`;
+  }
+  return null;
+}
+
+export function generatePolicyTest(feature: FeatureModel): string | null {
+  const targets = [...crudFormTargets(feature).values()];
+  if (!targets.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const setup = "    setupDependencies();\n";
+
+  const cases: string[] = [];
+  let waiveCaseWritten = false;
+
+  for (const t of targets) {
+    const entity = feature.entities.find((e) => e.name === t.entity);
+    if (!entity) continue;
+    const rules = policyRulesForEntity(feature, t.entity);
+    if (!rules.length) continue;
+    const base = `/${kebab(t.entity)}`;
+
+    for (const rule of rules) {
+      const trigger = policyTriggerSteps(rule, entity);
+      if (!trigger) continue; // undriveable condition shape — documented gap, not asserted
+
+      // Scroll to the bottom of the form after triggering — the policy panel adds Cards above
+      // PrimaryButton, and Flutter's ListView only builds elements within the viewport/cache
+      // extent, so a form with enough policy content pushes the button (or the Justification /
+      // Waive reason fields) out of the built element tree. Mirrors ScrollTestGenerator's own
+      // drag-based approach (see generateScrollTest above) rather than inventing a new idiom.
+      const scrollToBottom = `    await tester.drag(find.byType(ListView), const Offset(0, -2000));\n    await tester.pumpAndSettle();`;
+
+      if (rule.severity === "block") {
+        cases.push(`  testWidgets('${t.entity}: ${rule.name} (block) prevents Save until waived', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${base}/new');
+    await tester.pumpAndSettle();
+${trigger}
+${scrollToBottom}
+    expect(find.textContaining('${(rule.message ?? "").replace(/'/g, "\\'")}'), findsOneWidget, reason: 'the employee must see the verdict message before submit');
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNull, reason: 'a block verdict must prevent Save until waived');
+  });`);
+        if (!waiveCaseWritten) {
+          waiveCaseWritten = true;
+          cases.push(`  testWidgets('${t.entity}: ${rule.name} waive requires a reason, then re-enables Save', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${base}/new');
+    await tester.pumpAndSettle();
+${trigger}
+${scrollToBottom}
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Waive')).onPressed, isNull, reason: 'Waive must stay disabled until a reason is typed (mandatory comment)');
+    await tester.enterText(find.widgetWithText(TextField, 'Waive reason'), 'Reviewed and approved offline.');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Waive'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a waived verdict must no longer prevent Save');
+  });`);
+        }
+      } else if (rule.severity === "warn") {
+        cases.push(`  testWidgets('${t.entity}: ${rule.name} (warn) shows a message but allows Save', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${base}/new');
+    await tester.pumpAndSettle();
+${trigger}
+${scrollToBottom}
+    expect(find.textContaining('${(rule.message ?? "").replace(/'/g, "\\'")}'), findsOneWidget);
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a warn verdict must never block Save');
+  });`);
+      } else if (rule.severity === "requireJustification") {
+        cases.push(`  testWidgets('${t.entity}: ${rule.name} (requireJustification) blocks Save until justified', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${base}/new');
+    await tester.pumpAndSettle();
+${trigger}
+${scrollToBottom}
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNull, reason: 'requireJustification must block Save until a justification is typed');
+    await tester.enterText(find.widgetWithText(TextField, 'Justification'), 'Approved — see attached memo.');
+    await tester.pumpAndSettle();
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'typing a justification must unblock Save');
+  });`);
+      }
+    }
+  }
+
+  if (!cases.length) return null;
+
+  // Each case independently boots the real app — same GetIt reset need as every other multi-case
+  // generated test file (focus/scroll/back).
+  const getItReset = `  setUp(() => GetIt.instance.reset());\n\n`;
+
+  return `// [generated] generator=PolicyTestGenerator template=policy_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/core/components.dart';
+import 'package:${pkg}/core/di.dart';
+
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }
