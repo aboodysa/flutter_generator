@@ -3,6 +3,18 @@
 Compiled from every claude slice report + probe findings. Each item: source, what, why it
 matters, status. Update on every slice. This is the "don't lose the notes" index.
 
+## From spike review (COMPETITIVE_BENCHMARK/BACKEND_GEN_OPTS/AUTH_OPTS + adversarial review) — 2026-08-16
+| Note | Detail | Status |
+|---|---|---|
+| R1 cross-feature module wiring | `BACKEND_GEN_OPTS.md`'s "one module per feature" claim doesn't address cross-feature FK relations (e.g. approvals→expenses); needs an explicit ownership-graph design note (reuse MF1's shared-core/DI graph walk server-side) before B1 lands | OPEN — queued as pre-B1 design note in `ROADMAP.md` P9 |
+| R2 rule-engine dual-eval gate | Dart client + TS server rule eval is two sources of truth; `BACKEND_GEN_OPTS.md §9.7` files this as a risk, review promotes it to a blocking cross-language golden-parity gate (B6) | OPEN — queued as `ROADMAP.md` P9 slice B6 |
+| A1 tenantId-claim provisioning gap | Supabase RLS needs `tenantId` as a signed `app_metadata` claim, provisioned via a server-side admin op at account creation; today's `kPersonas` are static/generator-derived with no such step — RLS **forks** the convention, doesn't lift it unchanged | OPEN — queued in `ROADMAP.md` MF2-evolution, must close before any RLS SQL emitter ships |
+| A2 `GRILL_NOTES.md` factual error | Self-grill claimed MF2 "already emits the mock AuthPort"; verified false against `builder/src/generators/auth.ts` (126 lines, concrete `Session` class, no port/interface exists) — `AUTH_OPTS.md`'s original "future work" sequencing was correct | CORRECTED (see `research/CLAUDE_GRILL_REVIEW.md` §3 grill #1) |
+| A3 Clerk/Keycloak order | Reordered Clerk ahead of Keycloak in `ROADMAP.md` MF2-evolution — Clerk is hosted-SDK/zero-infra (lighter than Keycloak's JVM+Postgres), matching the same no-docker-in-CI determinism principle P9's R7 uses; Keycloak deferred to P9-era, not demoted for enterprise-fit reasons | RESOLVED — applied to `ROADMAP.md` |
+| C1 public-deploy liability | `COMPETITIVE_BENCHMARK.md` G5 said "keep deploy as a roadmap option"; review adds a hard requirement — any public-deploy slice (beyond Tailscale-default) needs a security-review gate first, given generated apps carry money (L1) + tenant PII | OPEN — queued as `ROADMAP.md` P14 slice W4 (gate) |
+| C2 doc-hygiene: ROADMAP "Where we are" stale | `ROADMAP.md`'s "Where we are" (top of file) doesn't list MF1/MF2/L1 as shipped, but code confirms all three exist (`types.ts` `features[]`, `repository_impl.ts` `_inScope`/`_stampTenant`, money-as-int generator) — `CAPABILITIES.md`'s sequence note is similarly behind actual shipped state | OPEN (documentation debt, out of scope for this review — flagged, not fixed) |
+| C3 confidence laundering in COMPETITIVE_BENCHMARK.md | `§2` hedges vendor facts as "Medium — directional, unverified" but `§5`–`§8` state vendor absences as flat fact with no re-flagging; anyone quoting `§8` externally inherits false confidence | OPEN — re-flag as unverified estimate anywhere this doc is quoted outside itself (no direct roadmap slice; a writing-hygiene note for whoever reuses `§8`) |
+
 ## Bugs round (committed 53ae2d2) — 2026-08-15
 | Note | Detail | Status |
 |---|---|---|

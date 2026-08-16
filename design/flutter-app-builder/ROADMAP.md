@@ -107,9 +107,74 @@ Slices: B1 IR→NestJS scaffold (module/entity/controller/DTO generators, projec
 CORS, validation pipe); B2 tenant context + idempotency middleware + `tenant_id` schema;
 B3 FakeRemoteDataSource in Flutter + repo-impl switch (in-memory ↔ HTTP behind one interface);
 B4 end-to-end sample (generate Ledgerly's backend + Flutter app from one IR, drive both in CDP:
-Flutter UI → HTTP → NestJS → Postgres-shaped in-memory store, golden the flow).
+Flutter UI → HTTP → NestJS → Postgres-shaped in-memory store, golden the flow); B5 (new,
+`research/BACKEND_GEN_OPTS.md` + adversarial review) OpenAPI contract-parity gate — diff emitted
+`@nestjs/swagger` spec against the IR-declared `DataSourceContract`/envelope, fail `VALIDATION
+PASSED` on drift, same posture as `[oracle]`/`[money]`; B6 (new) cross-language rule-eval parity
+gate — the TS port of `RuleModel` eval must reproduce the Dart oracle corpus's verdicts
+byte-for-byte (golden test), blocking, not a listed risk — a rule engine that can silently drift
+between client and server is exactly the failure class the oracle gate exists to prevent elsewhere.
 Dependency note: B4 shines after MF6/S1 (outbox) so offline edits sync to the backend; B1–B3 do
 not need outbox.
+
+**Pre-B1 design note (2026-08-16 review, `research/CLAUDE_GRILL_REVIEW.md` §2 grill #1):** R1's
+"one module per feature" claim is mechanical only for single-feature entities. Cross-feature FK
+relations (e.g. an approvals-feature entity referencing an expenses-feature entity) need an
+explicit ownership graph — which feature's module `exports` the entity, which modules `import` it
+via `TypeOrmModule.forFeature([...])` — before B1 lands, or the emitter silently produces either
+one giant module or broken DI. `MF1` already solved an analogous problem client-side (shared core +
+merged router/DI per `CAPABILITIES.md`); B1 should reuse that graph walk server-side rather than
+invent a second one. Write this as a short design note before B1, not during it.
+
+**Supabase-as-Auth vs. `persistence.backend: baas` (2026-08-16 review):** these are independent
+axes, not the same decision. `research/AUTH_OPTS.md` recommends Supabase as the first **auth**
+adapter (validating Supabase-issued JWTs via RS256+JWKS in the `TenantContext` guard); this is
+compatible with `persistence.backend: remoteApi` (NestJS/Postgres, the P9 default) and does **not**
+imply or require the deferred `baas` persistence lane (PostgREST/RLS as the data layer). State this
+explicitly wherever P9 and MF2-evolution are read together so a future implementer doesn't gate
+Supabase-for-auth behind the BaaS deferral.
+
+### MF2-evolution — Auth capability (AuthProvider port + real adapters, added 2026-08-16)
+Entry: MF2 (demo auth: `Session` + `kPersonas` + tenant-scoped repos) shipped in
+`builder/src/generators/auth.ts`. Source: `research/AUTH_OPTS.md` + adversarial review
+(`research/CLAUDE_GRILL_REVIEW.md` §3). Note: **no `AuthProvider`/port interface exists in code
+today** — `auth.ts` emits a concrete `Session` singleton directly. The port below is new work, not
+a refactor of something already shipped (corrects `research/GRILL_NOTES.md`'s claim to the
+contrary, which the review verified against `auth.ts` and found factually wrong).
+Exit (acceptance):
+- **`AuthProvider` port + `MockAuthProvider`** behind today's `Session` facade: `signIn`/`signOut`/
+  `token`/`isSignedIn`, `MockAuthProvider` reproduces today's persona behavior byte-for-byte.
+  `provider: none|demo` emits exactly today's code; `guardPath()`, `_inScope`/`_stampTenant`, and
+  the CRUD form keep reading `Session.instance` unchanged — no downstream consumer changes.
+- **Claims → Session mapper** (`identity.dart`): pure, unit-testable `claimsMapper(provider, jwt)`
+  resolving `tenantClaim`/`roleClaim` paths per provider. 0% LLM, deterministic.
+- **`attributes.auth.provider|tenantClaim|roleClaim|secureSession|biometric`** IR attributes
+  (additive to `AuthModel`); any real provider *always also* emits port + mock so every generated
+  app builds/runs/goldens/CDP-tests fully offline — the real adapter activates only when runtime
+  config is present.
+- **`[auth]` validator gate** — new, additive to `[tenant]` (not a replacement): allowlists
+  `provider` values, requires port+mock co-presence when a real provider is set, validates claim
+  paths against the IR role vocabulary. `[tenant]` keeps checking `_inScope`/`_stampTenant`
+  presence in generated code; `[auth]` checks the provider/claims layer — different artifacts, name
+  both explicitly in `validate.ts`'s gate inventory.
+- **tenantId-claim provisioning gap closed before RLS SQL ships** (review finding, `AUTH_OPTS.md
+  §2.2` grill): Supabase RLS enforces `tenantId` from a *signed* claim (`auth.jwt()->>'tenantId'`),
+  which must be provisioned into `app_metadata` at account-creation time via a server-side admin
+  operation — today's `kPersonas` are static, generator-derived, with no such provisioning step.
+  This is a **fork** of the tenantId convention, not a lift of it; document and close the
+  provisioning story as an explicit slice before any RLS SQL emitter ships, not assumed away.
+- **secureSession + biometric app-lock layer**: `flutter_secure_storage` token persistence +
+  `local_auth` biometric-or-PIN unlock, `MockBiometric` for goldens/CDP — 100% client-side,
+  emittable now, independent of any IdP adapter.
+Slices: A1 `AuthProvider` port + `MockAuthProvider` + `identity.dart` mapper (zero behavior change,
+byte-identical `provider: demo` output, all existing auth tests stay green); A2 `secureSession` +
+`biometric` app-lock (mock storage/biometric for tests); A3 `[auth]` validator gate; A4 Supabase
+adapter (first real provider) + tenantId-claim provisioning design + emitted RLS SQL per
+tenant-scoped entity — P9/backend-era, ships alongside or after P9 infra exists; A5 Clerk adapter
+(**reordered ahead of Keycloak** — review finding: Clerk is hosted-SDK/zero-infra, matching the
+same "no docker in CI" determinism principle P9's R7 uses to prefer NestJS's in-memory boot; Clerk
+is *lighter* than Keycloak, not just faster to demo); A6 Keycloak adapter — deferred to when P9
+backend infra exists anyway (JVM+Postgres), not ranked lower for enterprise-fit reasons.
 
 ### P3 — v1 closure (trust-boundary polish)
 Entry: P1–P2 done; v1 definition ("end of Phase 3") nearly met.
@@ -222,6 +287,11 @@ P10.5-G2 (follow-on, may be minimal) `builder capabilities list|inspect` CLI rea
 ### P11 — UX pattern engine + design-system slices (absorbs `DESIGN_OPTS.md` D1–D4, adds UX linter)
 Entry: independent of P10 (design work doesn't need the manifest/contract yet), though P10-G1's
 capability-contract shape is worth having before U3 formalizes the pattern-selection pipeline.
+Cross-ref (2026-08-16, `research/COMPETITIVE_BENCHMARK.md` §7.1 steal-list, adversarial review):
+D2–D4's visual-quality push is independently confirmed as the field's one genuine product-quality
+gap (v0/FlutterFlow default polish) — no new slice added here, this phase already covers it; the
+steal-list's other two entries (Bolt file-visibility, Replit rollback) were rejected as non-actions
+in the review, already true of us.
 Exit (acceptance):
 - **D1–D4 land exactly as scoped in `DESIGN_OPTS.md` §10** (theme wiring incl. `buildTheme()` fix +
   dark mode; CTA+feedback; composition breadth incl. max-width/tonal surfaces; motion+a11y states) —
@@ -262,6 +332,11 @@ Entry: P10-G1 (capability contract shape) should exist first — payments is the
 flagship "MISSION" example (§ Strongest recommendation) and the biggest single generator addition
 in either source doc, so it's the capability most worth contract-shaping before writing code.
 Does not need P9 (backend) for L0–L2; L3+ explicitly waits for P9 per `PAYMENTS_OPTS.md` §7.
+Cross-ref (2026-08-16 adversarial review, `research/CLAUDE_GRILL_REVIEW.md` §4): checked whether a
+deferred `baas` persistence lane (`BACKEND_GEN_OPTS.md`) could conflict with L0–L2 here — it can't.
+L0–L2 is backend-independent by this phase's own exit criteria, and `BACKEND_GEN_OPTS.md §9.6`
+already forbids silent L3+ execution on an unconfigured/BaaS backend. Already reconciled by both
+docs independently; no edit needed to this phase's substance.
 Exit (acceptance):
 - **Payment capability levels** L0 none (default, zero artifacts) · L1 mock UI · L2 provider
   checkout (adapter shells) · L3 backend intent · L4 webhooks+reconciliation · L5 refunds ·
@@ -348,6 +423,32 @@ Exit (acceptance):
 Slices: AG1 mission-brief template (machine-oriented Capability/Version/Scope/Required/Forbidden/
 Done-when shape) + `payments.v1` worked example; AG2 stage-gate checklist added to Definition of
 Done.
+
+### P14 — Demo-loop parity (competitive steal-list, added 2026-08-16)
+Entry: independent of P9–P13; low-cost, additive, does not touch determinism or the trust boundary.
+Source: `research/COMPETITIVE_BENCHMARK.md` §6/§7.1 G1–G3 + adversarial review
+(`research/CLAUDE_GRILL_REVIEW.md` §1). Purpose: close the "how do I see it / deploy it" first-
+impression gap the competitive benchmark identified, without chasing the two things reviewed and
+rejected (in-browser WebContainer-style preview; unguarded public one-click deploy).
+Exit (acceptance):
+- **G1 thin client + demo persona** around the existing `builder/src/server.ts` (`POST
+  /requirements`, `/generate/full`, already running at `:8787`) — "describe → approve → app" feels
+  like one flow instead of separate CLI/API steps. Does not touch the approve-gate itself (`DESIGN`
+  §9.4–9.5 stays as the human step, not bypassed).
+- **G2 watch-mode preview, reattached to the approval-review step** (review refinement — do NOT
+  build this as a generic consumer preview): `flutter run -d web-server` on regenerate, surfaced
+  during human review of an approve-gate diff, so the reviewer sees the IR→app live while deciding.
+  Cheapest parity item per the source report; strengthens the trust boundary rather than
+  competing with it.
+- **G3 deploy manifest / `deploy.sh` per app** — Tailscale expose stays the default, private demo
+  channel. Any public-deploy option requires a **security-review gate first** (who hosts secrets/
+  PII, TLS, data residency) — this is a review addition beyond the source report's "keep as
+  roadmap option": public deploy for apps carrying money (`L1`) and tenant/employee PII is a
+  liability surface, not just a UX nicety, and must not ship without that review.
+Slices: W1 thin API client + demo persona wrapper (G1); W2 approval-review watch-mode preview (G2,
+scoped to the review step only); W3 deploy manifest/`deploy.sh`, Tailscale-default (G3); W4 (gate,
+not a generator slice) security-review checklist that must pass before any public-deploy option is
+added to W3.
 
 ## Standing loop (never stops between phases)
 ```
