@@ -9,6 +9,10 @@
 - 📥 `research/EXTERNAL_REVIEW.md` received (third-party review of `research/DESIGN_OPTS.md` +
   `research/PAYMENTS_OPTS.md`) — verdict: strong direction, convert to a capability-driven platform.
   Folded in below as P10–P13 (additive; does not reorder P1–P9).
+- 📥 `research/EXTERNAL_REVIEW_2.md` received (second-round review of our
+  `RESPONSE_TO_EXTERNAL_REVIEW.md`) — verdict: **accepted**, with one strongly-recommended addition
+  (capability registry) and four refinements to already-accepted P10–P13. Folded in below as P10.5
+  (new) plus refinements inline in P11–P13 (additive; P10–P13 unchanged in spirit).
 - ✅ Phase 1 deterministic core — plan.json, region hash, lockfile tuple, arch/security/determinism gates
 - ✅ Phase 2 pattern gen — component registry, 8-input scoring + `none` branch, forms, state machines
 - ✅ Phase 3a semantic lane — BusinessRuleAgent (NL→`RuleModel`, schema+field cross-check, provenance, `extensionQueue`)
@@ -137,6 +141,14 @@ re-plan them here) plus the review's UX-linter/pattern-engine layer on top. P12 
 state-machine/contract-test rigor so a `provider: mock` app never looks more production-ready than
 its actual capability level. P13 is process only.
 
+`research/EXTERNAL_REVIEW_2.md` (second round, reviewing our `RESPONSE_TO_EXTERNAL_REVIEW.md`)
+**accepted** P10–P13 as scoped above without reopening any of it, and added one strongly-recommended
+new phase (**P10.5**, capability registry + dependency graph) plus four refinements folded inline
+into P11–P13 below: the UX linter's three-tier split and the semantic-patterns-over-components rule
+(P11), the no-silent-mock-fallback-in-production invariant (P12), and the machine-oriented mission
+format (P13). None of P10–P13's original scope changes; P10.5 slots in after P10 in this doc because
+it depends on P10-G1's capability-contract shape, but doesn't reorder anything already in flight.
+
 ### P10 — Generator platform foundations: capability contract, agent contract, manifest, decision trace, golden impact
 Entry: none — independent of P6/P7 CRUD work; doc + tooling only, no change to existing generator
 output, so it carries zero golden-churn risk and can run in parallel with anything in flight.
@@ -164,6 +176,49 @@ Slices: G1 capability contract doc + `money.v1` worked example; G2 `GENERATOR_CO
 extracted from current `validate.ts` gates, nothing new enforced yet); G3 manifest emitter; G4
 decision trace on `scoring.ts` + `composition.ts`; G5 golden impact report in `validate.ts` output.
 
+### P10.5 — Capability registry + dependency graph (added 2026-08-16, `EXTERNAL_REVIEW_2.md`'s one strongly-recommended addition)
+Entry: P10-G1 (capability contract shape) exists. Doc + a read-only introspection layer over
+capabilities that already exist as generators — no change to what's emitted, so same zero
+golden-churn profile as P10.
+Exit (acceptance):
+- **Capability schema** documented (extends P10-G1's contract shape, doesn't replace it): id,
+  version, dependencies, inputs, outputs, validators, tests, generators, providers, runtime.
+- **Capability registry**, starting as a document (not new code) of capabilities that already
+  exist, keyed off their real emitted `template=` markers — grounded in what's actually there:
+  - `money.v1` — `infra.ts`'s `generateMoney()`, header literally reads `template=money.v1`.
+  - `theme.v1` — `infra.ts`'s theme generator, same literal marker.
+  - `persistence.v1` — `persistence.ts`, emitted as two templates today
+    (`persistence_sql_drift.v1`, `persistence_nosql_hive.v1`); the registry entry groups both
+    under one capability id, as-is, not renamed.
+  - `navigation.v1` — `route.ts`, emitted as `route_none.v1` / `route_go_router.v1` depending on
+    the arch decision; same grouping note as persistence.
+  - `policy.v1` (L2) — `generators/policy.ts`, emitted as `policy_core.v1` (shared
+    `PolicyVerdict`/`PolicySeverity`) + `policy_engine.v1` (per-entity `evaluate<Entity>Policy`).
+  - `split.v1` (MF4) — `generators/split.ts`, emitted as `split_core.v1` (`SplitLine`,
+    `validateSplit`, `SplitRowControllers`), one shared file per app.
+  - This is a **documentation pass over existing generators**, not a new generator layer — no
+    template is renamed or restructured to fit the registry; the registry's job is to describe
+    what's there, including where one capability id spans more than one `template=` marker.
+- **`builder capabilities list|inspect` CLI** — marked as a follow-on, **P10.5-G2**, and may ship
+  minimal (e.g. `list` prints the registry's ids/versions; `inspect <id>` prints its declared
+  inputs/outputs/deps read straight from the registry doc/JSON — no new analysis). Not required for
+  P10.5's exit; the registry document itself is the deliverable P11–P13 can start referencing.
+- **Capability dependency graph** (machine-readable): `payments.v1 → money.v1, security.v1,
+  state-machine.v1`; `checkout.v1 → payments.v1, money.v1, navigation.v1` (payments.v1/checkout.v1
+  don't exist yet — P12 will introduce them against this graph once it does). This is the same
+  conceptual shape `builder/src/regen.ts`'s `affected(ir, changed)` already computes **today**, just
+  one level up: `regen.ts` walks a per-artifact dependency map (`entity → model/repository/state/
+  screen`, built in its own `deps()`) to answer "if entity X changes, what's the affected set?";
+  P10.5's capability graph is the same BFS-over-a-dependency-map pattern applied to *capability ids*
+  instead of *artifact instances*, so a future `regen.ts`-style query can answer "if money.v1
+  changes, which capabilities/artifacts are affected?" — reusing the existing algorithm, not
+  inventing a new one.
+Slices: R1 capability-schema doc (id/version/deps/inputs/outputs/validators/tests/generators/
+providers/runtime), extending P10-G1's contract shape; R2 capability registry doc — the six
+existing capabilities above, described from what's emitted today; R3 capability dependency graph
+doc + convention note referencing `regen.ts`'s `affected()` as the existing per-artifact analog;
+P10.5-G2 (follow-on, may be minimal) `builder capabilities list|inspect` CLI reading the registry.
+
 ### P11 — UX pattern engine + design-system slices (absorbs `DESIGN_OPTS.md` D1–D4, adds UX linter)
 Entry: independent of P10 (design work doesn't need the manifest/contract yet), though P10-G1's
 capability-contract shape is worth having before U3 formalizes the pattern-selection pipeline.
@@ -176,14 +231,31 @@ Exit (acceptance):
   pattern selection → composition → component selection) — this documents/labels current logic so
   future rules extend a named pipeline instead of growing ad hoc `if/else` in `screen.ts`; not a
   rewrite of working code.
+  - **Refinement (`EXTERNAL_REVIEW_2.md`): semantic patterns over components.** State explicitly,
+    as the rule this pipeline exists to enforce, that every extension to the catalog is asked "what
+    semantic pattern is missing?" (`entity with lifecycle` → Header/Status/Primary action/Metadata/
+    Timeline/Secondary actions), never "what component should we add?" (Card/Chip/Button/List come
+    *after*, as the pattern's realization) — the failure mode this heads off is scoring.ts/
+    composition.ts growing a new special case per component request instead of a new named pattern
+    that then picks components the way the existing ones already do.
 - **UX linter gate**: new `[ux]` validator in `validate.ts` covering the mechanically-checkable
   subset of the review's UX001–UX012 that this generator already has the data for — touch target
   <44px, missing empty/error state, contrast (reuses the a11y contrast check `DESIGN_OPTS.md` §7
   already calls for), heading hierarchy. Others (primary-action-below-fold, excessive nesting)
   deferred — they need the Visual QA/CDP loop (P6-F3/P13), not static IR analysis.
+  - **Refinement (`EXTERNAL_REVIEW_2.md`): three tiers, not one flat gate.** Split UX001–012 into
+    **Hard errors** (must never ship — overflow, invalid touch target, missing required a11y label,
+    broken RTL, secret leakage, invalid payment state, invalid navigation — these fail
+    `[ux]`/`VALIDATION PASSED` the same way `[money]`/`[oracle]` already do), **Warnings** (may be
+    intentional — too many actions, dense screen, CTA below fold, long form, low hierarchy — printed
+    but non-blocking), and **Advisory** (can improve, doesn't block — could group fields, reduce
+    nesting, better hierarchy, progressive disclosure — informational only). Only Hard errors gate
+    `VALIDATION PASSED`; the linter must never block a generation run on a Warning or Advisory item.
 Slices: U1 land D1+D2 per `DESIGN_OPTS.md`; U2 land D3+D4 per `DESIGN_OPTS.md`; U3 document the UX
-pattern-engine rule catalog (no behavior change); U4 `[ux]` validator gate (touch target, empty/
-error state, contrast, heading hierarchy) wired into `validate.ts`.
+pattern-engine rule catalog (no behavior change) + the semantic-patterns-over-components rule; U4
+`[ux]` validator gate wired into `validate.ts`, three-tiered (Hard/Warning/Advisory) from the start
+— touch target, empty/error state, contrast, heading hierarchy classified as Hard; the rest of
+UX001–012 not yet mechanically checkable land as Warning/Advisory stubs, not silently dropped.
 
 ### P12 — Payments capability: levels, state machine, contract tests (absorbs `PAYMENTS_OPTS.md` §5–§7 "Now" slice)
 Entry: P10-G1 (capability contract shape) should exist first — payments is the review's own
@@ -196,6 +268,18 @@ Exit (acceptance):
   L6 payouts — derived from `attributes.payments.provider` + whether a P9 backend is configured, so
   a generated app never *looks* more capable than what's actually wired (review §10/§Strongest rec).
   This phase ships L0–L2 only; L3–L6 are P9-era per `PAYMENTS_OPTS.md` §7.
+- **Refinement (`EXTERNAL_REVIEW_2.md`): no silent mock fallback in production — hard compiler
+  invariant.** The adapter-shells-downgrade-to-mock pattern is fine for dev, dangerous in prod: dev
+  (provider unavailable → explicit mock allowed, opt-in flag only, never the silent default) vs.
+  production (provider unavailable → **FAIL CONFIG VALIDATION**, not a silent `MockPaymentGateway`
+  swap — the failure mode this forbids is a misconfigured prod build where the UI says "Payment
+  successful" while nothing happened). Concretely: **if the backend capability `payments.intent` is
+  absent (no P9 backend configured, or `attributes.payments.provider` unset/misconfigured in a
+  non-dev build), the generator MUST NOT emit production payment-execution code** — this is an
+  explicit P12 constraint, not left implicit in "adapter shells" language. Same posture the
+  generator already takes elsewhere (`[money]` never silently coerces to `double`; a missing oracle
+  fails `[oracle]` rather than shipping unverified) — payments gets the equivalent hard-fail
+  discipline, not a softer one.
 - **`PaymentGateway` port + `MockPaymentGateway` + DTOs** exactly per `PAYMENTS_OPTS.md` §5.1–5.6:
   new `payments.ts` registry + `payments.v1` generator (mirrors how `persistence.ts`/`money.v1`
   already do real-adapter-with-in-memory-fallback), `Money`-based `PaymentRequest`, idempotency
@@ -213,7 +297,11 @@ Exit (acceptance):
   refund paths, invalid amount rejected, currency mismatch rejected.
 - **`[payments]` security validator** in `validate.ts`: blocks entity fields named
   `cardNumber`/`cvc`/`pan`/`expiry…` unless typed `PaymentToken`; blocks secret-key-shaped strings
-  in generated Dart — mirrors the existing `[money]` never-double gate.
+  in generated Dart — mirrors the existing `[money]` never-double gate. Also enforces the no-
+  silent-mock-fallback invariant above: fails validation (not a warning) if a build declared
+  production-intent (non-dev) with `payments.intent` absent and still emitted payment-execution
+  code rather than a config error — the same "loud failure over silent wrong output" posture
+  `[money]`/`[oracle]` already hold this generator to.
 Slices: PAY1 `payments.ts` registry + port + `MockPaymentGateway` + DTOs, `provider: none|mock`
 (`PAYMENTS_OPTS.md` §7 "Now" step 1); PAY2 state-machine artifact + impossible-transition validator;
 PAY3 capability levels L0–L2 wired to `attributes.payments` + provider capability matrix; PAY4
@@ -222,7 +310,8 @@ per adapter; PAY5 `[payments]` security validator; PAY6 CDP Pay→Paid flow test
 ≥2 sample app types of different domains (per the CAPABILITIES.md "≥2 app types" acceptance rule).
 
 ### P13 — Specialized agent roles + strict workflow gate (process only, no generator code)
-Entry: P10 (capability contract + agent contract exist to hand agents a bounded mission).
+Entry: P10 (capability contract + agent contract exist to hand agents a bounded mission); P10.5's
+registry gives the mission format below something concrete to verify against once it exists.
 Exit (acceptance):
 - Document the review's specialized-agent roles (Architect, Generator Engineer, Validator Engineer,
   Test Engineer, Visual QA Agent, Adversarial Reviewer, Integrator) as capability-sized **mission
@@ -234,12 +323,31 @@ Exit (acceptance):
     `PaymentGatewayContractTest`; works offline; CDP Pay→Paid passes; no unrelated golden changes;
     `npm run typecheck:builder` passes) — this becomes the template every later capability mission
     copies.
+  - **Refinement (`EXTERNAL_REVIEW_2.md`): mission format consumes capability contracts.** Adopt
+    the review's machine-oriented brief shape as the literal template AG1 emits — not prose, a
+    checklist an agent (or a future P10.5-G2 CLI) can parse and tick off:
+    ```
+    Capability: payments.v1  Version: 1  Scope: L0–L2 only
+    Required: [ ] schema [ ] port [ ] state machine [ ] validator [ ] mock
+              [ ] provider shells [ ] contract tests [ ] determinism [ ] manifest [ ] decision trace
+    Forbidden: production backend, real provider secrets, silent production fallback, unrelated UI changes
+    Done when: builder verify payments.v1 · builder generate fixture/payments · flutter analyze ·
+               flutter test · CDP create→requiresAction→paid · goldens unchanged except declared
+    ```
+    The `Capability`/`Version` line and the `Required` checklist items are meant to be looked up
+    against the P10.5 capability registry (id, version, deps, inputs/outputs) once it exists, so a
+    mission is *verifiable* against a machine-readable source, not just self-reported prose — this
+    is why P10.5 is worth having before missions get written for capabilities beyond the
+    `payments.v1` worked example. `Forbidden` lines make the no-silent-mock-fallback invariant (P12
+    refinement above) and other hard constraints explicit per-mission, not just implicit in the
+    phase doc.
 - Staple the review's `DISCOVER → PLAN → SCHEMA → GENERATE → VALIDATE → TEST → VISUAL QA →
   ADVERSARIAL QA → REVIEW` gate onto the existing "Standing loop" below as an explicit Definition-
   of-Done addendum — codifies "code compiles is not done" without changing what the loop already
   does.
-Slices: AG1 mission-brief template + `payments.v1` worked example; AG2 stage-gate checklist added
-to Definition of Done.
+Slices: AG1 mission-brief template (machine-oriented Capability/Version/Scope/Required/Forbidden/
+Done-when shape) + `payments.v1` worked example; AG2 stage-gate checklist added to Definition of
+Done.
 
 ## Standing loop (never stops between phases)
 ```
