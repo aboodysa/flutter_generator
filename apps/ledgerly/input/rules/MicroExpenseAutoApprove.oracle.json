@@ -1,0 +1,42 @@
+{
+  "rule": "MicroExpenseAutoApprove",
+  "entity": "ExpenseClaim",
+  "cases": [
+    {
+      "input": {
+        "id": "ec-1",
+        "name": "Taxi",
+        "amount": 50,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-2",
+        "name": "Coffee",
+        "amount": 25,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-3",
+        "name": "Lunch",
+        "amount": 51,
+        "status": "pending"
+      },
+      "expected": false
+    },
+    {
+      "input": {
+        "id": "ec-4",
+        "name": "Hotel",
+        "amount": 500,
+        "status": "pending"
+      },
+      "expected": false
+    }
+  ]
+}

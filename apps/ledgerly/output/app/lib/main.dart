@@ -25,6 +25,7 @@ class ReplicaApp extends StatelessWidget {
       providers: [
         BlocProvider<UserListCubit>(create: (_) => sl<UserListCubit>()..load()),
         BlocProvider<ExpenseClaimListCubit>(create: (_) => sl<ExpenseClaimListCubit>()..load()),
+        BlocProvider<ExpenseClaimSplitListCubit>(create: (_) => sl<ExpenseClaimSplitListCubit>()..load()),
         BlocProvider<ApprovalListCubit>(create: (_) => sl<ApprovalListCubit>()..load()),
         BlocProvider<MealBudgetListCubit>(create: (_) => sl<MealBudgetListCubit>()..load()),
       ],

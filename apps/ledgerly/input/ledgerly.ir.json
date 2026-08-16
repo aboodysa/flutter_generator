@@ -29,7 +29,8 @@
           "ExpenseClaim",
           "Approval",
           "User",
-          "MealBudget"
+          "MealBudget",
+          "AuditLog"
         ]
       }
     },
@@ -41,7 +42,9 @@
       "scope": "category",
       "period": "monthly"
     },
-    "locale": "both"
+    "locale": "both",
+    "attachments": true,
+    "outbox": true
   },
   "features": [
     {
@@ -173,6 +176,46 @@
               "nullable": false,
               "of": "ClaimStatus",
               "default": "pending"
+            },
+            {
+              "name": "exported",
+              "type": "bool",
+              "required": true,
+              "nullable": false,
+              "default": false
+            }
+          ],
+          "audited": true
+        },
+        {
+          "name": "ExpenseClaimSplit",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "expenseClaimId",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "category",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "percent",
+              "type": "double",
+              "required": true,
+              "nullable": false
             }
           ]
         }
@@ -220,12 +263,59 @@
               ]
             }
           ]
+        },
+        {
+          "name": "ExpenseClaimSplitRepository",
+          "operations": [
+            {
+              "name": "listExpenseClaimSplits",
+              "returns": "Future<List<ExpenseClaimSplit>>",
+              "params": []
+            },
+            {
+              "name": "createExpenseClaimSplit",
+              "returns": "Future<ExpenseClaimSplit>",
+              "params": [
+                {
+                  "name": "split",
+                  "type": "ExpenseClaimSplit",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "updateExpenseClaimSplit",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "split",
+                  "type": "ExpenseClaimSplit",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "deleteExpenseClaimSplit",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "id",
+                  "type": "String",
+                  "named": false
+                }
+              ]
+            }
+          ]
         }
       ],
       "states": [
         {
           "name": "ExpenseClaimList",
           "entity": "ExpenseClaim"
+        },
+        {
+          "name": "ExpenseClaimSplitList",
+          "entity": "ExpenseClaimSplit"
         }
       ],
       "screens": [
@@ -233,7 +323,8 @@
           "name": "ExpenseClaimListScreen",
           "entity": "ExpenseClaim",
           "type": "list",
-          "state": "ExpenseClaimList"
+          "state": "ExpenseClaimList",
+          "export": "csv"
         },
         {
           "name": "ExpenseClaimDetailScreen",
@@ -270,6 +361,92 @@
           "operation": "deleteExpenseClaim",
           "paramType": "String",
           "returnType": "void"
+        },
+        {
+          "name": "ListExpenseClaimSplits",
+          "repository": "ExpenseClaimSplitRepository",
+          "operation": "listExpenseClaimSplits",
+          "paramType": "NoParams",
+          "returnType": "List<ExpenseClaimSplit>"
+        },
+        {
+          "name": "CreateExpenseClaimSplit",
+          "repository": "ExpenseClaimSplitRepository",
+          "operation": "createExpenseClaimSplit",
+          "paramType": "ExpenseClaimSplit",
+          "returnType": "ExpenseClaimSplit"
+        },
+        {
+          "name": "UpdateExpenseClaimSplit",
+          "repository": "ExpenseClaimSplitRepository",
+          "operation": "updateExpenseClaimSplit",
+          "paramType": "ExpenseClaimSplit",
+          "returnType": "void"
+        },
+        {
+          "name": "DeleteExpenseClaimSplit",
+          "repository": "ExpenseClaimSplitRepository",
+          "operation": "deleteExpenseClaimSplit",
+          "paramType": "String",
+          "returnType": "void"
+        }
+      ],
+      "businessRules": [
+        {
+          "name": "MicroExpenseAutoApprove",
+          "entity": "ExpenseClaim",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "amount",
+              "operator": "<=",
+              "value": "50"
+            }
+          ],
+          "severity": "autoApprove",
+          "message": "Expenses of 50 SAR or less are auto-approved without manager review."
+        },
+        {
+          "name": "StandardExpenseWarn",
+          "entity": "ExpenseClaim",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "amount",
+              "operator": ">=",
+              "value": "500"
+            }
+          ],
+          "severity": "warn",
+          "message": "This expense is unusually large \u2014 please double-check the amount before submitting."
+        },
+        {
+          "name": "LargeExpenseJustify",
+          "entity": "ExpenseClaim",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "amount",
+              "operator": ">=",
+              "value": "2000"
+            }
+          ],
+          "severity": "requireJustification",
+          "message": "Expenses of 2,000 SAR or more require a written justification."
+        },
+        {
+          "name": "ExecutiveExpenseBlock",
+          "entity": "ExpenseClaim",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "amount",
+              "operator": ">=",
+              "value": "15000"
+            }
+          ],
+          "severity": "block",
+          "message": "Expenses of 15,000 SAR or more require executive approval outside this system."
         }
       ]
     },
@@ -348,6 +525,22 @@
           "operation": "listApprovals",
           "paramType": "NoParams",
           "returnType": "List<Approval>"
+        }
+      ],
+      "businessRules": [
+        {
+          "name": "ApprovalRejectedWarn",
+          "entity": "Approval",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "decision",
+              "operator": "==",
+              "value": "rejected"
+            }
+          ],
+          "severity": "warn",
+          "message": "A rejected approval requires the requester to be notified and the claim revised."
         }
       ]
     },
@@ -492,6 +685,50 @@
           "operation": "deleteMealBudget",
           "paramType": "String",
           "returnType": "void"
+        }
+      ],
+      "businessRules": [
+        {
+          "name": "BudgetCommittedWarn",
+          "entity": "MealBudget",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "committed",
+              "operator": ">=",
+              "value": "300"
+            }
+          ],
+          "severity": "warn",
+          "message": "Committed spend for this category is high \u2014 review before approving more expenses."
+        },
+        {
+          "name": "BudgetCommittedBlock",
+          "entity": "MealBudget",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "committed",
+              "operator": ">=",
+              "value": "800"
+            }
+          ],
+          "severity": "block",
+          "message": "Committed spend has reached the category cap \u2014 no further commitments allowed."
+        },
+        {
+          "name": "BudgetActualJustify",
+          "entity": "MealBudget",
+          "result": "true",
+          "conditions": [
+            {
+              "field": "actual",
+              "operator": ">=",
+              "value": "400"
+            }
+          ],
+          "severity": "requireJustification",
+          "message": "Actual spend in this category requires justification before period close."
         }
       ]
     }

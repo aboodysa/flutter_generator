@@ -1,0 +1,33 @@
+{
+  "rule": "LargeExpenseJustify",
+  "entity": "ExpenseClaim",
+  "cases": [
+    {
+      "input": {
+        "id": "ec-9",
+        "name": "Equipment",
+        "amount": 2000,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-10",
+        "name": "Training",
+        "amount": 3000,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-11",
+        "name": "Travel",
+        "amount": 1999.99,
+        "status": "pending"
+      },
+      "expected": false
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import 'package:rasheed_replica_ledgerly/features/budgets/presentation/screens/m
 import 'package:rasheed_replica_ledgerly/features/expenses/presentation/screens/expense_claim_form_screen.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/presentation/screens/meal_budget_form_screen.dart';
 import 'package:rasheed_replica_ledgerly/core/auth_login_screen.dart';
+import 'package:rasheed_replica_ledgerly/core/audit_log_screen.dart';
 
 final kHomeRoutes = <String, String>{
   'employee': '/expense-claim',
@@ -21,7 +22,7 @@ final kHomeRoutes = <String, String>{
 const kAllowedRoutes = <String, List<String>>{
   'employee': ['/expense-claim', '/approval', '/meal-budget'],
   'manager': ['/expense-claim', '/approval', '/meal-budget'],
-  'finance': ['/expense-claim', '/approval', '/user', '/meal-budget'],
+  'finance': ['/expense-claim', '/approval', '/user', '/meal-budget', '/audit-log'],
 };
 
 String? guardPath(String path) {
@@ -54,5 +55,6 @@ final appRouter = GoRouter(
       GoRoute(path: '/approval', builder: (_, __) => const ApprovalListScreen()),
       GoRoute(path: '/meal-budget', builder: (_, __) => const MealBudgetListScreen()),
       GoRoute(path: '/meal-budget/:id', builder: (_, __) => const MealBudgetDetailScreen()),
+      GoRoute(path: '/audit-log', builder: (_, __) => const AuditLogScreen()),
   ],
 );

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 67,
+  "artifactCount": 107,
   "entries": [
     {
       "artifact": "feature:auth:enum:UserRole",
@@ -125,11 +125,33 @@
       "class": "structural"
     },
     {
+      "artifact": "feature:expenses:entity:ExpenseClaimSplit",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expenses/domain/entities/expense_claim_split.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "feature:expenses:repository:ExpenseClaimRepository",
       "generator": "RepositoryContractGenerator",
       "schema": "repository",
       "layer": "domain/repositories",
       "file": "lib/features/expenses/domain/repositories/expense_claim_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:expenses:repository:ExpenseClaimSplitRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/expenses/domain/repositories/expense_claim_split_repository.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
@@ -188,6 +210,58 @@
       "class": "structural"
     },
     {
+      "artifact": "feature:expenses:usecase:ListExpenseClaimSplits",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/expenses/domain/usecases/list_expense_claim_splits.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:repository:ExpenseClaimSplitRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:expenses:usecase:CreateExpenseClaimSplit",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/expenses/domain/usecases/create_expense_claim_split.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:repository:ExpenseClaimSplitRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:expenses:usecase:UpdateExpenseClaimSplit",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/expenses/domain/usecases/update_expense_claim_split.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:repository:ExpenseClaimSplitRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:expenses:usecase:DeleteExpenseClaimSplit",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/expenses/domain/usecases/delete_expense_claim_split.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:repository:ExpenseClaimSplitRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "feature:expenses:state:ExpenseClaimList",
       "generator": "StateGenerator",
       "schema": "state",
@@ -196,6 +270,19 @@
       "strategy": "enum-status",
       "dependsOn": [
         "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "feature:expenses:state:ExpenseClaimSplitList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/expenses/presentation/state/expense_claim_split_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaimSplit"
       ],
       "mode": "deterministic",
       "class": "pattern"
@@ -229,6 +316,58 @@
       "class": "pattern"
     },
     {
+      "artifact": "feature:expenses:rule:MicroExpenseAutoApprove",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/expenses/domain/rules/micro_expense_auto_approve.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "feature:expenses:rule:StandardExpenseWarn",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/expenses/domain/rules/standard_expense_warn.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "feature:expenses:rule:LargeExpenseJustify",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/expenses/domain/rules/large_expense_justify.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "feature:expenses:rule:ExecutiveExpenseBlock",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/expenses/domain/rules/executive_expense_block.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "feature:expenses:model:ExpenseClaim",
       "generator": "ModelGenerator",
       "schema": "model",
@@ -237,6 +376,19 @@
       "strategy": "default",
       "dependsOn": [
         "feature:expenses:entity:ExpenseClaim"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:expenses:model:ExpenseClaimSplit",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expenses/data/models/expense_claim_split_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaimSplit"
       ],
       "mode": "deterministic",
       "class": "structural"
@@ -255,6 +407,19 @@
       "class": "structural"
     },
     {
+      "artifact": "feature:expenses:repository_impl:ExpenseClaimSplitRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/expenses/data/repositories/expense_claim_split_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:repository:ExpenseClaimSplitRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "feature:expenses:screen:ExpenseClaimFormScreen",
       "generator": "CrudFormGenerator",
       "schema": "screen",
@@ -266,6 +431,23 @@
       ],
       "mode": "deterministic",
       "class": "pattern"
+    },
+    {
+      "artifact": "feature:expenses:policy:ExpenseClaim",
+      "generator": "PolicyEngineGenerator",
+      "schema": "policy",
+      "layer": "domain/policy",
+      "file": "lib/features/expenses/domain/policy/expense_claim_policy.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:entity:ExpenseClaim",
+        "feature:expenses:rule:MicroExpenseAutoApprove",
+        "feature:expenses:rule:StandardExpenseWarn",
+        "feature:expenses:rule:LargeExpenseJustify",
+        "feature:expenses:rule:ExecutiveExpenseBlock"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
     },
     {
       "artifact": "feature:approvals:enum:ApprovalDecision",
@@ -341,6 +523,19 @@
       "class": "pattern"
     },
     {
+      "artifact": "feature:approvals:rule:ApprovalRejectedWarn",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/approvals/domain/rules/approval_rejected_warn.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:approvals:entity:Approval"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "feature:approvals:model:Approval",
       "generator": "ModelGenerator",
       "schema": "model",
@@ -365,6 +560,20 @@
       ],
       "mode": "deterministic",
       "class": "structural"
+    },
+    {
+      "artifact": "feature:approvals:policy:Approval",
+      "generator": "PolicyEngineGenerator",
+      "schema": "policy",
+      "layer": "domain/policy",
+      "file": "lib/features/approvals/domain/policy/approval_policy.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:approvals:entity:Approval",
+        "feature:approvals:rule:ApprovalRejectedWarn"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
     },
     {
       "artifact": "feature:budgets:entity:MealBudget",
@@ -482,6 +691,45 @@
       "class": "pattern"
     },
     {
+      "artifact": "feature:budgets:rule:BudgetCommittedWarn",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/budgets/domain/rules/budget_committed_warn.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:entity:MealBudget"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "feature:budgets:rule:BudgetCommittedBlock",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/budgets/domain/rules/budget_committed_block.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:entity:MealBudget"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "feature:budgets:rule:BudgetActualJustify",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/budgets/domain/rules/budget_actual_justify.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:entity:MealBudget"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "feature:budgets:model:MealBudget",
       "generator": "ModelGenerator",
       "schema": "model",
@@ -519,6 +767,22 @@
       ],
       "mode": "deterministic",
       "class": "pattern"
+    },
+    {
+      "artifact": "feature:budgets:policy:MealBudget",
+      "generator": "PolicyEngineGenerator",
+      "schema": "policy",
+      "layer": "domain/policy",
+      "file": "lib/features/budgets/domain/policy/meal_budget_policy.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:entity:MealBudget",
+        "feature:budgets:rule:BudgetCommittedWarn",
+        "feature:budgets:rule:BudgetCommittedBlock",
+        "feature:budgets:rule:BudgetActualJustify"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
     },
     {
       "artifact": "core:di",
@@ -642,11 +906,77 @@
       "class": "structural"
     },
     {
+      "artifact": "core:policy",
+      "generator": "PolicyCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/policy.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:split",
+      "generator": "SplitCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/split.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:attachment",
+      "generator": "AttachmentCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/attachment.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "core:budget",
       "generator": "BudgetCoreGenerator",
       "schema": "core",
       "layer": "core",
       "file": "lib/core/budget.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:export",
+      "generator": "ExportCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/export.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:audit",
+      "generator": "AuditCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/audit.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:audit_log_screen",
+      "generator": "AuditLogScreenGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/audit_log_screen.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
@@ -669,6 +999,17 @@
       "schema": "core",
       "layer": "core",
       "file": "lib/core/auth_login_screen.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:outbox",
+      "generator": "OutboxCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/outbox.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
@@ -752,11 +1093,55 @@
       "class": "structural"
     },
     {
+      "artifact": "test:policy",
+      "generator": "PolicyTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/policy_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:split",
+      "generator": "SplitTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/split_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:attachment",
+      "generator": "AttachmentTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/attachment_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:budget",
       "generator": "BudgetTestGenerator",
       "schema": "test",
       "layer": "test",
       "file": "test/budget_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:audit",
+      "generator": "AuditTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/audit_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
@@ -774,6 +1159,17 @@
       "class": "structural"
     },
     {
+      "artifact": "test:outbox",
+      "generator": "OutboxTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/outbox_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:auth",
       "generator": "AuthTestGenerator",
       "schema": "test",
@@ -783,6 +1179,110 @@
       "dependsOn": [],
       "mode": "deterministic",
       "class": "structural"
+    },
+    {
+      "artifact": "oracle:MicroExpenseAutoApprove",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/micro_expense_auto_approve_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:rule:MicroExpenseAutoApprove"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:StandardExpenseWarn",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/standard_expense_warn_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:rule:StandardExpenseWarn"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:LargeExpenseJustify",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/large_expense_justify_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:rule:LargeExpenseJustify"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:ExecutiveExpenseBlock",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/executive_expense_block_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:expenses:rule:ExecutiveExpenseBlock"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:ApprovalRejectedWarn",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/approval_rejected_warn_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:approvals:rule:ApprovalRejectedWarn"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:BudgetCommittedWarn",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/budget_committed_warn_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:rule:BudgetCommittedWarn"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:BudgetCommittedBlock",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/budget_committed_block_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:rule:BudgetCommittedBlock"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:BudgetActualJustify",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/budget_actual_justify_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:budgets:rule:BudgetActualJustify"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
     },
     {
       "artifact": "core:barrel",

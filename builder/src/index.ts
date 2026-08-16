@@ -263,7 +263,7 @@ function writeWebScaffold(outDir: string, pkg: string): string[] {
 // navigational relationship. generateWidgetTest/generateUnitTest/generateGoldenTest don't have
 // this problem (they only ever look at `entities[0]`/`screens[0]`, which for a merged model is
 // already feature[0]'s own — no scoping needed there).
-function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string, flowTestScope: FeatureModel = ir, ctx?: GenContext): { files: string[]; planEntries: PlanEntry[] } {
+function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string, testDir: string, oracleDir: string | undefined, pkg: string, flowTestScope: FeatureModel = ir, ctx?: GenContext, ruleArtifactTag: (name: string) => string = (name) => `rule:${name}`): { files: string[]; planEntries: PlanEntry[] } {
   fs.mkdirSync(testDir, { recursive: true });
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -481,7 +481,7 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
         layer: "test/rules",
         file: path.relative(outDir, f),
         strategy: "default",
-        dependsOn: [`rule:${rule.name}`],
+        dependsOn: [ruleArtifactTag(rule.name)],
         mode: "semantic",
         class: "semantic",
       });
@@ -914,6 +914,19 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   if (hasOutbox(merged)) {
     symbols.set("Outbox", "core/outbox.dart");
   }
+  // MF3: same reasoning as MF5/MF6 above — attributes.attachments is app-level, invisible to any
+  // single feature's own buildSymbols(f) call. Latent since MF3 landed (no multi-feature sample
+  // ever declared attributes.attachments until ledgerly.ir.json's Ledgerly-MVP completion) —
+  // caught by `flutter analyze` on the generated barrel (`export 'receiptattachment.dart';`, a
+  // guessed path that doesn't exist, instead of the real core/attachment.dart export).
+  if (hasAttachments(merged)) {
+    symbols.set("ReceiptAttachment", "core/attachment.dart");
+    symbols.set("OcrResult", "core/attachment.dart");
+    symbols.set("ReceiptOcrPort", "core/attachment.dart");
+    symbols.set("MockReceiptOcr", "core/attachment.dart");
+    symbols.set("synthesizeAttachment", "core/attachment.dart");
+    symbols.set("kLowOcrConfidence", "core/attachment.dart");
+  }
 
   const arch = decideArchitecture(merged);
   const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };
@@ -989,7 +1002,18 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // scope must see app-level auth that feature[0] itself doesn't carry. For non-auth apps
   // app.attributes carries no `auth` either way, so hasAuth()==false and output is unchanged.
   const flowTestScope: FeatureModel = { ...app.features[0]!, name: app.name, attributes: app.attributes };
-  const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope, ctx);
+  // Latent MF1 bug, surfaced by the first multi-feature sample to combine businessRules+oracle
+  // (ledgerly.ir.json's L2 policy rules): writeFeatureArtifacts above tags every per-feature
+  // artifact `feature:<name>:rule:<ruleName>` (the same `artifactPrefix` also prefixes that
+  // artifact's own dependsOn, so entity/state/screen cross-references inside one feature already
+  // resolve correctly) — but writeTests's oracle-test entry is built from `merged` (no feature
+  // scope) and always assumed a bare `rule:<ruleName>` tag, which only happens to be correct for a
+  // single-feature IR. Resolve the rule's REAL tag from the already-accumulated per-feature
+  // planEntries instead of assuming the bare form; falls back to the bare tag when not found
+  // (single-feature callers below never hit this — they use writeTests's default resolver).
+  const ruleArtifactTag = (name: string): string =>
+    planEntries.find((e) => e.artifact === `rule:${name}` || e.artifact.endsWith(`:rule:${name}`))?.artifact ?? `rule:${name}`;
+  const testsResult = writeTests(merged, arch, outDir, testDir, oracleDir, pkg, flowTestScope, ctx, ruleArtifactTag);
   files.push(...testsResult.files);
   planEntries.push(...testsResult.planEntries);
   planEntries.push(

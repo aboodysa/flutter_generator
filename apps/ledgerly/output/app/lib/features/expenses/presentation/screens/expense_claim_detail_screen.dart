@@ -7,7 +7,7 @@ import 'package:rasheed_replica_ledgerly/core/components.dart';
 import 'package:rasheed_replica_ledgerly/core/theme.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/expense_claim_list.dart';
 
-
+import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/expense_claim_split_list.dart';
 
 import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
@@ -44,7 +44,33 @@ class ExpenseClaimDetailScreen extends StatelessWidget {
                 Text(item.amount.format(), style: Theme.of(context).textTheme.labelMedium),
               ]),
               const SizedBox(height: 4.0),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Exported', style: Theme.of(context).textTheme.bodySmall),
+                Text((item.exported ? 'yes' : 'no'), style: Theme.of(context).textTheme.bodyMedium),
+              ]),
+              const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
+              const SizedBox(height: 4.0),
+              Text('Split breakdown', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.xs),
+              BlocBuilder<ExpenseClaimSplitListCubit, ExpenseClaimSplitListState>(
+                builder: (context, splitState) {
+                  final lines = splitState.expenseClaimSplits.where((e) => e.expenseClaimId == id).toList();
+                  if (lines.isEmpty) {
+                    return const Text('No split configured', style: TextStyle(color: AppColors.textSecondary));
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final l in lines)
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Text(l.category),
+                          Text('${l.percent.toStringAsFixed(1)}%'),
+                        ]),
+                    ],
+                  );
+                },
+              ),
               ],
             );
         },

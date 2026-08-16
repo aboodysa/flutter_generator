@@ -1,0 +1,30 @@
+{
+  "rule": "ApprovalRejectedWarn",
+  "entity": "Approval",
+  "cases": [
+    {
+      "input": {
+        "id": "ap-1",
+        "name": "Q1 travel claim",
+        "decision": "rejected"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ap-2",
+        "name": "Q2 travel claim",
+        "decision": "approved"
+      },
+      "expected": false
+    },
+    {
+      "input": {
+        "id": "ap-3",
+        "name": "Q3 travel claim",
+        "decision": "pending"
+      },
+      "expected": false
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "rule": "BudgetCommittedBlock",
+  "entity": "MealBudget",
+  "cases": [
+    {
+      "input": {
+        "id": "mb-4",
+        "name": "Client dinners",
+        "limit": 1000,
+        "committed": 800,
+        "actual": 400
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "mb-5",
+        "name": "Team lunches",
+        "limit": 1000,
+        "committed": 1000,
+        "actual": 900
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "mb-6",
+        "name": "Travel meals",
+        "limit": 1000,
+        "committed": 799,
+        "actual": 300
+      },
+      "expected": false
+    }
+  ]
+}

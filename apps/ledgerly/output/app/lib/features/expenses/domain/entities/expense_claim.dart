@@ -11,13 +11,15 @@ class ExpenseClaim extends Equatable {
     required this.name,
     required this.amount,
     required this.status,
+    required this.exported,
   });
 
   final String id;
   final String name;
   final Money amount;
   final ClaimStatus status;
+  final bool exported;
 
   @override
-  List<Object?> get props => [id, name, amount, status];
+  List<Object?> get props => [id, name, amount, status, exported];
 }

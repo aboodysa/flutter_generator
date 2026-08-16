@@ -10,18 +10,21 @@ class ExpenseClaimModel {
     required this.name,
     required this.amount,
     required this.status,
+    required this.exported,
   });
 
   final String id;
   final String name;
   final Money amount;
   final ClaimStatus status;
+  final bool exported;
 
   factory ExpenseClaimModel.fromJson(Map<String, dynamic> json) => ExpenseClaimModel(
       id: json['id'] as String,
       name: json['name'] as String,
       amount: Money.fromJson(json['amount'] as Map<String, dynamic>),
       status: ClaimStatus.values.byName(json['status'] as String),
+      exported: json['exported'] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -29,6 +32,7 @@ class ExpenseClaimModel {
       'name': name,
       'amount': amount.toJson(),
       'status': status.name,
+      'exported': exported,
   };
 
   ExpenseClaim toEntity() => ExpenseClaim(
@@ -36,6 +40,7 @@ class ExpenseClaimModel {
     name: name,
     amount: amount,
     status: status,
+    exported: exported,
   );
 
   factory ExpenseClaimModel.fromEntity(ExpenseClaim e) => ExpenseClaimModel(
@@ -43,5 +48,6 @@ class ExpenseClaimModel {
     name: e.name,
     amount: e.amount,
     status: e.status,
+    exported: e.exported,
   );
 }

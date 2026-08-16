@@ -1,0 +1,11 @@
+{
+  "rule": "Split",
+  "entity": "*",
+  "cases": [
+    { "input": { "percents": [100] }, "expected": "" },
+    { "input": { "percents": [90, 10] }, "expected": "" },
+    { "input": { "percents": [95, 10] }, "expected": "Split must sum to exactly 100% (currently 105.00%)." },
+    { "input": { "percents": [50] }, "expected": "Split must sum to exactly 100% (currently 50.00%)." },
+    { "input": { "percents": [] }, "expected": "" }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "rule": "StandardExpenseWarn",
+  "entity": "ExpenseClaim",
+  "cases": [
+    {
+      "input": {
+        "id": "ec-5",
+        "name": "Flight",
+        "amount": 500,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-6",
+        "name": "Conference",
+        "amount": 750,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-7",
+        "name": "Supplies",
+        "amount": 499.99,
+        "status": "pending"
+      },
+      "expected": false
+    },
+    {
+      "input": {
+        "id": "ec-8",
+        "name": "Sample",
+        "amount": 0,
+        "status": "pending"
+      },
+      "expected": false
+    }
+  ]
+}

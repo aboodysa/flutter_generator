@@ -809,6 +809,30 @@ function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): strin
   return null;
 }
 
+// A trigger value chosen for one rule's threshold can ALSO cross a co-active rule's own threshold
+// on the same field (a block rule's amount>=15000 trigger is, by construction, also >=2000) — both
+// verdicts become simultaneously active in the real form (crud_form.ts's _policyPanel shows every
+// non-autoApprove, non-waived verdict at once). If any of those co-triggered verdicts requires
+// justification, Save stays disabled after waiving the block verdict alone; the waive test case
+// needs to also satisfy them. Deterministic from the IR alone — same numeric trigger value
+// policyTriggerSteps computes, no runtime Dart evaluation needed.
+function coTriggeredJustificationRules(rule: RuleModel, allRules: RuleModel[], entity: { fields: Field[] }): RuleModel[] {
+  const cond = rule.conditions[0];
+  if (!cond) return [];
+  const field = entity.fields.find((f) => f.name === cond.field);
+  if (!field) return [];
+  const numeric = isMoneyField(field) || field.type === "double" || field.type === "int";
+  if (!numeric || (cond.operator !== ">=" && cond.operator !== ">")) return [];
+  const triggerValue = Math.ceil(parseFloat(cond.value)) + 1;
+  return allRules.filter((r) => {
+    if (r === rule || r.severity !== "requireJustification") return false;
+    const c = r.conditions[0];
+    if (!c || c.field !== cond.field) return false;
+    if (c.operator !== ">=" && c.operator !== ">") return false;
+    return triggerValue >= parseFloat(c.value) + (c.operator === ">" ? 0.01 : 0);
+  });
+}
+
 export function generatePolicyTest(feature: FeatureModel): string | null {
   const targets = [...crudFormTargets(feature).values()].filter((t) => isTargetReachable(feature, t.entity));
   if (!targets.length) return null;
@@ -851,6 +875,22 @@ ${scrollToBottom}
   });`);
         if (!waiveCaseWritten) {
           waiveCaseWritten = true;
+          // A trigger value that crosses this rule's threshold can ALSO cross a lower-severity
+          // rule's own threshold on the same entity (e.g. a block rule's amount>=X trigger is
+          // usually well above a warn rule's amount>=Y, Y<X) — every non-autoApprove, non-waived
+          // verdict renders its own "Waive reason"/"Waive" pair (crud_form.ts's _policyPanel), so
+          // more than one can be on screen at once. Scope both finders to the ancestor Card that
+          // contains THIS rule's own message, not a bare widgetWithText lookup that assumes
+          // exactly one "Waive" button exists app-wide.
+          const escapedMessage = (rule.message ?? "").replace(/'/g, "\\'");
+          const card = `find.ancestor(of: find.textContaining('${escapedMessage}'), matching: find.byType(Card))`;
+          // The same trigger value can also cross a co-active requireJustification rule's own
+          // threshold (see coTriggeredJustificationRules) — Save would stay disabled after waiving
+          // THIS verdict alone unless those are satisfied too.
+          const coTriggered = coTriggeredJustificationRules(rule, rules, entity);
+          const satisfyOthers = coTriggered.length
+            ? `    await tester.enterText(find.widgetWithText(TextField, 'Justification'), 'Approved — see attached memo.');\n    await tester.pumpAndSettle();\n`
+            : "";
           cases.push(`  testWidgets('${t.entity}: ${rule.name} waive requires a reason, then re-enables Save', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
@@ -858,12 +898,12 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
 ${trigger}
 ${scrollToBottom}
-    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Waive')).onPressed, isNull, reason: 'Waive must stay disabled until a reason is typed (mandatory comment)');
-    await tester.enterText(find.widgetWithText(TextField, 'Waive reason'), 'Reviewed and approved offline.');
+    expect(tester.widget<TextButton>(find.descendant(of: ${card}, matching: find.widgetWithText(TextButton, 'Waive'))).onPressed, isNull, reason: 'Waive must stay disabled until a reason is typed (mandatory comment)');
+    await tester.enterText(find.descendant(of: ${card}, matching: find.widgetWithText(TextField, 'Waive reason')), 'Reviewed and approved offline.');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Waive'));
+    await tester.tap(find.descendant(of: ${card}, matching: find.widgetWithText(TextButton, 'Waive')));
     await tester.pumpAndSettle();
-    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a waived verdict must no longer prevent Save');
+${satisfyOthers}    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a waived verdict must no longer prevent Save');
   });`);
         }
       } else if (rule.severity === "warn") {
@@ -909,7 +949,7 @@ import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 import 'package:${pkg}/core/components.dart';
 import 'package:${pkg}/core/di.dart';
-
+${session.import}
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }

@@ -1,0 +1,33 @@
+{
+  "rule": "ExecutiveExpenseBlock",
+  "entity": "ExpenseClaim",
+  "cases": [
+    {
+      "input": {
+        "id": "ec-12",
+        "name": "Offsite",
+        "amount": 15000,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-13",
+        "name": "Retreat",
+        "amount": 20000,
+        "status": "pending"
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "ec-14",
+        "name": "Team event",
+        "amount": 14999,
+        "status": "pending"
+      },
+      "expected": false
+    }
+  ]
+}

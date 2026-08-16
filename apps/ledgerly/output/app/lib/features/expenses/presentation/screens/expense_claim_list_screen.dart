@@ -9,6 +9,8 @@ import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/ex
 
 
 
+import 'package:rasheed_replica_ledgerly/core/export.dart';
+import 'package:rasheed_replica_ledgerly/features/expenses/domain/entities/expense_claim.dart';
 import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 class ExpenseClaimListScreen extends StatelessWidget {
@@ -17,7 +19,25 @@ class ExpenseClaimListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Expense Claims')),
+      appBar: AppBar(title: const Text('Expense Claims'),
+      actions: [
+        IconButton(
+          tooltip: 'Export CSV',
+          icon: const Icon(Icons.download),
+          onPressed: () async {
+            final rows = context.read<ExpenseClaimListCubit>().state.expenseClaims.map((item) => <String, dynamic>{'id': item.id, 'name': item.name, 'amount': item.amount.format(), 'status': item.status.name, 'exported': (item.exported ? 'yes' : 'no')}).toList();
+            final csv = toCsv(rows, const ['id', 'name', 'amount', 'status', 'exported']);
+            for (final row in context.read<ExpenseClaimListCubit>().state.expenseClaims) {
+              if (!row.exported) {
+                await context.read<ExpenseClaimListCubit>().update(ExpenseClaim(id: row.id, name: row.name, amount: row.amount, status: row.status, exported: true));
+              }
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported ${rows.length} rows to CSV (${csv.length} chars)')));
+            }
+          },
+        ),
+      ]),
       body: BlocBuilder<ExpenseClaimListCubit, ExpenseClaimListState>(
         builder: (context, state) {
         if (state.status == ExpenseClaimListStatus.loading) return const LoadingState();

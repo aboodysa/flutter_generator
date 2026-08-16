@@ -1,0 +1,36 @@
+{
+  "rule": "BudgetActualJustify",
+  "entity": "MealBudget",
+  "cases": [
+    {
+      "input": {
+        "id": "mb-7",
+        "name": "Client dinners",
+        "limit": 1000,
+        "committed": 500,
+        "actual": 400
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "mb-8",
+        "name": "Team lunches",
+        "limit": 1000,
+        "committed": 700,
+        "actual": 600
+      },
+      "expected": true
+    },
+    {
+      "input": {
+        "id": "mb-9",
+        "name": "Travel meals",
+        "limit": 1000,
+        "committed": 300,
+        "actual": 399
+      },
+      "expected": false
+    }
+  ]
+}
