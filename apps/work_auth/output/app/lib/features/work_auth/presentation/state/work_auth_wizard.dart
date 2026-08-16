@@ -10,39 +10,43 @@ import 'package:rasheed_replica_work_auth/features/work_auth/domain/entities/wor
 enum WorkAuthWizardStatus { initial, loading, success, failure }
 
 class WorkAuthWizardState extends Equatable {
-  final WorkAuthWizardStatus status;
+  final WorkAuthWizardStatus wizardStatus;
   final int currentStep;
   final String? name;
   final String? country;
   final String? jobTitle;
   final int? durationDays;
+  final WorkAuthStatus? status;
   final String? errorMessage;
 
   const WorkAuthWizardState({
-    this.status = WorkAuthWizardStatus.initial,
+    this.wizardStatus = WorkAuthWizardStatus.initial,
     this.currentStep = 0,
     this.name,
     this.country,
     this.jobTitle,
     this.durationDays,
+    this.status,
     this.errorMessage,
   });
 
   WorkAuthWizardState copyWith({
-    WorkAuthWizardStatus? status,
+    WorkAuthWizardStatus? wizardStatus,
     int? currentStep,
     String? name,
     String? country,
     String? jobTitle,
     int? durationDays,
+    WorkAuthStatus? status,
     String? errorMessage,
   }) => WorkAuthWizardState(
-    status: status ?? this.status,
+    wizardStatus: wizardStatus ?? this.wizardStatus,
     currentStep: currentStep ?? this.currentStep,
     name: name ?? this.name,
     country: country ?? this.country,
     jobTitle: jobTitle ?? this.jobTitle,
     durationDays: durationDays ?? this.durationDays,
+    status: status ?? this.status,
     errorMessage: errorMessage,
   );
 
@@ -53,13 +57,13 @@ class WorkAuthWizardState extends Equatable {
       jobTitle: jobTitle ?? 'x',
       startDate: DateTime(2024),
       durationDays: durationDays ?? 0,
-      status: WorkAuthStatus.values.first,
+      status: status ?? WorkAuthStatus.values.first,
       );
 
   bool get canAdvance => switch (currentStep) {
       0 => (name != null && name!.isNotEmpty) && (country != null && country!.isNotEmpty) && (jobTitle != null && jobTitle!.isNotEmpty) && durationDays != null,
       1 => true,
-      2 => true,
+      2 => status != null,
       3 => true,
       _ => true,
     };
@@ -89,7 +93,7 @@ class WorkAuthWizardState extends Equatable {
   bool get isLastStep => _nextVisibleStep == null;
 
   @override
-  List<Object?> get props => [status, currentStep, name, country, jobTitle, durationDays, errorMessage];
+  List<Object?> get props => [wizardStatus, currentStep, name, country, jobTitle, durationDays, status, errorMessage];
 }
 
 class WorkAuthWizardCubit extends Cubit<WorkAuthWizardState> {
@@ -126,10 +130,10 @@ class WorkAuthWizardCubit extends Cubit<WorkAuthWizardState> {
         jobTitle: state.jobTitle ?? 'x',
         startDate: DateTime(2024),
         durationDays: state.durationDays ?? 0,
-        status: WorkAuthStatus.values.first,
+        status: state.status ?? WorkAuthStatus.values.first,
       );
     if (_createWorkAuth != null) await _createWorkAuth!.call(result);
-    emit(state.copyWith(status: WorkAuthWizardStatus.success));
+    emit(state.copyWith(wizardStatus: WorkAuthWizardStatus.success));
   }
 
   void setName(String? value) => emit(state.copyWith(name: value));
@@ -139,4 +143,6 @@ class WorkAuthWizardCubit extends Cubit<WorkAuthWizardState> {
   void setJobTitle(String? value) => emit(state.copyWith(jobTitle: value));
 
   void setDurationDays(int? value) => emit(state.copyWith(durationDays: value));
+
+  void setStatus(WorkAuthStatus? value) => emit(state.copyWith(status: value));
 }

@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_work_auth/core/components.dart';
 import 'package:rasheed_replica_work_auth/core/theme.dart';
 import 'package:rasheed_replica_work_auth/features/work_auth/presentation/state/work_auth_wizard.dart';
-
+import 'package:rasheed_replica_work_auth/features/work_auth/domain/entities/work_auth_status.dart';
 
 
 
@@ -20,7 +20,7 @@ class WorkAuthWizardScreen extends StatelessWidget {
         builder: (context, state) {
         if (state.status == WorkAuthWizardStatus.loading) return const LoadingState();
         if (state.status == WorkAuthWizardStatus.failure) return ErrorState(message: state.errorMessage);
-            if (state.status == WorkAuthWizardStatus.success) return const Center(child: Text('All done!'));
+            if (state.wizardStatus == WorkAuthWizardStatus.success) return const Center(child: Text('All done!'));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -59,12 +59,14 @@ class WorkAuthWizardScreen extends StatelessWidget {
                         Text('Country: ${(state.country?.toString() ?? '—')}'),
                         Text('Job Title: ${(state.jobTitle?.toString() ?? '—')}'),
                         Text('Duration Days: ${(state.durationDays?.toString() ?? '—')}'),
+                        Wrap(key: const ValueKey('field-status'), spacing: AppSpacing.sm, children: WorkAuthStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => context.read<WorkAuthWizardCubit>().setStatus(v))).toList()),
                       ]),
                       3 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Name: ${(state.name?.toString() ?? '—')}'),
                         Text('Country: ${(state.country?.toString() ?? '—')}'),
                         Text('Job Title: ${(state.jobTitle?.toString() ?? '—')}'),
                         Text('Duration Days: ${(state.durationDays?.toString() ?? '—')}'),
+                        Text('Status: ${(state.status?.name ?? '—')}'),
                       ]),
                       _ => const SizedBox(),
                     },
