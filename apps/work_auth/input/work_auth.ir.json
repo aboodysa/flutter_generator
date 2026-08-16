@@ -2,7 +2,15 @@
   "schemaVersion": "1",
   "name": "work_auth",
   "attributes": {
-    "stateManagement": "bloc"
+    "stateManagement": "bloc",
+    "budget": {
+      "entity": "VisaQuota",
+      "limitField": "limit",
+      "committedField": "committed",
+      "actualField": "actual",
+      "scope": "country",
+      "period": "yearly"
+    }
   },
   "enums": [
     {
@@ -25,6 +33,19 @@
         { "name": "durationDays", "type": "int", "required": true, "nullable": false },
         { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "WorkAuthStatus", "default": "draft" }
       ]
+    },
+    {
+      "name": "VisaQuota",
+      "identity": {
+        "field": "id"
+      },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "name", "type": "String", "required": true, "nullable": false },
+        { "name": "limit", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" },
+        { "name": "committed", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" },
+        { "name": "actual", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" }
+      ]
     }
   ],
   "businessRules": [
@@ -45,14 +66,26 @@
         { "name": "createWorkAuth", "returns": "Future<WorkAuth>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] },
         { "name": "updateWorkAuth", "returns": "Future<void>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] }
       ]
+    },
+    {
+      "name": "VisaQuotaRepository",
+      "operations": [
+        { "name": "listVisaQuotas", "returns": "Future<List<VisaQuota>>", "params": [] },
+        { "name": "createVisaQuota", "returns": "Future<VisaQuota>", "params": [{ "name": "quota", "type": "VisaQuota", "named": false }] },
+        { "name": "updateVisaQuota", "returns": "Future<void>", "params": [{ "name": "quota", "type": "VisaQuota", "named": false }] },
+        { "name": "deleteVisaQuota", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
     }
   ],
   "states": [
     { "name": "WorkAuthList", "entity": "WorkAuth" },
-    { "name": "WorkAuthWizard", "entity": "WorkAuth" }
+    { "name": "WorkAuthWizard", "entity": "WorkAuth" },
+    { "name": "VisaQuotaList", "entity": "VisaQuota" }
   ],
   "screens": [
     { "name": "WorkAuthListScreen", "entity": "WorkAuth", "type": "list", "state": "WorkAuthList" },
+    { "name": "VisaQuotaListScreen", "entity": "VisaQuota", "type": "list", "state": "VisaQuotaList" },
+    { "name": "VisaQuotaDetailScreen", "entity": "VisaQuota", "type": "detail", "state": "VisaQuotaList" },
     {
       "name": "WorkAuthWizardScreen",
       "entity": "WorkAuth",
@@ -83,6 +116,10 @@
   "useCases": [
     { "name": "ListWorkAuths", "repository": "WorkAuthRepository", "operation": "listWorkAuths", "paramType": "NoParams", "returnType": "List<WorkAuth>" },
     { "name": "CreateWorkAuth", "repository": "WorkAuthRepository", "operation": "createWorkAuth", "paramType": "WorkAuth", "returnType": "WorkAuth" },
-    { "name": "UpdateWorkAuth", "repository": "WorkAuthRepository", "operation": "updateWorkAuth", "paramType": "WorkAuth", "returnType": "void" }
+    { "name": "UpdateWorkAuth", "repository": "WorkAuthRepository", "operation": "updateWorkAuth", "paramType": "WorkAuth", "returnType": "void" },
+    { "name": "ListVisaQuotas", "repository": "VisaQuotaRepository", "operation": "listVisaQuotas", "paramType": "NoParams", "returnType": "List<VisaQuota>" },
+    { "name": "CreateVisaQuota", "repository": "VisaQuotaRepository", "operation": "createVisaQuota", "paramType": "VisaQuota", "returnType": "VisaQuota" },
+    { "name": "UpdateVisaQuota", "repository": "VisaQuotaRepository", "operation": "updateVisaQuota", "paramType": "VisaQuota", "returnType": "void" },
+    { "name": "DeleteVisaQuota", "repository": "VisaQuotaRepository", "operation": "deleteVisaQuota", "paramType": "String", "returnType": "void" }
   ]
 }

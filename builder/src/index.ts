@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,11 +36,12 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments, resolveBudget } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
 import { generateAttachmentCore } from "./generators/attachment";
+import { generateBudgetCore } from "./generators/budget";
 import { generateSession, generateAuthLoginScreen } from "./generators/auth";
 
 /**
@@ -131,6 +132,12 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasAttachments(ir)) {
     core.push(["attachment.dart", generateAttachmentCore()]);
   }
+  // MF5: gated on resolveBudget succeeding (entity + all three fields actually resolve to Money),
+  // not just the declaration — a malformed attributes.budget emits nothing here and is reported by
+  // validate.ts's [budget] gate instead (see operations.ts's resolveBudget doc comment).
+  if (resolveBudget(ir)) {
+    core.push(["budget.dart", generateBudgetCore()]);
+  }
   // MF2: auth is app-level state, not a feature's domain. session.dart (Persona + Session
   // singleton + kPersonas list) and auth_login_screen.dart (persona-picker login) are emitted
   // once per app, next to the rest of core — non-auth apps stay byte-identical (the guards above
@@ -154,6 +161,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "policy.dart": "PolicyCoreGenerator",
     "split.dart": "SplitCoreGenerator",
     "attachment.dart": "AttachmentCoreGenerator",
+    "budget.dart": "BudgetCoreGenerator",
     "session.dart": "SessionGenerator",
     "auth_login_screen.dart": "AuthLoginScreenGenerator",
   };
@@ -350,6 +358,20 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:attachment", generator: "AttachmentTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // MF5 regression guard — pure-domain unit tests for BudgetLine's remaining/pctUsed/isOverLimit/
+  // remainingAfter math (a calculation, not a business rule — no oracle, mirrors attachment_test's
+  // precedent). References BudgetLine directly via the generated.dart barrel, so a build that
+  // drops core/budget.dart fails to compile the test — the stash-proof gate.
+  const budgetTest = generateBudgetTest(ir);
+  if (budgetTest) {
+    const f = path.join(testDir, "budget_test.dart");
+    fs.writeFileSync(f, budgetTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:budget", generator: "BudgetTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
@@ -776,6 +798,14 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // MF2: per-feature buildSymbols (above) never sees app-level attributes.auth — the auth symbols
   // (Session/Persona/AuthLoginScreen) exist for the whole app, so map them onto the merged table.
   addAuthSymbols(symbols, merged);
+  // MF5: same reasoning as MF2 above — attributes.budget lives at the app level too, so no single
+  // feature's own buildSymbols(f) call ever sees it (resolveBudget(f) fails per-feature even when
+  // the budget entity itself lives inside one of the features), leaving BudgetLine unregistered
+  // and every cross-reference (barrel export, screen import, test import) falling back to a wrong
+  // guessed path. Map it onto the merged table once resolution succeeds against the flattened IR.
+  if (resolveBudget(merged)) {
+    symbols.set("BudgetLine", "core/budget.dart");
+  }
 
   const arch = decideArchitecture(merged);
   const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };

@@ -112,6 +112,27 @@ export interface AuthModel {
   loginEntity?: string;
 }
 
+// MF5: budget/quota (app-level capability, § CAPABILITIES MF5). Explicit IR, not inferred: unlike
+// MF4's split (an unambiguous FK+`percent` structural signature), budget's three Money roles
+// (limit/committed/actual) have no single naming convention every domain would reuse — Ledgerly's
+// meal budget and work_auth's visa quota don't want to be forced onto identical field names — so
+// this points at whichever field names the entity author already chose, the same shape MF3's
+// `attachments` flag uses for "no clean structural signature." `scope` (BudgetLine's per-record
+// label, e.g. "Meals"/"Riyadh") is deliberately NOT a field pointer here — it's read from the
+// budget entity's own descriptive String field at generation time (operations.ts's
+// budgetScopeField, same "first non-identity String field" fallback screen.ts's pickTitle uses),
+// so declaring a budget needs no second "label field" config. `period` is accepted and carried in
+// the IR for forward-compat but drives no rollover/reset logic this iteration — a documented gap,
+// not silently approximated (mirrors split.ts's percent-only-this-iteration precedent).
+export interface BudgetModel {
+  entity: string; // the budget-holder entity name (e.g. "MealBudget", "VisaQuota")
+  limitField: string; // Money field: the ceiling
+  committedField: string; // Money field: submitted/pending sum
+  actualField: string; // Money field: approved/actual sum
+  scope?: "category" | "project" | "team" | string; // informational grouping tag for UI copy only
+  period?: "monthly" | "quarterly" | "yearly" | "none"; // informational only — no rollover logic yet
+}
+
 /** Explicit IR attributes consumed by the §5.2 pattern-selection scoring function. */
 export interface AppAttributes {
   refreshCadence?: "static" | "occasional" | "frequent" | "realtime";
@@ -123,6 +144,7 @@ export interface AppAttributes {
   persistence?: PersistenceKind; // explicit DB override (wins over scoring)
   auth?: AuthModel; // MF2: multi-user auth + roles + tenant scoping (additive — absent = no auth)
   attachments?: boolean; // MF3: attachment + OCR port (additive — absent = no core/attachment.dart)
+  budget?: BudgetModel; // MF5: budget/quota (additive — absent = no core/budget.dart)
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";

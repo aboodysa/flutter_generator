@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -265,6 +265,9 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // only one needs pushing (the barrel exports the whole file) — pushing all four produced
   // duplicate_export warnings (4 identical `export ...attachment.dart` lines).
   if (hasAttachments(feature)) names.push("ReceiptAttachment");
+  // MF5: budget_test.dart's generated cases reference BudgetLine directly — same reasoning as
+  // Money/SplitLine/ReceiptAttachment.
+  if (resolveBudget(feature)) names.push("BudgetLine");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

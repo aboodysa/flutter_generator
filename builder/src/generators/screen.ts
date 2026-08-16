@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -195,6 +195,15 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const identityField = entity?.identity?.field ?? "id";
   const childFk = childForeignKey(entity);
 
+  // MF5: this screen's entity IS the resolved budget entity — both the list and detail branches
+  // below construct a local `BudgetLine` from `item`'s limit/committed/actual fields when true.
+  // No-op (resolvedBudget undefined, or entity name mismatch) for every screen this capability
+  // doesn't touch — output byte-identical.
+  const resolvedBudget = ctx?.ir ? resolveBudget(ctx.ir) : undefined;
+  const isBudgetEntity = !!resolvedBudget && resolvedBudget.entity.name === s.entity;
+  const budgetLineExpr = (item: string) =>
+    `BudgetLine(scope: ${item}.${resolvedBudget!.scopeField?.name ?? identityField}, limit: ${item}.${resolvedBudget!.limitField.name}, committed: ${item}.${resolvedBudget!.committedField.name}, actual: ${item}.${resolvedBudget!.actualField.name})`;
+
   // §5.2-F1: create/edit/delete affordances, gated on what the entity's repository actually
   // supports (crudFormTargets is the single source shared with route.ts/index.ts/symbols.ts).
   const crudTarget = ctx?.ir ? crudFormTargets(ctx.ir).get(s.entity) : undefined;
@@ -224,6 +233,12 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   let body: string;
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
   let splitStateImport = ""; // MF4: the split child's Cubit/State import (see splitBlock below) — empty for any detail screen with no split group.
+  // MF5: BudgetLine import — only when THIS screen's entity resolves to the app's budget entity.
+  const budgetImport = isBudgetEntity
+    ? (ctx?.symbols.get("BudgetLine")
+        ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get("BudgetLine")}';`
+        : "import '../../core/budget.dart';")
+    : "";
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
       // UIX Slice C: role-aware layout — every field is rendered by its INFERRED ROLE (title,
@@ -261,6 +276,13 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       }
       for (const f of byRole("money")) {
         blocks.push(`Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.labelMedium),\n              ])`);
+      }
+      // MF5: live remaining (limit − committed − actual) + over-limit warning. Appended right
+      // after the raw limit/committed/actual money rows above (which still render individually —
+      // this doesn't replace them, it summarizes them) — `budget` is declared once, before
+      // `return ListView(...)`, so every block below can reference it.
+      if (isBudgetEntity) {
+        blocks.push(`Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                  Text('Remaining', style: Theme.of(context).textTheme.bodySmall),\n                  Text(budget.remaining.format(), style: Theme.of(context).textTheme.labelMedium),\n                ]),\n                const SizedBox(height: AppSpacing.xs),\n                Text('used \${(budget.pctUsed * 100).round()}%', style: Theme.of(context).textTheme.bodySmall),\n                if (budget.isOverLimit) ...[\n                  const SizedBox(height: AppSpacing.xs),\n                  const AppChip(label: 'Over budget', tone: AppChipTone.danger),\n                ],\n              ])`);
       }
       for (const f of byRole("plain")) {
         blocks.push(`Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium),\n              ])`);
@@ -305,8 +327,9 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
           ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(splitState.name)}';`
           : `import '../state/${splitState.name.toLowerCase()}.dart';`;
       }
+      const budgetLocal = isBudgetEntity ? `\n            final budget = ${budgetLineExpr("item")};` : "";
       body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
-            final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
+            final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);${budgetLocal}
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
@@ -428,9 +451,15 @@ ${contentCases}
     const titleExpr = title
       ? (nullable(title) ? `item.${title.name} ?? 'Untitled'` : `item.${title.name}`)
       : `item.toString()`;
-    const subtitleExpr = subtitleFields.length
-      ? `'${subtitleFields.map((f) => `\${${fieldValue(f)}}`).join(" · ")}'`
-      : "'—'";
+    // MF5: a budget-capable entity's list row shows "used X% · Y left" instead of the generic
+    // subtitle fields — that's the one fact a budget row exists to communicate at a glance (the
+    // row's title already carries the entity's own label field). `budget` is declared inline in
+    // itemBuilder below, right after `final item = items[i];`.
+    const subtitleExpr = isBudgetEntity
+      ? `'used \${(budget.pctUsed * 100).round()}% · \${budget.remaining.format()} left'`
+      : subtitleFields.length
+        ? `'${subtitleFields.map((f) => `\${${fieldValue(f)}}`).join(" · ")}'`
+        : "'—'";
     // Detail route target (routing.ts's screenPath() is the source of truth for the router
     // itself; this is the same no-collision formula screen.ts uses for the common case — see
     // AGENTS/DESIGN note in route.ts).
@@ -490,7 +519,7 @@ ${heroBlock}
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                         itemCount: items.length,
                         itemBuilder: (_, i) {
-                          final item = items[i];
+                          final item = items[i];${isBudgetEntity ? `\n                          final budget = ${budgetLineExpr("item")};` : ""}
                           return Padding(
                             padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
                             child: AppListCard(
@@ -599,6 +628,7 @@ ${themeImport}
 ${stateImport}
 ${wizardTypeImports}
 ${splitStateImport}
+${budgetImport}
 
 ${widgetBody}
 `;

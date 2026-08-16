@@ -2,7 +2,7 @@
 // naming.ts (both dependency-free themselves). Single source of truth for "what CRUD kind is this
 // operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
 // drift on the same heuristic.
-import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel, AuthModel, PersonaModel } from "./types";
+import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel, AuthModel, PersonaModel, BudgetModel } from "./types";
 import { capitalize, camelize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
@@ -249,6 +249,58 @@ export function splitParentEntities(ir: FeatureModel): string[] {
 // core/attachment.dart" (mirrors hasMoneyFields/hasPolicyRules/hasSplitGroups/hasAuth above).
 export function hasAttachments(ir: FeatureModel): boolean {
   return ir.attributes?.attachments === true;
+}
+
+// MF5: budget/quota — the declared attribute (types.ts's BudgetModel doc comment explains why
+// this is explicit IR, not inference like MF4's split). `hasBudget` only reflects DECLARATION
+// (used by validate.ts's [budget] gate to know whether to check at all); every generator gates
+// emission on `resolveBudget` succeeding instead, so a malformed declaration (missing entity, or a
+// field pointer that isn't Money-typed) emits nothing rather than half-broken code — the
+// validator then reports the mismatch loudly, same defensive posture as splitGroupFor/
+// splitCheck.
+export function hasBudget(ir: FeatureModel): boolean {
+  return !!ir.attributes?.budget;
+}
+
+export function budgetOf(ir: FeatureModel): BudgetModel | undefined {
+  return ir.attributes?.budget;
+}
+
+// MF5: the budget entity's own descriptive label field (e.g. "category"/"country"/"team"), used
+// as BudgetLine.scope — reuses the same "first non-identity String field" fallback screen.ts's
+// pickTitle() applies elsewhere, so a budget entity needs no extra IR config beyond naming its own
+// label field normally. Falls back to the identity field for the pathological case of an entity
+// with no String field at all (still deterministic, never throws).
+export function budgetScopeField(entity: EntityModel): Field | undefined {
+  const identityField = entity.identity?.field ?? "id";
+  return (
+    entity.fields.find((f) => f.type === "String" && f.name !== identityField) ??
+    entity.fields.find((f) => f.name === identityField)
+  );
+}
+
+export interface ResolvedBudget {
+  model: BudgetModel;
+  entity: EntityModel;
+  limitField: Field;
+  committedField: Field;
+  actualField: Field;
+  scopeField?: Field;
+}
+
+// Resolves attributes.budget against the actual entity list — undefined (never a throw) when the
+// entity is missing or any of the three field pointers doesn't resolve to an ACTUAL Money field,
+// so a bad declaration fails validate.ts's [budget] gate loudly instead of crashing generation.
+export function resolveBudget(ir: FeatureModel): ResolvedBudget | undefined {
+  const model = budgetOf(ir);
+  if (!model) return undefined;
+  const entity = (ir.entities ?? []).find((e) => e.name === model.entity);
+  if (!entity) return undefined;
+  const limitField = entity.fields.find((f) => f.name === model.limitField && isMoneyField(f));
+  const committedField = entity.fields.find((f) => f.name === model.committedField && isMoneyField(f));
+  const actualField = entity.fields.find((f) => f.name === model.actualField && isMoneyField(f));
+  if (!limitField || !committedField || !actualField) return undefined;
+  return { model, entity, limitField, committedField, actualField, scopeField: budgetScopeField(entity) };
 }
 
 // The split child's own generated list-state name (if it declares one via `states`) — used to

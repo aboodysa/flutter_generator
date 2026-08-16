@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 33,
+  "artifactCount": 49,
   "entries": [
     {
       "artifact": "enum:WorkAuthStatus",
@@ -26,11 +26,33 @@
       "class": "structural"
     },
     {
+      "artifact": "entity:VisaQuota",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/work_auth/domain/entities/visa_quota.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "repository:WorkAuthRepository",
       "generator": "RepositoryContractGenerator",
       "schema": "repository",
       "layer": "domain/repositories",
       "file": "lib/features/work_auth/domain/repositories/work_auth_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:VisaQuotaRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/work_auth/domain/repositories/visa_quota_repository.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
@@ -76,6 +98,58 @@
       "class": "structural"
     },
     {
+      "artifact": "usecase:ListVisaQuotas",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/work_auth/domain/usecases/list_visa_quotas.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:VisaQuotaRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:CreateVisaQuota",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/work_auth/domain/usecases/create_visa_quota.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:VisaQuotaRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:UpdateVisaQuota",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/work_auth/domain/usecases/update_visa_quota.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:VisaQuotaRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:DeleteVisaQuota",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/work_auth/domain/usecases/delete_visa_quota.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:VisaQuotaRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "state:WorkAuthList",
       "generator": "StateGenerator",
       "schema": "state",
@@ -102,6 +176,19 @@
       "class": "pattern"
     },
     {
+      "artifact": "state:VisaQuotaList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/work_auth/presentation/state/visa_quota_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:VisaQuota"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
       "artifact": "screen:WorkAuthListScreen",
       "generator": "ScreenGenerator",
       "schema": "screen",
@@ -111,6 +198,34 @@
       "dependsOn": [
         "entity:WorkAuth",
         "state:WorkAuthList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:VisaQuotaListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/work_auth/presentation/screens/visa_quota_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:VisaQuota",
+        "state:VisaQuotaList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:VisaQuotaDetailScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/work_auth/presentation/screens/visa_quota_detail_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:VisaQuota",
+        "state:VisaQuotaList"
       ],
       "mode": "deterministic",
       "class": "pattern"
@@ -156,6 +271,19 @@
       "class": "structural"
     },
     {
+      "artifact": "model:VisaQuota",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/work_auth/data/models/visa_quota_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:VisaQuota"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "repository_impl:WorkAuthRepositoryInMemoryImpl",
       "generator": "RepositoryImplGenerator",
       "schema": "repository_impl",
@@ -169,6 +297,19 @@
       "class": "structural"
     },
     {
+      "artifact": "repository_impl:VisaQuotaRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/work_auth/data/repositories/visa_quota_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:VisaQuotaRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "screen:WorkAuthFormScreen",
       "generator": "CrudFormGenerator",
       "schema": "screen",
@@ -177,6 +318,19 @@
       "strategy": "default",
       "dependsOn": [
         "state:WorkAuthList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:VisaQuotaFormScreen",
+      "generator": "CrudFormGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/work_auth/presentation/screens/visa_quota_form_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "state:VisaQuotaList"
       ],
       "mode": "deterministic",
       "class": "pattern"
@@ -292,6 +446,28 @@
       "class": "structural"
     },
     {
+      "artifact": "core:money",
+      "generator": "MoneyGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/money.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:budget",
+      "generator": "BudgetCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/budget.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:widget",
       "generator": "WidgetTestGenerator",
       "schema": "test",
@@ -352,6 +528,28 @@
       "schema": "test",
       "layer": "test",
       "file": "test/scroll_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:back",
+      "generator": "BackTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/back_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:budget",
+      "generator": "BudgetTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/budget_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

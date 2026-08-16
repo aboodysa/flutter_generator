@@ -1,5 +1,5 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -220,7 +220,15 @@ ${pumpWidget}
  */
 export function generateFlowTest(feature: FeatureModel): string {
   const screens = feature.screens ?? [];
-  const detail = screens.find((s) => s.type === "detail");
+  // This test taps the FIRST ListTile on whatever screen `ReplicaApp()` boots to (`screens[0]`,
+  // the same convention route.ts's initialLocation uses) — so the detail screen it asserts landing
+  // on must belong to THAT SAME entity, not just be "the first detail screen declared anywhere."
+  // Before this fix, an app whose home entity has no detail screen but SOME other entity does
+  // (e.g. work_auth's WorkAuth-home + a later-added VisaQuota detail) would generate a tap
+  // assertion for an unreachable screen — every existing sample's first detail screen already
+  // belongs to its own boot entity (or no detail screen exists at all), so this is a no-op for them.
+  const bootEntity = screens[0]?.entity;
+  const detail = screens.find((s) => s.type === "detail" && s.entity === bootEntity);
   const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
 
   const generatedImport = detail ? `import 'package:${pkg}/generated.dart';` : "";
@@ -271,8 +279,16 @@ ${nav}
  * `Money.format()` output instead of the raw typed text.
  */
 export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  // This test taps the create FAB directly on whatever screen `ReplicaApp()` boots to
+  // (`screens[0]`, same convention as route.ts's initialLocation) — so the target entity must be
+  // the BOOT entity itself, not just any full-CRUD entity with a detail screen somewhere in the
+  // app. Before this fix, an app whose boot entity lacks full CRUD but SOME other entity has it
+  // (e.g. work_auth's WorkAuth-home + a later-added full-CRUD VisaQuota) would generate a flow
+  // that taps "add" on the wrong screen — every existing sample's qualifying target already IS its
+  // boot entity (or none qualifies), so this is a no-op for them.
+  const bootEntity = (feature.screens ?? [])[0]?.entity;
   const target = [...crudFormTargets(feature).values()].find(
-    (t) => t.delete && (feature.screens ?? []).some((s) => s.entity === t.entity && s.type === "detail"),
+    (t) => t.entity === bootEntity && t.delete && (feature.screens ?? []).some((s) => s.entity === t.entity && s.type === "detail"),
   );
   // MF2: skip the whole CRUD flow when the first persona is denied the target's area (denial is
   // asserted by auth_test, not this boot test) — e.g. an employee persona whose role's home is
@@ -925,6 +941,98 @@ void main() {
     final second = await port.extract(synthesizeAttachment('slip'));
     expect(first.rawText, second.rawText);
     expect(first.date, second.date);
+  });
+}
+`;
+}
+
+/**
+ * BudgetTestGenerator — structural, deterministic, 0% LLM (MF5).
+ * Pure-domain unit tests for BudgetLine (core/budget.dart) — remaining/pctUsed/isOverLimit/
+ * remainingAfter math. A calculation, not a business rule (no RuleModel involved), so unit tests
+ * suffice — no oracle, same reasoning `generateAttachmentTest` uses. Entity-agnostic: constructs
+ * BudgetLine directly with literal Money values, so this file is byte-identical across every app
+ * that resolves a budget (Ledgerly's meal budget, work_auth's visa quota, ...) except for the
+ * package import.
+ */
+export function generateBudgetTest(feature: FeatureModel): string | null {
+  if (!resolveBudget(feature)) return null;
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+
+  return `// [generated] generator=BudgetTestGenerator template=budget_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:${pkg}/generated.dart';
+
+void main() {
+  const limit = Money(minorUnits: 100000, currency: 'SAR'); // 1,000.00
+
+  test('remaining subtracts committed and actual from the limit', () {
+    final line = BudgetLine(
+      scope: 'Meals',
+      limit: limit,
+      committed: const Money(minorUnits: 20000, currency: 'SAR'), // 200.00 submitted
+      actual: const Money(minorUnits: 38000, currency: 'SAR'), // 380.00 approved
+    );
+    expect(line.remaining.minorUnits, 42000, reason: '1000.00 - 200.00 - 380.00 = 420.00');
+  });
+
+  test('pctUsed reports the fraction of the limit already committed+actual', () {
+    final line = BudgetLine(
+      scope: 'Meals',
+      limit: limit,
+      committed: const Money(minorUnits: 20000, currency: 'SAR'),
+      actual: const Money(minorUnits: 42000, currency: 'SAR'),
+    );
+    // (200 + 420) / 1000 = 0.62 — the exact fraction the generated "used X%" UI rounds from.
+    expect(line.pctUsed, closeTo(0.62, 0.0001));
+    expect((line.pctUsed * 100).round(), 62, reason: "must match the generated UI's used-X% rounding exactly");
+  });
+
+  test('a budget exactly at its limit is not over', () {
+    final line = BudgetLine(
+      scope: 'Meals',
+      limit: limit,
+      committed: const Money(minorUnits: 0, currency: 'SAR'),
+      actual: limit,
+    );
+    expect(line.isOverLimit, isFalse);
+    expect(line.remaining.minorUnits, 0);
+  });
+
+  test('one minor unit over the limit is over-limit and reports a negative remaining', () {
+    final line = BudgetLine(
+      scope: 'Meals',
+      limit: limit,
+      committed: const Money(minorUnits: 0, currency: 'SAR'),
+      actual: const Money(minorUnits: 100001, currency: 'SAR'),
+    );
+    expect(line.isOverLimit, isTrue);
+    expect(line.remaining.minorUnits, -1, reason: 'over-limit is a visible negative, never clamped to zero');
+    expect(line.pctUsed, greaterThan(1.0), reason: 'pctUsed is not capped at 100% either');
+  });
+
+  test('a zero-limit budget reports 0% used, not a divide-by-zero', () {
+    final line = BudgetLine(
+      scope: 'Unset',
+      limit: const Money(minorUnits: 0, currency: 'SAR'),
+      committed: const Money(minorUnits: 0, currency: 'SAR'),
+      actual: const Money(minorUnits: 0, currency: 'SAR'),
+    );
+    expect(line.pctUsed, 0);
+    expect(line.isOverLimit, isFalse);
+  });
+
+  test('remainingAfter projects a hypothetical extra commitment without mutating the line', () {
+    final line = BudgetLine(
+      scope: 'Meals',
+      limit: limit,
+      committed: const Money(minorUnits: 20000, currency: 'SAR'),
+      actual: const Money(minorUnits: 38000, currency: 'SAR'),
+    );
+    final projected = line.remainingAfter(const Money(minorUnits: 10000, currency: 'SAR')); // +100.00 pending
+    expect(projected.minorUnits, 32000, reason: '420.00 remaining - 100.00 new pending = 320.00');
+    expect(line.remaining.minorUnits, 42000, reason: 'remainingAfter must not mutate the original line');
   });
 }
 `;

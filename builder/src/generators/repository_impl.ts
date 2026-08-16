@@ -1,6 +1,6 @@
 import { RepositoryImplModel, RepositoryModel, OperationModel, OperationParam, EntityModel } from "../types";
 import { GenContext, variantSampleArgs, importsFromTypes } from "../dart";
-import { crudOperations, listEntityName, hasTenantScoping, authTenantIds } from "../operations";
+import { crudOperations, listEntityName, hasTenantScoping, authTenantIds, resolveBudget } from "../operations";
 
 /**
  * RepositoryImplGenerator — structural, deterministic, 0% LLM.
@@ -37,16 +37,37 @@ function opSig(op: OperationModel): string {
   return named.length ? `${positional}${positional ? ", " : ""}{${named}}` : positional;
 }
 
+// MF5: hand-picked (not the generic per-index Money(index*10000+5000,...) formula) so the 3 demo
+// rows show a real spread of budget states — under/near/over the limit. The generic formula gives
+// every Money field on an entity the SAME literal for a given row (it doesn't vary by field name),
+// which for a 3-money-field budget entity would put committed+actual at exactly 2x the limit on
+// every row — always "over", never a realistic demo.
+const BUDGET_SEED = [
+  { limit: 100000, committed: 20000, actual: 38000 }, // under: 58% used
+  { limit: 60000, committed: 15000, actual: 44000 }, // near: 98% used
+  { limit: 40000, committed: 10000, actual: 35000 }, // over: 112% used
+];
+
 function demoRows(entityName: string, entity: EntityModel, ctx: GenContext | undefined): string {
   const scoped = hasTenantScoping(ctx?.ir, entityName);
   const tenants = ctx?.ir ? authTenantIds(ctx.ir) : [];
+  const budget = ctx?.ir ? resolveBudget(ctx.ir) : undefined;
+  const isBudgetEntity = !!budget && budget.entity.name === entityName;
   return [0, 1, 2]
     .map((i) => {
       // MF2: cycle demo rows across the auth personas' tenants so the seed data itself demos
       // tenant isolation (each account sees only the rows its own tenant "owns"). No-op for
       // non-scoped entities — output byte-identical to pre-MF2.
-      const overrides = scoped && tenants.length ? { tenantId: `'${tenants[i % tenants.length]}'` } : undefined;
-      return `${entityName}(${variantSampleArgs(entity, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [], i, overrides)})`;
+      const overrides: Record<string, string> = {};
+      if (scoped && tenants.length) overrides.tenantId = `'${tenants[i % tenants.length]}'`;
+      if (isBudgetEntity && budget) {
+        const seed = BUDGET_SEED[i]!;
+        overrides[budget.limitField.name] = `Money(minorUnits: ${seed.limit}, currency: '${budget.limitField.currency}')`;
+        overrides[budget.committedField.name] = `Money(minorUnits: ${seed.committed}, currency: '${budget.committedField.currency}')`;
+        overrides[budget.actualField.name] = `Money(minorUnits: ${seed.actual}, currency: '${budget.actualField.currency}')`;
+      }
+      const finalOverrides = Object.keys(overrides).length ? overrides : undefined;
+      return `${entityName}(${variantSampleArgs(entity, ctx?.ir?.enums ?? [], ctx?.ir?.valueObjects ?? [], i, finalOverrides)})`;
     })
     .join(", ");
 }

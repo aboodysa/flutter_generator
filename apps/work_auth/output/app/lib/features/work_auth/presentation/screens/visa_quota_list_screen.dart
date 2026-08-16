@@ -5,23 +5,23 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_work_auth/core/components.dart';
 import 'package:rasheed_replica_work_auth/core/theme.dart';
-import 'package:rasheed_replica_work_auth/features/work_auth/presentation/state/work_auth_list.dart';
+import 'package:rasheed_replica_work_auth/features/work_auth/presentation/state/visa_quota_list.dart';
 
 
+import 'package:rasheed_replica_work_auth/core/budget.dart';
 
-
-class WorkAuthListScreen extends StatelessWidget {
-  const WorkAuthListScreen({super.key});
+class VisaQuotaListScreen extends StatelessWidget {
+  const VisaQuotaListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Work Auths')),
-      body: BlocBuilder<WorkAuthListCubit, WorkAuthListState>(
+      appBar: AppBar(title: const Text('Visa Quotas')),
+      body: BlocBuilder<VisaQuotaListCubit, VisaQuotaListState>(
         builder: (context, state) {
-        if (state.status == WorkAuthListStatus.loading) return const LoadingState();
-        if (state.status == WorkAuthListStatus.failure) return ErrorState(message: state.errorMessage);
-    final items = state.workAuths;
+        if (state.status == VisaQuotaListStatus.loading) return const LoadingState();
+        if (state.status == VisaQuotaListStatus.failure) return ErrorState(message: state.errorMessage);
+    final items = state.visaQuotas;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -44,16 +44,17 @@ class WorkAuthListScreen extends StatelessWidget {
                         itemCount: items.length,
                         itemBuilder: (_, i) {
                           final item = items[i];
+                          final budget = BudgetLine(scope: item.name, limit: item.limit, committed: item.committed, actual: item.actual);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,
-                              leading: AppStatusDot(tone: AppChip.toneForStatus(item.status.name), semanticLabel: item.status.name),
+                              leading: AppAvatar(label: item.name),
                               title: Text(item.name),
-                              subtitle: Text('${(item.startDate.toIso8601String().split('T').first)} · ${item.durationDays.toString()}'),
+                              subtitle: Text('used ${(budget.pctUsed * 100).round()}% · ${budget.remaining.format()} left'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push('/work-auth/${item.id}/edit'),
+                              onTap: () => context.push('/visa-quota/${item.id}'),
                             ),
                           );
                         },
@@ -66,8 +67,8 @@ class WorkAuthListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'New WorkAuth',
-        onPressed: () => context.push('/work-auth/new'),
+        tooltip: 'New VisaQuota',
+        onPressed: () => context.push('/visa-quota/new'),
         child: const Icon(Icons.add),
       ),
     );

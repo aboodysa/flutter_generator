@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -206,6 +206,46 @@ function authGuardCheck(ir: any, files: string[]): string[] {
   return missing.map((m) => `[auth] lib:core/router.dart missing '${m}' — auth guard not enforced`);
 }
 
+// validate.ts is handed the RAW IR read straight off disk — for an MF1 multi-feature IR
+// (`"features": [...]`) that means `ir.entities` is undefined at the top level (entities live
+// under `ir.features[].entities`; index.ts only builds the flattened/merged FeatureModel INSIDE
+// generateApp, which validate.ts never sees). Every other per-entity gate here has the same
+// pre-existing gap (documented: LEFTOVER_NOTES.md "G2b/M2" — moneyCheck/datepickerCheck/tenantCheck
+// etc. all read `ir.entities` directly and vacuously no-op on a multi-feature IR). budgetCheck
+// can't afford to inherit that silently: `attributes.budget` DOES live at the IR's top level for
+// both shapes, so hasBudget(ir) is still true for a multi-feature IR, and a bare `ir.entities`
+// lookup would flip from "vacuous pass" to an outright false FAIL (entity genuinely present, just
+// unreachable at this path) — worse than silently skipping. Flatten locally rather than changing
+// the other checks' pre-existing (out-of-scope) behavior.
+function flattenedEntities(ir: any): any[] {
+  if (Array.isArray(ir.entities)) return ir.entities;
+  if (Array.isArray(ir.features)) return ir.features.flatMap((f: any) => f.entities ?? []);
+  return [];
+}
+
+// MF5: a declared `attributes.budget` must (a) resolve against a real entity + three actual Money
+// fields (operations.ts's resolveBudget — mirrors [split]'s per-group structural validity check)
+// and (b) actually emit core/budget.dart — mirrors [attachment]'s presence check. Deliberately no
+// oracle requirement here (unlike [split]/[verdict]): BudgetLine is a pure calculation, not a
+// RuleModel — see the task report for why a unit test (budget_test.dart) is the chosen proof
+// instead of an oracle file.
+function budgetCheck(ir: any, files: string[]): string[] {
+  if (!hasBudget(ir)) return [];
+  const issues: string[] = [];
+  const resolved = resolveBudget({ ...ir, entities: flattenedEntities(ir) });
+  if (!resolved) {
+    const model = budgetOf(ir);
+    issues.push(
+      `[budget] attributes.budget declares entity '${model?.entity}' (limit='${model?.limitField}', committed='${model?.committedField}', actual='${model?.actualField}') but it does not resolve to an existing entity with three actual Money fields — unverifiable`,
+    );
+    return issues;
+  }
+  if (!files.some((f) => f.endsWith("/core/budget.dart"))) {
+    issues.push(`[budget] app declares attributes.budget but generated output has no core/budget.dart (BudgetLine)`);
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -221,6 +261,7 @@ export interface ValidationResult {
   tenant: number;    // count of tenantId-carrying repos whose generated impl lacks the scoped marker set (MF2)
   auth: number;      // count of auth-guard markers missing from a declared-auth app's router (MF2)
   attachment: number; // count of attachment-capable apps missing core/attachment.dart (MF3)
+  budget: number;    // count of budget-declaration issues: unresolved entity/fields, or missing core/budget.dart (MF5)
   files: number;
   issues: string[];
 }
@@ -306,7 +347,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...attachmentIssues);
   const attachment = attachmentIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, files: files.length, issues };
+  // Budget/quota (MF5): a declared budget must resolve to a real entity + three Money fields and
+  // actually emit core/budget.dart.
+  const budgetIssues = budgetCheck(ir, files);
+  issues.push(...budgetIssues);
+  const budget = budgetIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, budget, files: files.length, issues };
 }
 
 function main() {
@@ -327,7 +374,8 @@ function main() {
   console.log(`[tenant] ${r.tenant === 0 ? "PASS" : "FAIL (" + r.tenant + ")"}`);
   console.log(`[auth] ${r.auth === 0 ? "PASS" : "FAIL (" + r.auth + ")"}`);
   console.log(`[attachment] ${r.attachment === 0 ? "PASS" : "FAIL (" + r.attachment + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment > 0;
+  console.log(`[budget] ${r.budget === 0 ? "PASS" : "FAIL (" + r.budget + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment + r.budget > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

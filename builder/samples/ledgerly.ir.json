@@ -17,18 +17,29 @@
       "allow": {
         "employee": [
           "ExpenseClaim",
-          "Approval"
+          "Approval",
+          "MealBudget"
         ],
         "manager": [
           "ExpenseClaim",
-          "Approval"
+          "Approval",
+          "MealBudget"
         ],
         "finance": [
           "ExpenseClaim",
           "Approval",
-          "User"
+          "User",
+          "MealBudget"
         ]
       }
+    },
+    "budget": {
+      "entity": "MealBudget",
+      "limitField": "limit",
+      "committedField": "committed",
+      "actualField": "actual",
+      "scope": "category",
+      "period": "monthly"
     }
   },
   "features": [
@@ -336,6 +347,150 @@
           "operation": "listApprovals",
           "paramType": "NoParams",
           "returnType": "List<Approval>"
+        }
+      ]
+    },
+    {
+      "name": "budgets",
+      "entities": [
+        {
+          "name": "MealBudget",
+          "identity": {
+            "field": "id"
+          },
+          "fields": [
+            {
+              "name": "id",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "String",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "name": "limit",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            },
+            {
+              "name": "committed",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            },
+            {
+              "name": "actual",
+              "type": "double",
+              "required": true,
+              "nullable": false,
+              "semanticType": "Money",
+              "currency": "SAR"
+            }
+          ]
+        }
+      ],
+      "repositories": [
+        {
+          "name": "MealBudgetRepository",
+          "operations": [
+            {
+              "name": "listMealBudgets",
+              "returns": "Future<List<MealBudget>>",
+              "params": []
+            },
+            {
+              "name": "createMealBudget",
+              "returns": "Future<MealBudget>",
+              "params": [
+                {
+                  "name": "budget",
+                  "type": "MealBudget",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "updateMealBudget",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "budget",
+                  "type": "MealBudget",
+                  "named": false
+                }
+              ]
+            },
+            {
+              "name": "deleteMealBudget",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "id",
+                  "type": "String",
+                  "named": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "states": [
+        {
+          "name": "MealBudgetList",
+          "entity": "MealBudget"
+        }
+      ],
+      "screens": [
+        {
+          "name": "MealBudgetListScreen",
+          "entity": "MealBudget",
+          "type": "list",
+          "state": "MealBudgetList"
+        },
+        {
+          "name": "MealBudgetDetailScreen",
+          "entity": "MealBudget",
+          "type": "detail",
+          "state": "MealBudgetList"
+        }
+      ],
+      "useCases": [
+        {
+          "name": "ListMealBudgets",
+          "repository": "MealBudgetRepository",
+          "operation": "listMealBudgets",
+          "paramType": "NoParams",
+          "returnType": "List<MealBudget>"
+        },
+        {
+          "name": "CreateMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "createMealBudget",
+          "paramType": "MealBudget",
+          "returnType": "MealBudget"
+        },
+        {
+          "name": "UpdateMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "updateMealBudget",
+          "paramType": "MealBudget",
+          "returnType": "void"
+        },
+        {
+          "name": "DeleteMealBudget",
+          "repository": "MealBudgetRepository",
+          "operation": "deleteMealBudget",
+          "paramType": "String",
+          "returnType": "void"
         }
       ]
     }

@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups, hasAuth, authPersonas, hasAttachments, resolveBudget } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -62,6 +62,9 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
     m.set("MockReceiptOcr", "core/attachment.dart");
     m.set("synthesizeAttachment", "core/attachment.dart");
     m.set("kLowOcrConfidence", "core/attachment.dart");
+  }
+  if (resolveBudget(ir)) {
+    m.set("BudgetLine", "core/budget.dart");
   }
   addAuthSymbols(m, ir);
   return m;

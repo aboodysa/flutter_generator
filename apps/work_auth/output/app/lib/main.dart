@@ -21,12 +21,14 @@ class ReplicaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<WorkAuthListCubit>(
       create: (_) => sl<WorkAuthListCubit>()..load(),
+      child: BlocProvider<VisaQuotaListCubit>(
+      create: (_) => sl<VisaQuotaListCubit>()..load(),
       child: BlocProvider<WorkAuthWizardCubit>(
       create: (_) => sl<WorkAuthWizardCubit>()..load(),
       child: MaterialApp.router(
         title: 'Generated app',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         routerConfig: appRouter,
-      )));
+      ))));
   }
 }

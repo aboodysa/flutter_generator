@@ -40,6 +40,39 @@ class _SeededWorkAuthListCubit extends WorkAuthListCubit {
   }
 }
 
+class _NoOpVisaQuotaRepository implements VisaQuotaRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SeededVisaQuotaListCubit extends VisaQuotaListCubit {
+  _SeededVisaQuotaListCubit() : super(ListVisaQuotas(_NoOpVisaQuotaRepository()));
+
+  @override
+  Future<void> load() async {
+    emit(state.copyWith(
+      status: VisaQuotaListStatus.success,
+      visaQuotas: [
+        VisaQuota(id: 'visa-quota-1', name: 'Sample VisaQuota 1', limit: Money(minorUnits: 15000, currency: 'VSA'), committed: Money(minorUnits: 15000, currency: 'VSA'), actual: Money(minorUnits: 15000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-2', name: 'Sample VisaQuota 2', limit: Money(minorUnits: 25000, currency: 'VSA'), committed: Money(minorUnits: 25000, currency: 'VSA'), actual: Money(minorUnits: 25000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-3', name: 'Sample VisaQuota 3', limit: Money(minorUnits: 35000, currency: 'VSA'), committed: Money(minorUnits: 35000, currency: 'VSA'), actual: Money(minorUnits: 35000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-4', name: 'Sample VisaQuota 4', limit: Money(minorUnits: 45000, currency: 'VSA'), committed: Money(minorUnits: 45000, currency: 'VSA'), actual: Money(minorUnits: 45000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-5', name: 'Sample VisaQuota 5', limit: Money(minorUnits: 55000, currency: 'VSA'), committed: Money(minorUnits: 55000, currency: 'VSA'), actual: Money(minorUnits: 55000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-6', name: 'Sample VisaQuota 6', limit: Money(minorUnits: 65000, currency: 'VSA'), committed: Money(minorUnits: 65000, currency: 'VSA'), actual: Money(minorUnits: 65000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-7', name: 'Sample VisaQuota 7', limit: Money(minorUnits: 75000, currency: 'VSA'), committed: Money(minorUnits: 75000, currency: 'VSA'), actual: Money(minorUnits: 75000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-8', name: 'Sample VisaQuota 8', limit: Money(minorUnits: 85000, currency: 'VSA'), committed: Money(minorUnits: 85000, currency: 'VSA'), actual: Money(minorUnits: 85000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-9', name: 'Sample VisaQuota 9', limit: Money(minorUnits: 95000, currency: 'VSA'), committed: Money(minorUnits: 95000, currency: 'VSA'), actual: Money(minorUnits: 95000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-10', name: 'Sample VisaQuota 10', limit: Money(minorUnits: 105000, currency: 'VSA'), committed: Money(minorUnits: 105000, currency: 'VSA'), actual: Money(minorUnits: 105000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-11', name: 'Sample VisaQuota 11', limit: Money(minorUnits: 115000, currency: 'VSA'), committed: Money(minorUnits: 115000, currency: 'VSA'), actual: Money(minorUnits: 115000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-12', name: 'Sample VisaQuota 12', limit: Money(minorUnits: 125000, currency: 'VSA'), committed: Money(minorUnits: 125000, currency: 'VSA'), actual: Money(minorUnits: 125000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-13', name: 'Sample VisaQuota 13', limit: Money(minorUnits: 135000, currency: 'VSA'), committed: Money(minorUnits: 135000, currency: 'VSA'), actual: Money(minorUnits: 135000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-14', name: 'Sample VisaQuota 14', limit: Money(minorUnits: 145000, currency: 'VSA'), committed: Money(minorUnits: 145000, currency: 'VSA'), actual: Money(minorUnits: 145000, currency: 'VSA')),
+        VisaQuota(id: 'visa-quota-15', name: 'Sample VisaQuota 15', limit: Money(minorUnits: 155000, currency: 'VSA'), committed: Money(minorUnits: 155000, currency: 'VSA'), actual: Money(minorUnits: 155000, currency: 'VSA')),
+      ],
+    ));
+  }
+}
+
 void main() {
   testWidgets('WorkAuthListScreen: scrolls when content overflows', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -54,5 +87,20 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -2000));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('work-auth-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
+  });
+
+  testWidgets('VisaQuotaListScreen: scrolls when content overflows', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(BlocProvider<VisaQuotaListCubit>(
+      create: (_) => _SeededVisaQuotaListCubit()..load(),
+      child: MaterialApp.router(theme: buildTheme(), routerConfig: GoRouter(initialLocation: '/', routes: [GoRoute(path: '/', builder: (_, __) => const VisaQuotaListScreen())])),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('visa-quota-15')), findsNothing, reason: 'row 15 should be off-screen before scrolling');
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('visa-quota-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
   });
 }
