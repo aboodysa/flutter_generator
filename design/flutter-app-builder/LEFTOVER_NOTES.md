@@ -24,6 +24,11 @@ matters, status. Update on every slice. This is the "don't lose the notes" index
 | B2 leftover | focus/scroll tests boot real DI per case; focus_test resets GetIt between cases | DOCUMENTED |
 | B3 leftover | G6 prefill handles String FKs only (no sample uses non-String FK) | WONTFIX (documented) |
 
+## From L4 RTL CDP testing — 2026-08-16
+| Note | Detail | Status |
+|---|---|---|
+| G-L4-2 login-screen not localized | auth login screen hardcodes EN labels ("Sign in", "Choose a demo account") + no forced RTL directionality; only AppStrings chrome vocabulary is localized | OPEN — route login screen strings through AppStrings + verify Directionality.of == rtl under AR; extend l10n_test to the login screen |
+
 ## From parallel session B (samples) — 2026-08-16
 | Note | Detail | Status |
 |---|---|---|
