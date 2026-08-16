@@ -1,9 +1,10 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
 import { nullable } from "../nullability";
+import { OracleFile } from "../oracle";
 
 /**
  * UnitTestGenerator — structural, deterministic, 0% LLM.
@@ -736,6 +737,93 @@ import 'package:${pkg}/core/di.dart';
 
 void main() {
 ${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * SplitTestGenerator — structural, deterministic, 0% LLM (MF4 regression guard).
+ * Two kinds of case in one file: (1) pure-domain cases compiled straight from the Split oracle
+ * (mirrors oracle_test.ts's spirit, but validateSplit isn't a RuleModel — see operations.ts's
+ * splitGroupFor doc comment — so this reads the oracle itself rather than reusing
+ * RuleOracleTestGenerator, which is hard-wired to `${RuleName}().evaluate(entity)`); (2) one
+ * UI case per split-capable CRUD-form entity driving the real form generically (add two split
+ * rows via the "Add split" button — no entity-specific knowledge needed since every split row's
+ * inputs are labeled identically regardless of app type), asserting the live running total AND
+ * that Save is blocked/unblocked exactly at the 100% boundary.
+ */
+export function generateSplitTest(feature: FeatureModel, oracle: OracleFile | null): string | null {
+  if (!hasSplitGroups(feature)) return null;
+  const targets = [...crudFormTargets(feature).values()].filter((t) => splitGroupFor(t.entity, feature));
+  if (!targets.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const setup = "    setupDependencies();\n";
+
+  const domainCases = (oracle?.cases ?? [])
+    .map((c, i) => {
+      const percents: number[] = c.input.percents ?? [];
+      const linesExpr = percents.length
+        ? `[${percents.map((p) => `const SplitLine(category: 'x', percent: ${p})`).join(", ")}]`
+        : "const <SplitLine>[]";
+      const expected = String(c.expected ?? "");
+      const expectedExpr = expected ? `['${expected.replace(/'/g, "\\'")}']` : "<String>[]";
+      const desc = (expected || "valid").replace(/'/g, "\\'");
+      return `  test('validateSplit oracle case ${i + 1}: ${desc}', () {
+    expect(validateSplit(${linesExpr}), equals(${expectedExpr}));
+  });`;
+    })
+    .join("\n\n");
+
+  const uiCases = targets
+    .map((t) => {
+      const base = `/${kebab(t.entity)}`;
+      return `  testWidgets('${t.entity}: split must sum to exactly 100% before Save is enabled', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${base}/new');
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Add split'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Add split'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Category').at(0), 'Travel');
+    await tester.enterText(find.widgetWithText(TextField, '%').at(0), '90');
+    await tester.enterText(find.widgetWithText(TextField, 'Category').at(1), 'Meals');
+    await tester.enterText(find.widgetWithText(TextField, '%').at(1), '5');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Split total: 95.00%'), findsOneWidget);
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNull, reason: 'a split that does not sum to 100% must block Save');
+    await tester.enterText(find.widgetWithText(TextField, '%').at(1), '10');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Split total: 100.00%'), findsOneWidget);
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a split summing to exactly 100% must unblock Save');
+  });`;
+    })
+    .join("\n\n");
+
+  const cases = [domainCases, uiCases].filter(Boolean).join("\n\n");
+  if (!cases) return null;
+
+  const getItReset = `  setUp(() => GetIt.instance.reset());\n\n`;
+
+  return `// [generated] generator=SplitTestGenerator template=split_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR + Split.oracle.json.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/core/components.dart';
+import 'package:${pkg}/core/di.dart';
+import 'package:${pkg}/generated.dart';
+
+void main() {
+${getItReset}${cases}
 }
 `;
 }

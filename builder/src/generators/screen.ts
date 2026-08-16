@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -219,6 +219,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
 
   let body: string;
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
+  let splitStateImport = ""; // MF4: the split child's Cubit/State import (see splitBlock below) — empty for any detail screen with no split group.
   if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
       // UIX Slice C: role-aware layout — every field is rendered by its INFERRED ROLE (title,
@@ -272,18 +273,41 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       // Parent→children navigation rows (general capability): one per child entity carrying
       // `camelize(parent)+"Id"` (e.g. FollowUp.taskId under a Task detail). Links to the child's
       // list with `?<fk>=<id>`; the child list screen filters on that query param (listFilterExpr).
+      // Dead-route guard: only a child that actually HAS a list screen gets a nav row — otherwise
+      // `context.push('/x?fk=…')` hits a route that was never registered (go_router "Page Not
+      // Found"), the same class of bug the list-row onTap guard above this already fixed. This
+      // also correctly excludes an MF4 split child (e.g. LineItemSplit): it deliberately declares
+      // no `screens` entry (edited inline via the parent's own form, see splitBlock below), so
+      // without this guard it would otherwise get a broken generic "View LineItemSplits" link.
       const allEntities = (ctx?.ir?.entities ?? []) as Array<{ name: string; fields?: Field[] }>;
-      const children = childLinks(s.entity, allEntities);
+      const allScreens = (ctx?.ir?.screens ?? []) as Array<{ entity: string; type: string }>;
+      const children = childLinks(s.entity, allEntities).filter((c) => allScreens.some((sc) => sc.entity === c.child && sc.type === "list"));
       const childRows = children.length
         ? "\n" + children.map((c) => `              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')),`).join("\n")
         : "";
+      // MF4: split breakdown (category → percent) — bloc-only in this iteration (mirrors the
+      // Cubit read pattern the rest of this generator already uses for its own state; no current
+      // sample combines riverpod with a split group, so the riverpod path is a documented gap,
+      // not silently wrong output). ctx?.ir is required for splitGroupFor to have anything to
+      // search, so this is a no-op (undefined) for any entity with no split group — every sample
+      // this feature doesn't touch gets byte-identical output.
+      const splitGroup = ctx?.ir && sm !== "riverpod" ? splitGroupFor(s.entity, ctx.ir) : undefined;
+      const splitState = splitGroup ? (ctx?.ir?.states ?? []).find((st: any) => st.entity === splitGroup.child) : undefined;
+      const splitBlock = splitGroup && splitState
+        ? `\n              const SizedBox(height: ${comp.itemGap}.0),\n              Text('Split breakdown', style: Theme.of(context).textTheme.titleSmall),\n              const SizedBox(height: AppSpacing.xs),\n              BlocBuilder<${splitState.name}Cubit, ${splitState.name}State>(\n                builder: (context, splitState) {\n                  final lines = splitState.${collectionField(splitGroup.child)}.where((e) => e.${splitGroup.fkField} == id).toList();\n                  if (lines.isEmpty) {\n                    return const Text('No split configured', style: TextStyle(color: AppColors.textSecondary));\n                  }\n                  return Column(\n                    crossAxisAlignment: CrossAxisAlignment.stretch,\n                    children: [\n                      for (final l in lines)\n                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                          Text(l.${splitGroup.categoryField ?? "id"}),\n                          Text('\${l.percent.toStringAsFixed(1)}%'),\n                        ]),\n                    ],\n                  );\n                },\n              ),`
+        : "";
+      if (splitGroup && splitState) {
+        splitStateImport = ctx?.symbols.get(splitState.name)
+          ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(splitState.name)}';`
+          : `import '../state/${splitState.name.toLowerCase()}.dart';`;
+      }
       body = `            if (state.${collection}.isEmpty) return const Center(child: Text('No data'));
             final item = state.${collection}.firstWhere((e) => e.${identityField} == id, orElse: () => state.${collection}.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 ${heroBlock}
-${rowsBlock}${childRows}
+${rowsBlock}${splitBlock}${childRows}
               ],
             );`;
     } else {
@@ -570,6 +594,7 @@ ${componentsImport}
 ${themeImport}
 ${stateImport}
 ${wizardTypeImports}
+${splitStateImport}
 
 ${widgetBody}
 `;

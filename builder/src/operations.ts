@@ -3,7 +3,7 @@
 // operation" so scoring.ts (persistence selection) and repository_impl.ts (CRUD codegen) never
 // drift on the same heuristic.
 import { OperationModel, OperationKind, RepositoryModel, FeatureModel, ScreenModel, WizardStep, EntityModel, Field, RuleModel } from "./types";
-import { capitalize } from "./naming";
+import { capitalize, camelize } from "./naming";
 
 // The entity a repository's `list` operation returns (Future<List<Task>> -> "Task").
 export function listEntityName(repo: RepositoryModel | undefined): string | null {
@@ -203,4 +203,57 @@ export function policyRulesForEntity(ir: FeatureModel, entityName: string): Rule
 // evaluate<Entity>Policy() function (one file each, domain/policy/<entity>_policy.dart).
 export function policyEntities(ir: FeatureModel): string[] {
   return Array.from(new Set((ir.businessRules ?? []).filter(isPolicyRule).map((r) => r.entity)));
+}
+
+// MF4 split/allocation — a "split group" is inferred purely from naming convention, no new IR
+// schema surface: a child entity Y (≠ parent X) carrying BOTH the existing FK convention
+// (`camelize(X) + "Id"`, the exact field childLinks/childForeignKey already key off) AND a field
+// literally named "percent" (type double) is the parent's split-line entity. This composes with
+// the pre-existing parent→children capability instead of introducing a second, competing
+// relationship concept — same reasoning L2 used for `severity` (additive; a parent with no
+// matching child entity takes zero new code paths). One split group per parent (first match) —
+// concurrent split groups on a single parent are out of scope for this iteration (documented
+// gap, not silently merged).
+export interface SplitGroup {
+  parent: string;
+  child: string;
+  fkField: string;
+  categoryField?: string;
+}
+
+export function splitGroupFor(parentName: string, ir: FeatureModel): SplitGroup | undefined {
+  const me = camelize(parentName);
+  for (const e of ir.entities ?? []) {
+    if (e.name === parentName) continue;
+    const fk = e.fields.find((f) => f.name === `${me}Id`);
+    if (!fk) continue;
+    const percent = e.fields.find((f) => f.name === "percent" && f.type === "double");
+    if (!percent) continue;
+    const identityField = e.identity?.field ?? "id";
+    const category = e.fields.find((f) => f.type === "String" && f.name !== fk.name && f.name !== identityField);
+    return { parent: parentName, child: e.name, fkField: fk.name, categoryField: category?.name };
+  }
+  return undefined;
+}
+
+export function hasSplitGroups(ir: FeatureModel): boolean {
+  return (ir.entities ?? []).some((e) => !!splitGroupFor(e.name, ir));
+}
+
+export function splitParentEntities(ir: FeatureModel): string[] {
+  return (ir.entities ?? []).filter((e) => splitGroupFor(e.name, ir)).map((e) => e.name);
+}
+
+// The split child's own generated list-state name (if it declares one via `states`) — used to
+// (a) provide its Cubit app-wide (project.ts's generateMain/generateMultiMain, since the split
+// child deliberately has no `screens` entry and would otherwise never appear in the app's own
+// distinctStates set) and (b) resolve the Cubit/State import in crud_form.ts/screen.ts.
+export function splitStateNames(ir: FeatureModel): string[] {
+  const names: string[] = [];
+  for (const parent of splitParentEntities(ir)) {
+    const group = splitGroupFor(parent, ir);
+    const st = group ? (ir.states ?? []).find((s) => s.entity === group.child) : undefined;
+    if (st) names.push(st.name);
+  }
+  return names;
 }

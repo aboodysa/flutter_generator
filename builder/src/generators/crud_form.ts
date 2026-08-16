@@ -1,6 +1,6 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -278,6 +278,141 @@ ${ctorArgs}
   return { imports, stateFields, disposeLines, methods, panelCall, itemExpr: "_draft()", saveGuard };
 }
 
+// MF4: split/allocation section on the parent's own create/edit form (operations.ts's own doc
+// comment covers the inference rule). Mirrors policyWiring's shape (empty-string everywhere when
+// the entity has no split group — zero-diff backward compat) with two additions of its own:
+// `initLines` (prefill on edit, spliced into initState right after the entity's own fields) and
+// `submitHook` (persists the split rows right after the parent's own onSubmit — see the
+// composed onPressed template below). Split rows are edited entirely as local widget state and
+// persisted through the split child's OWN generated Cubit (context.read<...Cubit>() — the exact
+// same call shape crud_form.ts already uses for the parent entity itself), never a raw
+// repository/use-case call: the split child deliberately has no `screens` entry, but it keeps a
+// `states` entry precisely so this reuses the existing Cubit/CRUD machinery instead of inventing
+// a second, parallel way to talk to a repository. "Replace all" is the persistence strategy on
+// save (delete every existing row for this parent, recreate the current rows) — deliberately not
+// a diff/reconcile against the previous set, since the row count is small and rows carry no
+// identity the user would recognize across edits; documented as the simple, deterministic choice.
+// Bloc-only for this iteration (mirrors the state read/mutate calls the rest of this generator
+// already makes) — no current sample combines riverpod with a split group, so the riverpod path
+// is a documented gap, not silently wrong output.
+function splitWiring(entity: EntityModel, ctx?: GenContext) {
+  const empty = { imports: "", stateFields: "", initLines: "", disposeLines: "", methods: "", panelCall: "", saveGuard: "", submitHook: "" };
+  if (!ctx?.ir || ctx.sm === "riverpod") return empty;
+  const group: SplitGroup | undefined = splitGroupFor(entity.name, ctx.ir);
+  if (!group) return empty;
+  const splitState = (ctx.ir.states ?? []).find((s: any) => s.entity === group.child);
+  if (!splitState) return empty;
+
+  const splitStateName = splitState.name;
+  const splitCubit = `${splitStateName}Cubit`;
+  const collection = collectionField(group.child);
+  const childEntityDef = ctx.ir.entities.find((e: any) => e.name === group.child) as EntityModel | undefined;
+  const childIdentityField = childEntityDef?.identity?.field ?? "id";
+  const parentIdentityField = entity.identity?.field ?? "id";
+  const categoryField = group.categoryField ?? "category";
+
+  const stateImport = ctx.symbols.get(splitStateName)
+    ? `import 'package:${ctx.pkg}/${ctx.symbols.get(splitStateName)}';`
+    : `import '../state/${splitStateName.toLowerCase()}.dart';`;
+  const childEntityImport = ctx.symbols.get(group.child)
+    ? `import 'package:${ctx.pkg}/${ctx.symbols.get(group.child)}';`
+    : `import '../../domain/entities/${group.child.toLowerCase()}.dart';`;
+  const splitCoreImport = ctx.symbols.get("SplitLine")
+    ? `import 'package:${ctx.pkg}/${ctx.symbols.get("SplitLine")}';`
+    : `import '../../core/split.dart';`;
+  const imports = `${stateImport}\n${childEntityImport}\n${splitCoreImport}`;
+
+  const stateFields = `  final List<SplitRowControllers> _splitRows = [];`;
+
+  const initLines = `    if (widget.id != null) {
+      for (final s in context.read<${splitCubit}>().state.${collection}.where((s) => s.${group.fkField} == widget.id)) {
+        _splitRows.add(SplitRowControllers(category: s.${categoryField}, percent: s.percent.toString()));
+      }
+    }`;
+
+  const disposeLines = `    for (final r in _splitRows) {
+      r.dispose();
+    }`;
+
+  const methods = `
+  void _addSplitRow() => setState(() => _splitRows.add(SplitRowControllers()));
+
+  void _removeSplitRow(int i) => setState(() {
+        _splitRows[i].dispose();
+        _splitRows.removeAt(i);
+      });
+
+  List<SplitLine> _splitLines() => _splitRows
+      .map((r) => SplitLine(category: r.category.text, percent: double.tryParse(r.percent.text) ?? 0))
+      .toList();
+
+  double get _splitTotal => _splitLines().fold<double>(0, (s, l) => s + l.percent);
+
+  Widget _splitSection() {
+    final errors = validateSplit(_splitLines());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Split', style: Theme.of(context).textTheme.titleMedium),
+        for (var i = 0; i < _splitRows.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _splitRows[i].category,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  width: 96,
+                  child: TextField(
+                    controller: _splitRows[i].percent,
+                    decoration: const InputDecoration(labelText: '%'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _removeSplitRow(i)),
+              ],
+            ),
+          ),
+        TextButton.icon(onPressed: _addSplitRow, icon: const Icon(Icons.add), label: const Text('Add split')),
+        Text(
+          'Split total: \${_splitTotal.toStringAsFixed(2)}%',
+          style: TextStyle(color: errors.isEmpty ? null : Colors.red, fontWeight: FontWeight.bold),
+        ),
+        for (final e in errors) Text(e, style: const TextStyle(color: Colors.red)),
+      ],
+    );
+  }
+`;
+
+  const panelCall = `          _splitSection(),\n`;
+  const saveGuard = `validateSplit(_splitLines()).isNotEmpty\n                ? null\n                : `;
+  const submitHook = `              {
+                final existingSplits = context.read<${splitCubit}>().state.${collection}.where((e) => e.${group.fkField} == item.${parentIdentityField}).toList();
+                for (final e in existingSplits) {
+                  await context.read<${splitCubit}>().delete(e.${childIdentityField});
+                }
+                for (var i = 0; i < _splitLines().length; i++) {
+                  final line = _splitLines()[i];
+                  await context.read<${splitCubit}>().create(${group.child}(
+                    ${childIdentityField}: '\${item.${parentIdentityField}}-split-\$i',
+                    ${group.fkField}: item.${parentIdentityField},
+                    ${categoryField}: line.category,
+                    percent: line.percent,
+                  ));
+                }
+              }
+`;
+
+  return { imports, stateFields, initLines, disposeLines, methods, panelCall, saveGuard, submitHook };
+}
+
 export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityModel, screenName: string, ctx?: GenContext): string {
   const identityField = entity.identity?.field ?? "id";
   const identityFieldDef = entity.fields.find((f) => f.name === identityField);
@@ -334,6 +469,9 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   // entity with no severity'd rules (the common case, and every currently-committed sample except
   // the ones this feature's own proof adds).
   const policy = policyWiring(entity, policyRules, ctorArgs, ctx);
+  // MF4: split section inline on the form — see splitWiring()'s own doc comment. Empty for any
+  // entity with no split group.
+  const split = splitWiring(entity, ctx);
 
   const queryParamsCtorArg = hasRelation ? ", required this.queryParams" : "";
   const queryParamsField = hasRelation ? "  final Map<String, String> queryParams;\n" : "";
@@ -353,21 +491,24 @@ ${controllerFields}
 ${stateFields}
 ${focusNodeField}
 ${policy.stateFields}
+${split.stateFields}
 
   @override
   void initState() {
     super.initState();
     final i = widget.initial;
 ${initLines}
+${split.initLines}
   }
 
   @override
   void dispose() {
 ${disposeLines}
 ${policy.disposeLines}
+${split.disposeLines}
     super.dispose();
   }
-${policy.methods}
+${policy.methods}${split.methods}
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -375,15 +516,15 @@ ${policy.methods}
       child: ListView(
         children: [
 ${fieldWidgets}
-${policy.panelCall}          const SizedBox(height: AppSpacing.md),
+${policy.panelCall}${split.panelCall}          const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',
-            onPressed: ${policy.saveGuard}() async {
+            onPressed: ${policy.saveGuard}${split.saveGuard}() async {
               final item = ${policy.itemExpr};
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).
               await widget.onSubmit(item);
-              if (context.mounted) context.go('${postSubmitPath}');
+${split.submitHook}              if (context.mounted) context.go('${postSubmitPath}');
             },
           ),
         ],
@@ -471,6 +612,7 @@ ${themeImport}
 ${stateImport}
 ${typeImports}
 ${policy.imports}
+${split.imports}
 
 ${screenWidget}
 

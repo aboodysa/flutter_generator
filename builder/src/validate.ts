@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor } from "./operations";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -140,6 +140,27 @@ function verdictCheck(ir: any, oracleDir: string): string[] {
   return issues;
 }
 
+// MF4: validateSplit isn't a RuleModel (operations.ts's splitGroupFor doc comment covers why), so
+// it can't reuse oracleCoverage/verdictCheck's per-rule-name iteration — this checks the ONE
+// shared oracle (Split.oracle.json) that every split group's UI/domain tests compile from, plus
+// that each split group actually has a category field to render (without one the "Split" section
+// and detail breakdown would silently fall back to a placeholder label — see splitGroupFor).
+function splitCheck(ir: any, oracleDir: string): string[] {
+  const issues: string[] = [];
+  if (!hasSplitGroups(ir)) return issues;
+  const oracle = loadOracle("Split", oracleDir);
+  if (!oracle || !oracle.cases || oracle.cases.length === 0) {
+    issues.push(`[split] app declares a split group but is missing/has zero-case Split.oracle.json — unverifiable`);
+  }
+  for (const parent of splitParentEntities(ir)) {
+    const group = splitGroupFor(parent, ir);
+    if (group && !group.categoryField) {
+      issues.push(`[split] entity '${group.child}' (split child of '${parent}') has no String category field — split UI cannot render a category label`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   headers: number;   // count of files missing the header
@@ -151,6 +172,7 @@ export interface ValidationResult {
   money: number;     // count of money-declared fields emitted as double (P7-L1)
   datepicker: number; // count of DateTime fields rendered as a bare TextField, no showDatePicker (G2)
   verdict: number;   // count of severity'd rules with invalid severity, empty message, or missing oracle (L2)
+  split: number;     // count of split-group issues: missing/zero-case Split oracle, or a split child with no category field (MF4)
   files: number;
   issues: string[];
 }
@@ -208,7 +230,14 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...verdictIssues);
   const verdict = verdictIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, files: files.length, issues };
+  // Split/allocation (MF4): a declared split group needs oracle coverage for validateSplit and a
+  // category field to render — stricter than the general [oracle] gate, which never sees this
+  // (validateSplit isn't a business rule).
+  const splitIssues = splitCheck(ir, oracleDirFor(irPath));
+  issues.push(...splitIssues);
+  const split = splitIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, files: files.length, issues };
 }
 
 function main() {
@@ -225,7 +254,8 @@ function main() {
   console.log(`[money] ${r.money === 0 ? "PASS" : "FAIL (" + r.money + ")"}`);
   console.log(`[datepicker] ${r.datepicker === 0 ? "PASS" : "FAIL (" + r.datepicker + ")"}`);
   console.log(`[verdict] ${r.verdict === 0 ? "PASS" : "FAIL (" + r.verdict + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict > 0;
+  console.log(`[split] ${r.split === 0 ? "PASS" : "FAIL (" + r.split + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

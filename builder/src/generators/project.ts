@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -78,7 +78,12 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
   // `BlocBuilder<XCubit, ...>`. Failing to provide them all crashed at runtime with
   // ProviderNotFoundException (RCA: main.dart only wrapped screens[0]). Nest one BlocProvider
   // per distinct state so every route's cubit is in scope; riverpod self-builds via ProviderScope.
-  const distinctStates = [...new Set((feature.screens ?? []).map((s) => s.state))];
+  // MF4: a split group's child entity (e.g. LineItemSplit) deliberately declares a `states` entry
+  // but no `screens` entry (it's edited inline via the parent's own form, never independently
+  // navigated to) — so it would never appear in the screens-derived set above even though its
+  // Cubit is read directly by the parent's form/detail screen. splitStateNames returns [] when
+  // the app has no split groups, so this is a no-op for every other sample (byte-identical).
+  const distinctStates = [...new Set([...(feature.screens ?? []).map((s) => s.state), ...splitStateNames(feature)])];
 
   if (feature.screens?.length) {
     // bloc: nest a BlocProvider per distinct state (each seeds via its use case + in-memory repo);
@@ -174,7 +179,8 @@ class ReplicaApp extends StatelessWidget {
 // self-register on first `ref.watch`, so the body is identical to generateMain's riverpod branch
 // regardless of feature or screen count.
 export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc"): string {
-  const distinctStates = Array.from(new Set(features.flatMap((f) => (f.screens ?? []).map((s) => s.state))));
+  // MF4: same split-state inclusion as generateMain above, per feature.
+  const distinctStates = Array.from(new Set(features.flatMap((f) => [...(f.screens ?? []).map((s) => s.state), ...splitStateNames(f)])));
 
   const buildReturn = sm === "riverpod"
     ? `    return ProviderScope(
@@ -246,6 +252,10 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // P7-L1: unit_test.ts/oracle_test.ts only import this barrel (not core/money.dart directly) —
   // without this, a generated test that literally writes `Money(...)` fails to compile.
   if (hasMoneyFields(feature)) names.push("Money");
+  // MF4: split_test.dart's pure-domain oracle cases call validateSplit([SplitLine(...), ...])
+  // directly — same reasoning as Money above. Both symbols resolve to the same core/split.dart,
+  // so only one needs pushing here (the barrel exports the whole file either way).
+  if (hasSplitGroups(feature)) names.push("SplitLine");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);

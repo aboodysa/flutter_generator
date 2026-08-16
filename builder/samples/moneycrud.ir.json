@@ -10,6 +10,16 @@
         { "name": "amount", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "SAR" },
         { "name": "title", "type": "String", "required": true, "nullable": false }
       ]
+    },
+    {
+      "name": "LineItemSplit",
+      "identity": { "field": "id" },
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false },
+        { "name": "lineItemId", "type": "String", "required": true, "nullable": false },
+        { "name": "category", "type": "String", "required": true, "nullable": false },
+        { "name": "percent", "type": "double", "required": true, "nullable": false }
+      ]
     }
   ],
   "businessRules": [
@@ -43,10 +53,20 @@
         { "name": "updateLineItem", "returns": "Future<void>", "params": [{ "name": "item", "type": "LineItem", "named": false }] },
         { "name": "deleteLineItem", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
       ]
+    },
+    {
+      "name": "LineItemSplitRepository",
+      "operations": [
+        { "name": "listLineItemSplits", "returns": "Future<List<LineItemSplit>>", "params": [] },
+        { "name": "createLineItemSplit", "returns": "Future<LineItemSplit>", "params": [{ "name": "split", "type": "LineItemSplit", "named": false }] },
+        { "name": "updateLineItemSplit", "returns": "Future<void>", "params": [{ "name": "split", "type": "LineItemSplit", "named": false }] },
+        { "name": "deleteLineItemSplit", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+      ]
     }
   ],
   "states": [
-    { "name": "LineItemList", "entity": "LineItem" }
+    { "name": "LineItemList", "entity": "LineItem" },
+    { "name": "LineItemSplitList", "entity": "LineItemSplit" }
   ],
   "screens": [
     { "name": "LineItemListScreen", "entity": "LineItem", "type": "list", "state": "LineItemList" },
@@ -56,6 +76,10 @@
     { "name": "ListLineItems", "repository": "LineItemRepository", "operation": "listLineItems", "paramType": "NoParams", "returnType": "List<LineItem>" },
     { "name": "CreateLineItem", "repository": "LineItemRepository", "operation": "createLineItem", "paramType": "LineItem", "returnType": "LineItem" },
     { "name": "UpdateLineItem", "repository": "LineItemRepository", "operation": "updateLineItem", "paramType": "LineItem", "returnType": "void" },
-    { "name": "DeleteLineItem", "repository": "LineItemRepository", "operation": "deleteLineItem", "paramType": "String", "returnType": "void" }
+    { "name": "DeleteLineItem", "repository": "LineItemRepository", "operation": "deleteLineItem", "paramType": "String", "returnType": "void" },
+    { "name": "ListLineItemSplits", "repository": "LineItemSplitRepository", "operation": "listLineItemSplits", "paramType": "NoParams", "returnType": "List<LineItemSplit>" },
+    { "name": "CreateLineItemSplit", "repository": "LineItemSplitRepository", "operation": "createLineItemSplit", "paramType": "LineItemSplit", "returnType": "LineItemSplit" },
+    { "name": "UpdateLineItemSplit", "repository": "LineItemSplitRepository", "operation": "updateLineItemSplit", "paramType": "LineItemSplit", "returnType": "void" },
+    { "name": "DeleteLineItemSplit", "repository": "LineItemSplitRepository", "operation": "deleteLineItemSplit", "paramType": "String", "returnType": "void" }
   ]
 }

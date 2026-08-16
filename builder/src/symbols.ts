@@ -1,6 +1,6 @@
 import { FeatureModel } from "./types";
 import { fileName } from "./dart";
-import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities } from "./operations";
+import { crudFormTargets, crudFormScreenName, hasMoneyFields, hasPolicyRules, policyEntities, hasSplitGroups } from "./operations";
 
 // Symbol table + package naming — the single source of truth for cross-reference resolution (A6).
 export function pkgName(feature: string): string {
@@ -49,6 +49,11 @@ export function buildSymbols(ir: FeatureModel): Map<string, string> {
     for (const entityName of policyEntities(ir)) {
       m.set(`evaluate${entityName}Policy`, `features/${ir.name}/domain/policy/${fileName(entityName).replace(/\.dart$/, "_policy.dart")}`);
     }
+  }
+  if (hasSplitGroups(ir)) {
+    m.set("SplitLine", "core/split.dart");
+    m.set("validateSplit", "core/split.dart");
+    m.set("SplitRowControllers", "core/split.dart");
   }
   return m;
 }

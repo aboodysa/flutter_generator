@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,9 +36,10 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
+import { generateSplitCore } from "./generators/split";
 
 /**
  * Generator registry — the only place that maps artifact type → { schema, generator, layer, file name }.
@@ -122,6 +123,9 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasPolicyRules(ir)) {
     core.push(["policy.dart", generatePolicyCore()]);
   }
+  if (hasSplitGroups(ir)) {
+    core.push(["split.dart", generateSplitCore()]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -135,6 +139,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "no_params.dart": "NoParamsGenerator",
     "money.dart": "MoneyGenerator",
     "policy.dart": "PolicyCoreGenerator",
+    "split.dart": "SplitCoreGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -302,6 +307,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:policy", generator: "PolicyTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // MF4 regression guard — pure-domain oracle cases for validateSplit plus one UI case per
+  // split-capable entity (live running total, Save blocked/unblocked at the 100% boundary).
+  const splitOracle = oracleDir ? loadOracle("Split", oracleDir) : null;
+  const splitTest = generateSplitTest(ir, splitOracle);
+  if (splitTest) {
+    const f = path.join(testDir, "split_test.dart");
+    fs.writeFileSync(f, splitTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:split", generator: "SplitTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
