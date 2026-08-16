@@ -180,15 +180,16 @@ export interface ValidationResult {
 export function validateOutput(ir: any, outDir: string, irPath = "builder/samples/expense.semantic.ir.json"): ValidationResult {
   const issues: string[] = [];
 
-  // Determinism — generate twice, diff.
-  const tmp1 = `${outDir}.v1`, tmp2 = `${outDir}.v2`;
+  // Determinism — generate ONCE fresh and diff against the already-generated outDir/lib.
+  // (Perf: previously generated twice to tmp1/tmp2; the workflow always validates a freshly
+  // generated outDir, so one fresh generation + a diff against it is an equivalent check at half
+  // the cost — ~30-60s saved per validate across the 11-sample sweep. TIMING_LOG.md.)
+  const tmp1 = `${outDir}.v1`;
   execSync(`npx ts-node --transpile-only builder/src/index.ts ${irPath} ${tmp1}`, { stdio: "pipe" });
-  execSync(`npx ts-node --transpile-only builder/src/index.ts ${irPath} ${tmp2}`, { stdio: "pipe" });
-  const diff = execSync(`diff -r ${tmp1}/lib ${tmp2}/lib`, { stdio: "pipe" }).toString();
+  const diff = execSync(`diff -r ${tmp1}/lib ${outDir}/lib`, { stdio: "pipe" }).toString();
   const determinism = diff.trim() === "";
   if (!determinism) issues.push(diff.trim());
   fs.rmSync(tmp1, { recursive: true, force: true });
-  fs.rmSync(tmp2, { recursive: true, force: true });
 
   // Static checks.
   const files = walk(path.join(outDir, "lib"));
