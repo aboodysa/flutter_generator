@@ -122,6 +122,7 @@ export interface AppAttributes {
   stateManagement?: StateManagementProvider; // explicit provider override (wins over scoring)
   persistence?: PersistenceKind; // explicit DB override (wins over scoring)
   auth?: AuthModel; // MF2: multi-user auth + roles + tenant scoping (additive — absent = no auth)
+  attachments?: boolean; // MF3: attachment + OCR port (additive — absent = no core/attachment.dart)
 }
 
 export type StateManagementProvider = "none" | "bloc" | "riverpod";

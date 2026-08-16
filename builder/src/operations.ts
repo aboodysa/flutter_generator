@@ -244,6 +244,13 @@ export function splitParentEntities(ir: FeatureModel): string[] {
   return (ir.entities ?? []).filter((e) => splitGroupFor(e.name, ir)).map((e) => e.name);
 }
 
+// MF3: whether the app opts into the attachment + OCR port capability — the single source of
+// truth index.ts/symbols.ts/test.ts/validate.ts all share for "does this app ship
+// core/attachment.dart" (mirrors hasMoneyFields/hasPolicyRules/hasSplitGroups/hasAuth above).
+export function hasAttachments(ir: FeatureModel): boolean {
+  return ir.attributes?.attachments === true;
+}
+
 // The split child's own generated list-state name (if it declares one via `states`) — used to
 // (a) provide its Cubit app-wide (project.ts's generateMain/generateMultiMain, since the split
 // child deliberately has no `screens` entry and would otherwise never appear in the app's own

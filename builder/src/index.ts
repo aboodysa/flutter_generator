@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -36,10 +36,11 @@ import { loadOracle, oracleDirFor } from "./oracle";
 import { generateOracleTest } from "./generators/oracle_test";
 import { generateCrudFormScreen } from "./generators/crud_form";
 import { generateDriftTable, generateHiveAdapter } from "./generators/persistence";
-import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth } from "./operations";
+import { crudFormTargets, crudFormScreenName, listEntityName, hasMoneyFields, hasPolicyRules, policyEntities, policyRulesForEntity, hasSplitGroups, hasAuth, hasAttachments } from "./operations";
 import { generateWebIndexHtml, generateWebManifest } from "./generators/web";
 import { generatePolicyCore, generateEntityPolicy } from "./generators/policy";
 import { generateSplitCore } from "./generators/split";
+import { generateAttachmentCore } from "./generators/attachment";
 import { generateSession, generateAuthLoginScreen } from "./generators/auth";
 
 /**
@@ -127,6 +128,9 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasSplitGroups(ir)) {
     core.push(["split.dart", generateSplitCore()]);
   }
+  if (hasAttachments(ir)) {
+    core.push(["attachment.dart", generateAttachmentCore()]);
+  }
   // MF2: auth is app-level state, not a feature's domain. session.dart (Persona + Session
   // singleton + kPersonas list) and auth_login_screen.dart (persona-picker login) are emitted
   // once per app, next to the rest of core — non-auth apps stay byte-identical (the guards above
@@ -149,6 +153,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "money.dart": "MoneyGenerator",
     "policy.dart": "PolicyCoreGenerator",
     "split.dart": "SplitCoreGenerator",
+    "attachment.dart": "AttachmentCoreGenerator",
     "session.dart": "SessionGenerator",
     "auth_login_screen.dart": "AuthLoginScreenGenerator",
   };
@@ -331,6 +336,20 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:split", generator: "SplitTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // MF3 regression guard — port-must-exist: attachment_test.dart references
+  // ReceiptAttachment/ReceiptOcrPort/MockReceiptOcr/synthesizeAttachment directly (via the
+  // generated.dart barrel), so a build that drops core/attachment.dart from index.ts fails to
+  // compile the test — the stash-proof gate that no validator regex alone can fully guarantee.
+  const attachmentTest = generateAttachmentTest(ir);
+  if (attachmentTest) {
+    const f = path.join(testDir, "attachment_test.dart");
+    fs.writeFileSync(f, attachmentTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:attachment", generator: "AttachmentTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }

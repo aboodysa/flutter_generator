@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments } from "./operations";
 import { fileName } from "./dart";
 
 /**
@@ -220,6 +220,7 @@ export interface ValidationResult {
   split: number;     // count of split-group issues: missing/zero-case Split oracle, or a split child with no category field (MF4)
   tenant: number;    // count of tenantId-carrying repos whose generated impl lacks the scoped marker set (MF2)
   auth: number;      // count of auth-guard markers missing from a declared-auth app's router (MF2)
+  attachment: number; // count of attachment-capable apps missing core/attachment.dart (MF3)
   files: number;
   issues: string[];
 }
@@ -295,7 +296,17 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...authIssues);
   const auth = authIssues.length;
 
-  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, files: files.length, issues };
+  // Attachment/OCR port (MF3): an app that opts into attachments must actually emit
+  // core/attachment.dart (the ReceiptOcrPort + mock) — mirrors [split]/[money]: the gate proves
+  // the capability is present, not just that the IR declares it.
+  const attachmentIssues: string[] = [];
+  if (hasAttachments(ir) && !files.some((f) => f.endsWith("/core/attachment.dart"))) {
+    attachmentIssues.push("[attachment] app declares attributes.attachments but generated output has no core/attachment.dart (ReceiptOcrPort + mock)");
+  }
+  issues.push(...attachmentIssues);
+  const attachment = attachmentIssues.length;
+
+  return { determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split, tenant, auth, attachment, files: files.length, issues };
 }
 
 function main() {
@@ -315,7 +326,8 @@ function main() {
   console.log(`[split] ${r.split === 0 ? "PASS" : "FAIL (" + r.split + ")"}`);
   console.log(`[tenant] ${r.tenant === 0 ? "PASS" : "FAIL (" + r.tenant + ")"}`);
   console.log(`[auth] ${r.auth === 0 ? "PASS" : "FAIL (" + r.auth + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth > 0;
+  console.log(`[attachment] ${r.attachment === 0 ? "PASS" : "FAIL (" + r.attachment + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.auth + r.attachment > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

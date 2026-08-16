@@ -4,21 +4,62 @@
   "entities": [
     {
       "name": "LineItem",
-      "identity": { "field": "id" },
+      "identity": {
+        "field": "id"
+      },
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "amount", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "SAR" },
-        { "name": "title", "type": "String", "required": true, "nullable": false }
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "amount",
+          "type": "double",
+          "required": true,
+          "nullable": false,
+          "semanticType": "Money",
+          "currency": "SAR"
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        }
       ]
     },
     {
       "name": "LineItemSplit",
-      "identity": { "field": "id" },
+      "identity": {
+        "field": "id"
+      },
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "lineItemId", "type": "String", "required": true, "nullable": false },
-        { "name": "category", "type": "String", "required": true, "nullable": false },
-        { "name": "percent", "type": "double", "required": true, "nullable": false }
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "lineItemId",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "category",
+          "type": "String",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "percent",
+          "type": "double",
+          "required": true,
+          "nullable": false
+        }
       ]
     }
   ],
@@ -28,17 +69,25 @@
       "entity": "LineItem",
       "result": "true",
       "conditions": [
-        { "field": "amount", "operator": ">=", "value": "500" }
+        {
+          "field": "amount",
+          "operator": ">=",
+          "value": "500"
+        }
       ],
       "severity": "warn",
-      "message": "This amount is unusually large — please double-check before saving."
+      "message": "This amount is unusually large \u2014 please double-check before saving."
     },
     {
       "name": "VeryLargeAmount",
       "entity": "LineItem",
       "result": "true",
       "conditions": [
-        { "field": "amount", "operator": ">=", "value": "2000" }
+        {
+          "field": "amount",
+          "operator": ">=",
+          "value": "2000"
+        }
       ],
       "severity": "requireJustification",
       "message": "Amounts over 2,000 SAR require a written justification."
@@ -48,38 +97,173 @@
     {
       "name": "LineItemRepository",
       "operations": [
-        { "name": "listLineItems", "returns": "Future<List<LineItem>>", "params": [] },
-        { "name": "createLineItem", "returns": "Future<LineItem>", "params": [{ "name": "item", "type": "LineItem", "named": false }] },
-        { "name": "updateLineItem", "returns": "Future<void>", "params": [{ "name": "item", "type": "LineItem", "named": false }] },
-        { "name": "deleteLineItem", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+        {
+          "name": "listLineItems",
+          "returns": "Future<List<LineItem>>",
+          "params": []
+        },
+        {
+          "name": "createLineItem",
+          "returns": "Future<LineItem>",
+          "params": [
+            {
+              "name": "item",
+              "type": "LineItem",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateLineItem",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "item",
+              "type": "LineItem",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteLineItem",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        }
       ]
     },
     {
       "name": "LineItemSplitRepository",
       "operations": [
-        { "name": "listLineItemSplits", "returns": "Future<List<LineItemSplit>>", "params": [] },
-        { "name": "createLineItemSplit", "returns": "Future<LineItemSplit>", "params": [{ "name": "split", "type": "LineItemSplit", "named": false }] },
-        { "name": "updateLineItemSplit", "returns": "Future<void>", "params": [{ "name": "split", "type": "LineItemSplit", "named": false }] },
-        { "name": "deleteLineItemSplit", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
+        {
+          "name": "listLineItemSplits",
+          "returns": "Future<List<LineItemSplit>>",
+          "params": []
+        },
+        {
+          "name": "createLineItemSplit",
+          "returns": "Future<LineItemSplit>",
+          "params": [
+            {
+              "name": "split",
+              "type": "LineItemSplit",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateLineItemSplit",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "split",
+              "type": "LineItemSplit",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteLineItemSplit",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        }
       ]
     }
   ],
   "states": [
-    { "name": "LineItemList", "entity": "LineItem" },
-    { "name": "LineItemSplitList", "entity": "LineItemSplit" }
+    {
+      "name": "LineItemList",
+      "entity": "LineItem"
+    },
+    {
+      "name": "LineItemSplitList",
+      "entity": "LineItemSplit"
+    }
   ],
   "screens": [
-    { "name": "LineItemListScreen", "entity": "LineItem", "type": "list", "state": "LineItemList" },
-    { "name": "LineItemDetailScreen", "entity": "LineItem", "type": "detail", "state": "LineItemList" }
+    {
+      "name": "LineItemListScreen",
+      "entity": "LineItem",
+      "type": "list",
+      "state": "LineItemList"
+    },
+    {
+      "name": "LineItemDetailScreen",
+      "entity": "LineItem",
+      "type": "detail",
+      "state": "LineItemList"
+    }
   ],
   "useCases": [
-    { "name": "ListLineItems", "repository": "LineItemRepository", "operation": "listLineItems", "paramType": "NoParams", "returnType": "List<LineItem>" },
-    { "name": "CreateLineItem", "repository": "LineItemRepository", "operation": "createLineItem", "paramType": "LineItem", "returnType": "LineItem" },
-    { "name": "UpdateLineItem", "repository": "LineItemRepository", "operation": "updateLineItem", "paramType": "LineItem", "returnType": "void" },
-    { "name": "DeleteLineItem", "repository": "LineItemRepository", "operation": "deleteLineItem", "paramType": "String", "returnType": "void" },
-    { "name": "ListLineItemSplits", "repository": "LineItemSplitRepository", "operation": "listLineItemSplits", "paramType": "NoParams", "returnType": "List<LineItemSplit>" },
-    { "name": "CreateLineItemSplit", "repository": "LineItemSplitRepository", "operation": "createLineItemSplit", "paramType": "LineItemSplit", "returnType": "LineItemSplit" },
-    { "name": "UpdateLineItemSplit", "repository": "LineItemSplitRepository", "operation": "updateLineItemSplit", "paramType": "LineItemSplit", "returnType": "void" },
-    { "name": "DeleteLineItemSplit", "repository": "LineItemSplitRepository", "operation": "deleteLineItemSplit", "paramType": "String", "returnType": "void" }
-  ]
+    {
+      "name": "ListLineItems",
+      "repository": "LineItemRepository",
+      "operation": "listLineItems",
+      "paramType": "NoParams",
+      "returnType": "List<LineItem>"
+    },
+    {
+      "name": "CreateLineItem",
+      "repository": "LineItemRepository",
+      "operation": "createLineItem",
+      "paramType": "LineItem",
+      "returnType": "LineItem"
+    },
+    {
+      "name": "UpdateLineItem",
+      "repository": "LineItemRepository",
+      "operation": "updateLineItem",
+      "paramType": "LineItem",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteLineItem",
+      "repository": "LineItemRepository",
+      "operation": "deleteLineItem",
+      "paramType": "String",
+      "returnType": "void"
+    },
+    {
+      "name": "ListLineItemSplits",
+      "repository": "LineItemSplitRepository",
+      "operation": "listLineItemSplits",
+      "paramType": "NoParams",
+      "returnType": "List<LineItemSplit>"
+    },
+    {
+      "name": "CreateLineItemSplit",
+      "repository": "LineItemSplitRepository",
+      "operation": "createLineItemSplit",
+      "paramType": "LineItemSplit",
+      "returnType": "LineItemSplit"
+    },
+    {
+      "name": "UpdateLineItemSplit",
+      "repository": "LineItemSplitRepository",
+      "operation": "updateLineItemSplit",
+      "paramType": "LineItemSplit",
+      "returnType": "void"
+    },
+    {
+      "name": "DeleteLineItemSplit",
+      "repository": "LineItemSplitRepository",
+      "operation": "deleteLineItemSplit",
+      "paramType": "String",
+      "returnType": "void"
+    }
+  ],
+  "attributes": {
+    "attachments": true
+  }
 }

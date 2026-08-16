@@ -3,7 +3,7 @@ import { PkgContext } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
-import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth } from "../operations";
+import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments } from "../operations";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -260,6 +260,11 @@ export function generateBarrel(feature: FeatureModel, ctx?: PkgContext): string 
   // resolved via the barrel the same way Money/SplitLine are (the barrel exports the whole
   // core/session.dart through either name).
   if (hasAuth(feature)) names.push("Session", "AuthLoginScreen");
+  // MF3: attachment_test.dart's generated cases reference ReceiptAttachment/OcrResult/etc directly —
+  // same reasoning as Money/SplitLine; all four names resolve to the same core/attachment.dart, so
+  // only one needs pushing (the barrel exports the whole file) — pushing all four produced
+  // duplicate_export warnings (4 identical `export ...attachment.dart` lines).
+  if (hasAttachments(feature)) names.push("ReceiptAttachment");
 
   for (const n of names) {
     const p = ctx?.symbols.get(n);
