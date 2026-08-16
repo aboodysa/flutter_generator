@@ -27,7 +27,7 @@ matters, status. Update on every slice. This is the "don't lose the notes" index
 ## From L4 RTL CDP testing — 2026-08-16
 | Note | Detail | Status |
 |---|---|---|
-| G-L4-2 login-screen not localized | auth login screen hardcodes EN labels ("Sign in", "Choose a demo account") + no forced RTL directionality; only AppStrings chrome vocabulary is localized | OPEN — route login screen strings through AppStrings + verify Directionality.of == rtl under AR; extend l10n_test to the login screen |
+| G-L4-2 login-screen not localized | auth login screen hardcodes EN labels ("Sign in", "Choose a demo account") + no forced RTL directionality; only AppStrings chrome vocabulary is localized | FIXED 1b297af — added `signIn`/`chooseDemoAccount` to AppStrings (en/ar), auth.ts routes both through AppStrings.of(context) when locale-aware, l10n_test gained an AuthLoginScreen RTL case (ltr/rtl + AR text assertion + goldens). RTL was a symptom of the hardcoded strings, not a missing Directionality wrapper — resolves automatically once the real string renders. Verified: ledgerly 82/82, hr_service 36/36 |
 
 ## From parallel session B (samples) — 2026-08-16
 | Note | Detail | Status |
@@ -38,27 +38,27 @@ matters, status. Update on every slice. This is the "don't lose the notes" index
 ## From UIX Slice D (committed) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
-| D1 ChoiceChip `onSelected` not exercised by generated test | crud_flow_test targets `firstCrudTextField` (never status/priority), so chip-tap interaction is only proven by render + analyze, not by a tap test | OPEN — fold into the bugs/regression-test task (claude in flight) |
+| D1 ChoiceChip `onSelected` not exercised by generated test | crud_flow_test targets `firstCrudTextField` (never status/priority), so chip-tap interaction is only proven by render + analyze, not by a tap test | FIXED e6608f5 — generateCrudFlowTest taps the second enum value during create (form defaults to the first) and asserts selected flips true/false; fires for tasks/hr_service/todo/todo_riverpod, all pass |
 | D2 ChoiceChip selected tint 0.2 vs AppChip 0.12 | deliberate stronger "selected" look; documented, no action | WONTFIX (documented) |
 
 ## From G2 date-picker (committed) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
-| G2a `firstCrudTextField` could pick a DateTime field | generated crud_flow_test does `enterText(first TextField)`; a readOnly date field would fail. No sample triggers it today (first fields are String/double) | OPEN (latent) |
-| G2b `datepickerCheck` reads `ir.entities` directly | vacuously passes for multi-feature AppModel IR (entities under `ir.features[].entities`) — same pre-existing gap as `moneyCheck` | OPEN (latent) |
+| G2a `firstCrudTextField` could pick a DateTime field | generated crud_flow_test does `enterText(first TextField)`; a readOnly date field would fail. No sample triggers it today (first fields are String/double) | FIXED e6608f5 — DateTime excluded from firstCrudTextField's candidate set (mirrors firstFocusBypassField's existing exclusion). Byte-identical everywhere today (latent, hardens against the next sample) |
+| G2b `datepickerCheck` reads `ir.entities` directly | vacuously passes for multi-feature AppModel IR (entities under `ir.features[].entities`) — same pre-existing gap as `moneyCheck` | FIXED e6608f5 — same gap also hit moneyCheck/verdictCheck/tenantCheck/splitCheck/oracleCoverage; flattenedIr extended to also flatten businessRules/repositories/repositoryImpls, wired into all 6 call sites. Proven non-vacuous with a negative control (empty-message policy rule on ledgerly's multi-feature IR: FAIL with the fix, PASS without it) |
 
 ## From MF1 multi-feature (committed 76f8a0f) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
-| M1 flow/crud tests only exercise feature[0] | multi-feature apps' generated tests drive the first feature only | OPEN (by design, document) |
-| M2 arch-linter layer detection vacuous for multi-feature | path-segment mismatch (`features/<name>/`), passes without checking | OPEN |
-| M3 symbol-table collisions across features | last-registered wins silently | OPEN |
-| M4 rasheed strategy-fidelity mismatch | plan.json declares sealed-events, template emits enum-status; real but unrelated | OPEN (pre-existing) |
+| M1 flow/crud tests only exercise feature[0] | multi-feature apps' generated tests drive the first feature only | REVIEWED 2026-08-16 — confirmed still accurate and intentional (index.ts's own comment: "feature[0] is the app's testable identity" convention, shared by initialLocation/generateMain/generateGoldenTest). CONFIRMED BY DESIGN, no code change |
+| M2 arch-linter layer detection vacuous for multi-feature | path-segment mismatch (`features/<name>/`), passes without checking | FIXED 9d3b948 — actually broader than scoped: vacuous for EVERY app (single-feature too), since `slice(0,2)` always captured "features/<name>" regardless. Fixed to `slice(1,3)`; also fixed a second latent bug the working check then surfaced (the raw-color regex matched "AppColors." too — false positive on the app's own token class) and the REAL violation both bugs were hiding (crud_form.ts's policy panel + split error text used raw `Colors.X` instead of AppChip.colorForTone/AppColors). [architecture] now genuinely PASSes (not vacuously) across all 14 samples |
+| M3 symbol-table collisions across features | last-registered wins silently | FIXED (detection) 90cfd41 — new additive `[symbols]` gate scans every feature's declared names for cross-feature duplicates; the underlying last-wins merge in symbols.ts is intentionally left unchanged (fixing it needs a design decision — error vs namespace vs other — out of scope for a leftover-notes pass). Stash-proofed with a synthetic collision |
+| M4 rasheed strategy-fidelity mismatch | plan.json declares sealed-events, template emits enum-status; real but unrelated | INVESTIGATED 2026-08-16 — root cause confirmed: scoring.ts can select "sealed-events" (SEALED_EVENTS_THRESHOLD) but state.ts's generator never implements that branch, always emits enum-status. Real bug; implementing exhaustive sealed-class codegen is its own slice. STILL OPEN (root cause documented) |
 
 ## From L1 Money (committed 739f933) — report 2026-08-15
 | Note | Detail | Status |
 |---|---|---|
-| L1a `generateCrudFlowTest` doesn't special-case money fields | typing into first TextField with a money field unchecked; reimbursement has no list/CRUD so it never fired | OPEN — moneycrud sample exercises CRUD+money; verify |
+| L1a `generateCrudFlowTest` doesn't special-case money fields | typing into first TextField with a money field unchecked; reimbursement has no list/CRUD so it never fired | VERIFIED e6608f5 — moneycrud's generated crud_flow_test already types a decimal ('1250.50') and asserts the formatted '1,250.50 SAR' output; ran the real test, passes. No code change needed |
 | L1b Money.format hardcodes 2-decimal exponent | JPY/BHD (0/3-decimal) not handled | WONTFIX (no sample needs it; documented) |
 | L1c Money +/- assert() on currency match | asserts stripped in release | WONTFIX (demo; revisit if load-bearing) |
 
@@ -69,3 +69,14 @@ matters, status. Update on every slice. This is the "don't lose the notes" index
 | P2 heroBlock + title-role heading could stack | no sample sets both; left as-is | WONTFIX (documented) |
 | P3 list leading picks status over priority | deliberate tie-break when both present | DOCUMENTED |
 | P4 AppChip tones are substring/vocab matches | non-English status vocabulary → default tone | WONTFIX (deterministic by design) |
+
+## From Ledgerly-MVP capability completion + CDP acceptance run (committed 9f70dcb..90cfd41) — 2026-08-16
+| Note | Detail | Status |
+|---|---|---|
+| LM1 apps/ledgerly extended to full slice coverage | apps/ledgerly/input/ledgerly.ir.json now exercises L2 (8 seed policy rules, all 4 severities), MF3 (attachments), MF4 (ExpenseClaimSplit), MF6 (outbox), L3 (ExpenseClaim audited+exported, CSV export) — was previously only MF1/MF2/MF5/L4. CDP-walked: demo login (employee) → submit an expense claim, live policy verdict rendered in-browser (StandardExpenseWarn card) → create → budget list shows live remaining ("used 58% · 420.00 SAR left") + detail (Limit/Committed/Actual/Remaining all correct) → CSV export SnackBar ("Exported 3 rows to CSV") | DONE 9f70dcb |
+| LM2 MF1+oracle rule-tag mismatch (generator bug, found by LM1) | writeTests's oracle-test plan entry assumed a bare `rule:<name>` dependsOn tag; multi-feature apps prefix every per-feature artifact `feature:<name>:...`, so `[plan] oracle:X depends on unresolved 'rule:X'` on generation. First multi-feature IR to combine businessRules+oracle — hr_service/work_auth's rules are both single-feature IRs. Resolves the real tag from accumulated planEntries instead of assuming the shape | FIXED 9f70dcb |
+| LM3 MF3 symbol registration missing for multi-feature (generator bug, found by LM1) | attributes.attachments is app-level like budget/outbox but had no post-merge symbol fix in generateMultiFeatureApp — barrel emitted `export 'receiptattachment.dart';` (guessed path, doesn't exist) instead of core/attachment.dart. Same class of gap MF5/MF6 already had fixes for | FIXED 9f70dcb |
+| LM4 generatePolicyTest never imported Session (generator bug, found by LM1) | computed session.import for auth-aware apps but never spliced it into the returned template — dormant because no prior policy-rule sample also had attributes.auth (moneycrud has policy, no auth) | FIXED 9f70dcb |
+| LM5 policy waive test assumed exactly one "Waive" button | a block-severity rule's trigger value can also cross a lower-severity rule's own threshold on the same field (e.g. amount>=15000 also satisfies amount>=500/2000) — every non-autoApprove, non-waived verdict renders its own Waive button, so more than one can be on screen. Scoped the test's finders to the specific rule's own Card; also auto-satisfies any co-triggered requireJustification verdict before asserting Save re-enables | FIXED 9f70dcb |
+| LM6 CDP: Approval entity has no manager-approve UI action | ApprovalRepository only ever declared `listApprovals` (read-only) — no update operation, so Approval rows are non-interactive (no chevron, tapping does nothing). "Submit + manager approve/reject" is validated elsewhere (reimbursement's wizard has a real approve/reject step) but ledgerly's own Approval list was never wired for it | OPEN (latent, pre-existing — not touched this session; would need ApprovalRepository.updateApproval + a detail/edit screen to close) |
+| LM7 CDP: MF3 attachment capture has no UI entry point | core/attachment.dart (ReceiptOcrPort/ReceiptAttachment/MockReceiptOcr/synthesizeAttachment) is a real, tested capability but is never wired into any screen — by design (MF3's own doc comment: "deliberately does NOT wire a real file-picker... out of scope for a deterministic, offline, 0%-LLM generator"), so there's no "capture" button to CDP-click | DOCUMENTED (by design, matches MF3's stated scope — not a gap to fix) |

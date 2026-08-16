@@ -24,7 +24,9 @@ validated by **at least two sample apps of different types**.
 | C2 | Multi-role UI patterns: persona-aware home, stacked inbox with policy/rule chips, batch approve with guard | Ledgerly (manager inbox), CRM (deal approval), HR (leave approval) |
 
 ## Sample apps (each exercises a DIFFERENT slice subset; Ledgerly is NOT the target, it's evidence #1)
-1. **Ledgerly** (expense T&E) — L1 L2 L3 L4 L5 MF1 MF2 MF4 MF5 MF6 C1 C2
+1. **Ledgerly** (expense T&E) — L1 L2 L3 L4 L5 MF1 MF2 MF3 MF4 MF5 MF6 C1 C2 (MF3 added 2026-08-16
+   for Ledgerly-MVP completion, beyond this row's original scope — attributes.attachments only,
+   no UI entry point per MF3's own design; see LEFTOVER_NOTES.md LM7)
 2. **HR service app** (leave requests, onboarding, salary bands) — L1 L2 L4 L5 MF1 MF2 MF3 MF5 C1 C2
 3. **Work authorization app** (visa application wizard: submit → supervisor → HR → visa office, quota,
    passport OCR) — L2 L3 L4 L5 MF1 MF2 MF3 MF5 C1
