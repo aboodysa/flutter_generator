@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_ledgerly/core/components.dart';
 import 'package:rasheed_replica_ledgerly/core/theme.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/expense_claim_list.dart';
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/domain/entities/claim_status.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/domain/entities/expense_claim.dart';
 import 'package:rasheed_replica_ledgerly/core/money.dart';
@@ -87,7 +88,7 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
         Wrap(spacing: AppSpacing.sm, children: ClaimStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
-            label: widget.id == null ? 'Create' : 'Save',
+            label: widget.id == null ? AppStrings.of(context).create : AppStrings.of(context).save,
             onPressed: () async {
               final item = ExpenseClaim(
         id: widget.id ?? DateTime.now().millisecondsSinceEpoch.toString(),

@@ -9,6 +9,7 @@ import 'package:rasheed_replica_ledgerly/features/budgets/presentation/state/mea
 
 
 import 'package:rasheed_replica_ledgerly/core/budget.dart';
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 class MealBudgetDetailScreen extends StatelessWidget {
   const MealBudgetDetailScreen({super.key});
@@ -19,14 +20,14 @@ class MealBudgetDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Meal Budget details'),
       actions: [
-        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/meal-budget/${id}/edit')),
-        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<MealBudgetListCubit>().delete(id!); if (context.mounted) context.go('/meal-budget'); }),
+        IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/meal-budget/${id}/edit')),
+        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<MealBudgetListCubit>().delete(id!); if (context.mounted) context.go('/meal-budget'); }),
       ]),
       body: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
         builder: (context, state) {
         if (state.status == MealBudgetListStatus.loading) return const LoadingState();
         if (state.status == MealBudgetListStatus.failure) return ErrorState(message: state.errorMessage);
-            if (state.mealBudgets.isEmpty) return const Center(child: Text('No data'));
+            if (state.mealBudgets.isEmpty) return Center(child: Text(AppStrings.of(context).noData));
             final item = state.mealBudgets.firstWhere((e) => e.id == id, orElse: () => state.mealBudgets.first);
             final budget = BudgetLine(scope: item.name, limit: item.limit, committed: item.committed, actual: item.actual);
             return ListView(

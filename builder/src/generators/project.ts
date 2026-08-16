@@ -83,10 +83,14 @@ flutter:
 function titleAndLocaleBlock(locale: "en" | "ar" | "both" | undefined): string {
   if (!locale) return `title: 'Generated app',`;
   const supported = locale === "both" ? "Locale('en'), Locale('ar')" : `Locale('${locale}')`;
-  const boot = locale === "ar" ? "ar" : "en";
+  // For "both", do NOT hard-code `locale:` — an explicit MaterialApp.locale makes the app ignore
+  // the browser/system locale (CDP setLocaleOverride, OS AR, RTL device), so AR becomes unreachable
+  // despite being "supported". Leaving `locale:` unset resolves from PlatformDispatcher.instance
+  // .locale via supportedLocales, so an Arabic browser/OS gets AR + RTL automatically (L4 finding
+  // G-L4-1). For a fixed "en"/"ar" it's explicit.
+  const localeLine = locale === "both" ? "" : `        locale: const Locale('${locale}'),`;
   return `onGenerateTitle: (context) => AppStrings.of(context).appTitle,
-        locale: const Locale('${boot}'),
-        supportedLocales: const [${supported}],
+${localeLine}        supportedLocales: const [${supported}],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

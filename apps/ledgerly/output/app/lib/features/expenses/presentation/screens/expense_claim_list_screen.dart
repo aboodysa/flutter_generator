@@ -9,6 +9,7 @@ import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/ex
 
 
 
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 class ExpenseClaimListScreen extends StatelessWidget {
   const ExpenseClaimListScreen({super.key});
@@ -66,7 +67,7 @@ class ExpenseClaimListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'New ExpenseClaim',
+        tooltip: '${AppStrings.of(context).newLabel} ExpenseClaim',
         onPressed: () => context.push('/expense-claim/new'),
         child: const Icon(Icons.add),
       ),

@@ -113,6 +113,15 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
     - Findings go to `apps/<app>/output/qa/PROBE_FINDINGS.md` (G1/G2 style:
       symptom, root cause, location, severity) + Telegram. Fixes land in the
       generator (never the generated app), then regenerate + rebuild web + re-probe.
+    - **CDP is the REQUIRED verification gate for UI-affecting slices** (l10n/RTL,
+      navigation, forms, a11y): after `flutter analyze/test` green, build web +
+      serve, drive via the shared driver, capture AX + screenshots. RTL: set the
+      AR locale and check Directionality flip + no overflow. Write findings under
+      `apps/<app>/output/qa/` (folder per slice: `qa/l4-rtl/` etc.) — symptom,
+      enhancement needed, severity. Reusable harnesses: `apps/tasks/output/qa/
+      gen_all_flows_harness.py` + `capture_all_flows.sh` (all-flows goldens, one
+      screen per invocation to avoid router-state contamination) and
+      `app_walkthrough.py` (per-app AX/field-visibility).
 
 ## Commands (run from repo root unless noted)
 

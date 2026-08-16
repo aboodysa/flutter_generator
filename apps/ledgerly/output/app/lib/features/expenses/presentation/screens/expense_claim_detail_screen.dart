@@ -9,6 +9,7 @@ import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/ex
 
 
 
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 class ExpenseClaimDetailScreen extends StatelessWidget {
   const ExpenseClaimDetailScreen({super.key});
@@ -19,14 +20,14 @@ class ExpenseClaimDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Expense Claim details'),
       actions: [
-        IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/expense-claim/${id}/edit')),
-        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<ExpenseClaimListCubit>().delete(id!); if (context.mounted) context.go('/expense-claim'); }),
+        IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/expense-claim/${id}/edit')),
+        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<ExpenseClaimListCubit>().delete(id!); if (context.mounted) context.go('/expense-claim'); }),
       ]),
       body: BlocBuilder<ExpenseClaimListCubit, ExpenseClaimListState>(
         builder: (context, state) {
         if (state.status == ExpenseClaimListStatus.loading) return const LoadingState();
         if (state.status == ExpenseClaimListStatus.failure) return ErrorState(message: state.errorMessage);
-            if (state.expenseClaims.isEmpty) return const Center(child: Text('No data'));
+            if (state.expenseClaims.isEmpty) return Center(child: Text(AppStrings.of(context).noData));
             final item = state.expenseClaims.firstWhere((e) => e.id == id, orElse: () => state.expenseClaims.first);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),

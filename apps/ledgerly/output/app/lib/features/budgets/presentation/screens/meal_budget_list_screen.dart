@@ -9,6 +9,7 @@ import 'package:rasheed_replica_ledgerly/features/budgets/presentation/state/mea
 
 
 import 'package:rasheed_replica_ledgerly/core/budget.dart';
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
 class MealBudgetListScreen extends StatelessWidget {
   const MealBudgetListScreen({super.key});
@@ -67,7 +68,7 @@ class MealBudgetListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'New MealBudget',
+        tooltip: '${AppStrings.of(context).newLabel} MealBudget',
         onPressed: () => context.push('/meal-budget/new'),
         child: const Icon(Icons.add),
       ),

@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_ledgerly/core/components.dart';
 import 'package:rasheed_replica_ledgerly/core/theme.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/presentation/state/meal_budget_list.dart';
+import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/domain/entities/meal_budget.dart';
 import 'package:rasheed_replica_ledgerly/core/money.dart';
 
@@ -92,7 +93,7 @@ class _MealBudgetFormScreenBodyState extends State<_MealBudgetFormScreenBody> {
         TextField(controller: _actual, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Actual', suffixText: 'SAR')),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
-            label: widget.id == null ? 'Create' : 'Save',
+            label: widget.id == null ? AppStrings.of(context).create : AppStrings.of(context).save,
             onPressed: () async {
               final item = MealBudget(
         id: widget.id ?? DateTime.now().millisecondsSinceEpoch.toString(),

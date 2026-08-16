@@ -40,7 +40,8 @@
       "actualField": "actual",
       "scope": "category",
       "period": "monthly"
-    }
+    },
+    "locale": "both"
   },
   "features": [
     {
