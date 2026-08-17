@@ -84,6 +84,10 @@
       "default": false,
       "description": "L3: this entity's create/update/delete mutations are recorded to the app-wide audit log (core/audit.dart) — requires attributes.auth."
     },
+    "primaryDisplayField": {
+      "type": "string",
+      "description": "P2: this entity's own declared primary human-readable identifier (must reference one of this entity's own fields[].name, String-typed). The single explicit semantic composition.ts's searchFor selector reads to decide per-list search — never a title/name/label name-guess. Absent = no search on this entity's list screen."
+    },
     "actor": {
       "type": "string"
     },

@@ -5,7 +5,8 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets } from "./composition";
+import { screenPath } from "./routing";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -317,6 +318,79 @@ function shellCheck(ir: any, outDir: string, files: string[]): string[] {
   return issues;
 }
 
+// P2 (INTERFACE_PATTERN_CONTRACT.md §4, grill C4/C5/C6): per-list search. Unlike [shell], this
+// applies to single- AND multi-feature apps alike — flattenedIr(ir) already normalizes both
+// shapes (same helper [tenant]/[audit]/[symbols] etc. use above), no `ir.features` guard needed.
+// Re-asserts the selector by calling the SAME `searchTargets` composition.ts itself uses (not a
+// re-implementation — a second, drifting copy of the predicate would defeat the point of a
+// dedicated gate), then cross-checks plan.json's recorded decision and the generated screen
+// files against it: right screens have SearchBar, no others do.
+function searchCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // Re-derive fresh from the raw IR — the authoritative "what SHOULD be searchable" answer.
+  const expected = searchTargets(flat as any); // Map<screenName, SearchSpec>
+  const expectedByPath = new Map<string, { field: string; mode: string }>();
+  for (const [screenName, spec] of expected) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) expectedByPath.set(screenPath(screens, screen), spec);
+  }
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[search] plan.json missing in ${outDir} — cannot verify search decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.search ?? {};
+
+  // plan.json's recorded decision must match the freshly re-derived one exactly (same paths,
+  // same field/mode per path) — a mismatch means the plan drifted from what the selector would
+  // decide today (stale plan, or a hand-edit), same "prove the plan matches reality" posture
+  // [fidelity] takes for per-state strategy.
+  const expectedPaths = new Set(expectedByPath.keys());
+  const recordedPaths = new Set(Object.keys(recorded));
+  for (const p of expectedPaths) {
+    if (!recordedPaths.has(p)) {
+      issues.push(`[search] '${p}' should be searchable (list screen + repo list + declared primaryDisplayField) but plan.json's patterns.search has no entry for it`);
+      continue;
+    }
+    const exp = expectedByPath.get(p)!;
+    const rec = recorded[p];
+    if (rec.field !== exp.field || rec.mode !== exp.mode || rec.enabled !== true) {
+      issues.push(`[search] '${p}' plan.json entry {field:'${rec.field}', mode:'${rec.mode}', enabled:${rec.enabled}} does not match the re-derived decision {field:'${exp.field}', mode:'${exp.mode}', enabled:true}`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedPaths.has(p)) {
+      issues.push(`[search] plan.json declares search for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // Cross-check the generated output: only screens plan.json marked searchable may render a
+  // SearchBar, and every one of them actually does.
+  for (const screen of screens) {
+    if (screen.type !== "list") continue;
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const shouldHaveSearch = recordedPaths.has(p);
+    const hasSearchBar = src.includes("SearchBar(");
+    if (shouldHaveSearch && !hasSearchBar) {
+      issues.push(`[search] '${p}' (${screen.name}) is marked searchable in plan.json but its generated screen has no SearchBar`);
+    }
+    if (!shouldHaveSearch && hasSearchBar) {
+      issues.push(`[search] '${p}' (${screen.name}) has no search entry in plan.json but its generated screen renders a SearchBar anyway`);
+    }
+  }
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -585,6 +659,7 @@ export interface ValidationResult {
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
+  search: number;    // count of per-list-search issues: plan/output drift, missing/unexpected SearchBar (P2)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -644,7 +719,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -792,9 +867,15 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...shellIssues);
   const shell = shellIssues.length;
 
+  // Per-list search (P2): plan.json's recorded search decisions must match a fresh re-derivation,
+  // and only the marked screens may render a SearchBar.
+  const searchIssues = searchCheck(ir, outDir, files);
+  issues.push(...searchIssues);
+  const search = searchIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell, search,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
     swiftpkg: 0, swiftarch: 0, swiftdeterminism: 0,
@@ -843,7 +924,8 @@ function main() {
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell > 0;
+  console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

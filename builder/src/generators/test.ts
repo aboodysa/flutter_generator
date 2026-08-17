@@ -662,9 +662,15 @@ ${seedRows(entity, "      ")}
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('${lastKey}')), findsNothing, reason: 'row ${N} should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after dragging up');
+    // P2: a single fixed-magnitude drag + immediate settle isn't robust once a screen's own
+    // content (e.g. a SearchBar above the list — screen.ts's search block) changes how much
+    // viewport the list has, which changes how many increments a real drag+fling needs to
+    // actually reach the last row. scrollUntilVisible (Flutter's own SDK helper for exactly this)
+    // repeats a bounded drag until the target is visible instead of gambling on one big number —
+    // the scrollable: arg is required (not the default) because a searchable screen has a SECOND
+    // Scrollable (the SearchBar's own text field), and the default finder requires exactly one.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('${lastKey}')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after scrolling');
   });`,
       };
     }
@@ -704,9 +710,10 @@ ${seedRows(entity, "        ")}
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('${lastKey}')), findsNothing, reason: 'row ${N} should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after dragging up');
+    // P2: same reasoning as the riverpod branch above — scrollUntilVisible tolerates a
+    // searchable screen's shorter list viewport instead of gambling on one fixed-magnitude drag.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('${lastKey}')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('${lastKey}')), findsOneWidget, reason: 'row ${N} should be reachable after scrolling');
   });`,
     };
   }).filter((c): c is { decl: string; test: string } => !!c);

@@ -42,6 +42,14 @@ export interface EntityModel {
   // audit log without a real identity source is a compliance feature that lies about who acted) —
   // enforced by the `[audit]` gate, not silently assumed.
   audited?: boolean;
+  // P2 (INTERFACE_PATTERN_CONTRACT.md §4, grill C4): this entity's own declared primary
+  // human-readable identifier — the ONE explicit semantic composition.ts's `searchFor` selector
+  // is allowed to read (never a `title`/`name`/`label` name-guess). References one of this
+  // entity's own `fields[].name`; must resolve to a `String`-typed field or the selector treats
+  // it as absent (defensive, same "resilient to a typo'd IR" posture `compositionFor`'s unknown-
+  // archetype fallback takes). Additive — absent = no search on this entity's list screen,
+  // byte-identical output.
+  primaryDisplayField?: string;
 }
 
 export interface EnumModel {

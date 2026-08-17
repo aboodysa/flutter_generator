@@ -3,6 +3,7 @@ import * as path from "path";
 import Ajv from "ajv";
 import { FeatureModel, AppModel } from "./types";
 import { fileName, GenContext } from "./dart";
+import { screenPath } from "./routing";
 import { pkgName, buildSymbols, addAuthSymbols } from "./symbols";
 import { enforceWriteAcl } from "./acl";
 import { generateEntity } from "./generators/entity";
@@ -23,7 +24,7 @@ import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
-import { shellFor, ShellPattern } from "./composition";
+import { shellFor, ShellPattern, searchTargets, SearchSpec } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -716,18 +717,33 @@ function writeFeatureArtifacts(
   return { files, planEntries };
 }
 
+// P2 (contract §4: "keyed by screen path"): re-keys composition.ts's searchTargets() map (by
+// screen NAME, the convenient lookup for screen.ts/ctx.search) into the plan.json persisted shape
+// (by screenPath(), the human-readable/route-stable key the brief specifies) — a pure formatting
+// step, not a second decision; the SearchSpec values themselves are untouched.
+function searchByPath(ir: FeatureModel, search: Map<string, SearchSpec>): Record<string, SearchSpec> {
+  const screens = ir.screens ?? [];
+  const out: Record<string, SearchSpec> = {};
+  for (const [screenName, spec] of search) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) out[screenPath(screens, screen)] = spec;
+  }
+  return out;
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
-function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null): void {
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>): void {
+  const hasSearch = !!search && Object.keys(search).length > 0;
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
     scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
-    // P1 (contract §2.2/§2.6): record the composition layer's shell decision as data. Omitted
-    // entirely (not `{ shell: undefined }`/`null`) when no caller passed one — single-feature apps'
-    // plan.json stays byte-identical to pre-P1 output.
-    ...(shell ? { patterns: { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } } : {}),
+    // P1/P2 (contract §2.2/§2.6): record the composition layer's shell/search decisions as data.
+    // Omitted entirely (not `{ shell: undefined }`/`null`) when neither applies — an app with no
+    // shell and no searchable list stays byte-identical plan.json to pre-P1/P2 output.
+    ...(shell || hasSearch ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}) } } : {}),
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -801,7 +817,10 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   const pkg = pkgName(ir.name);
   const symbols = buildSymbols(ir);
   const arch = decideArchitecture(ir);
-  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement };
+  // P2 (contract §4): decide per-list search ONCE, here — composition.ts's searchTargets is the
+  // only owner of this decision (contract §1); screen.ts only ever consumes ctx.search by name.
+  const search = searchTargets(ir);
+  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search };
 
   const scoring: string[] = [];
   for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
@@ -865,7 +884,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes);
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }
@@ -953,7 +972,10 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   }
 
   const arch = decideArchitecture(merged);
-  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };
+  // P2 (contract §4): same single decision point as the single-feature path above, over the
+  // merged screens/entities/repositories (searchTargets needs no per-feature grouping).
+  const search = searchTargets(merged);
+  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search };
 
   // P1 (INTERFACE_PATTERN_CONTRACT.md §3): decide the global-shell pattern ONCE, here — the only
   // owner of this decision (contract §1 master principle). `null` for a single-feature AppModel;
@@ -1053,7 +1075,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell);
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

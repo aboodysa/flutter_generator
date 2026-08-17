@@ -4,9 +4,10 @@
  * and surface treatment. Adding a new archetype = one entry here (data), no dispatch rewrite.
  * The screen generator consults this registry; unknown archetypes fall back to `list`.
  */
-import { FeatureModel, ScreenModel } from "./types";
+import { FeatureModel, ScreenModel, EntityModel, RepositoryModel } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
+import { findRepoForEntity } from "./operations";
 
 export interface CompositionSpec {
   archetype: string;
@@ -126,4 +127,56 @@ export function shellFor(features: FeatureModel[], mergedScreens: ScreenModel[])
     };
   });
   return { branches };
+}
+
+/**
+ * P2 (INTERFACE_PATTERN_CONTRACT.md §4) — per-list search. Same centralized-decision posture as
+ * P1's shellFor above: this is the ONE place that decides whether a list screen gets search, and
+ * with what field/mode; screen.ts only ever renders the `SearchSpec` it's handed, never re-derives
+ * the decision (contract §1 master principle).
+ *
+ * Scope locked by the brief (grill C4/C5/C6):
+ * - Single field, mode "contains" only (in-memory, case-insensitive, no server-query/multi-field/
+ *   startsWith/enum/date in this slice — a later slice changes the payload shape, never this
+ *   architecture).
+ * - `enabled` is a SEMANTIC predicate, never a name-guess: list screen + repo has `list`
+ *   (structural — `findRepoForEntity` only ever resolves a repo that HAS a `list` operation, see
+ *   its own doc comment, so that leg is never separately re-checked) + the entity declares
+ *   `primaryDisplayField` referencing one of its own String-typed fields. No IR `primaryDisplayField`
+ *   -> predicate stays false, same as `TITLE_FIELD_NAMES`-style guessing would have wrongly fired
+ *   for entities that merely happen to have a same-shaped field under a different name.
+ */
+export interface SearchSpec {
+  enabled: true; // only ever constructed true — a screen with no search simply has no map entry
+  field: string; // IR field id (entity.primaryDisplayField, already confirmed String-typed)
+  mode: "contains";
+}
+
+export function searchFor(screen: ScreenModel, entity: EntityModel | undefined, repo: RepositoryModel | undefined): SearchSpec | null {
+  if (screen.type !== "list") return null;
+  if (!entity || !repo) return null;
+  if (!entity.primaryDisplayField) return null;
+  const field = entity.fields.find((f) => f.name === entity.primaryDisplayField);
+  // Defensive, not a crash: a mistyped/renamed primaryDisplayField (no matching field, or a
+  // non-String one — "contains" only has a well-defined meaning on a String in this slice, grill
+  // C5) means the semantic didn't actually resolve, so the predicate stays false — same posture
+  // `compositionFor`'s unknown-archetype fallback and `shellFor`'s own resolution checks take.
+  if (!field || field.type !== "String") return null;
+  return { enabled: true, field: field.name, mode: "contains" };
+}
+
+// Runs searchFor across every screen in one IR (single- or already-merged multi-feature — this
+// reads only `ir.screens`/`ir.entities`/`ir.repositories`, all flat arrays on FeatureModel, so it
+// needs no per-feature grouping the way shellFor does). Keyed by screen NAME (always available to
+// screen.ts as `s.name`, no extra lookup); index.ts separately re-keys by screenPath() when it
+// serializes the decision into plan.json (contract §4: "keyed by screen path").
+export function searchTargets(ir: FeatureModel): Map<string, SearchSpec> {
+  const out = new Map<string, SearchSpec>();
+  for (const screen of ir.screens ?? []) {
+    const entity = ir.entities.find((e) => e.name === screen.entity);
+    const repo = findRepoForEntity(ir.repositories, screen.entity);
+    const spec = searchFor(screen, entity, repo);
+    if (spec) out.set(screen.name, spec);
+  }
+  return out;
 }

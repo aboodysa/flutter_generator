@@ -195,6 +195,15 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const identityField = entity?.identity?.field ?? "id";
   const childFk = childForeignKey(entity);
 
+  // P2 (contract §4): the decided SearchSpec for THIS screen (composition.ts's searchTargets,
+  // computed once per generateApp run) — consumed by name only, never re-derived here. Bloc-only
+  // this slice (same documented gap L3's export buttons already carry — no current sample pairs
+  // riverpod with a searchable list, so the riverpod path stays byte-identical rather than
+  // speculatively wired against nothing).
+  const searchSpec = ctx?.search?.get(s.name);
+  const searchEnabled = !!searchSpec && sm !== "riverpod";
+  const searchField = searchEnabled ? entity!.fields.find((f) => f.name === searchSpec!.field) : undefined;
+
   // MF5: this screen's entity IS the resolved budget entity — both the list and detail branches
   // below construct a local `BudgetLine` from `item`'s limit/committed/actual fields when true.
   // No-op (resolvedBudget undefined, or entity name mismatch) for every screen this capability
@@ -573,10 +582,41 @@ ${contentCases}
       : priorityField
         ? (() => { const c = chipToneExpr(priorityField, "toneForPriority"); return `AppStatusDot(tone: ${c.tone}, semanticLabel: ${c.value})`; })()
         : `AppAvatar(label: ${titleExpr})`;
-    body = `${listFilter}            return Column(
+    // P2: filter is computed from `items` (already parent-scope-filtered by listFilter above)
+    // BEFORE the Column is built, so both the SearchBar block and the list/empty-state branch
+    // below can reference `filtered`/`query` — in-memory, synchronous, case-insensitive `contains`
+    // only (contract §4, grill C6: no server-query in this slice).
+    const searchPrelude = searchEnabled
+      ? `            final query = _query.trim().toLowerCase();
+            final filtered = query.isEmpty ? items : items.where((item) => (${fieldValue(searchField!, "item")}).toLowerCase().contains(query)).toList();
+`
+      : "";
+    const listVar = searchEnabled ? "filtered" : "items";
+    // Material 3's own SearchBar widget (package:flutter/material.dart) — a stock framework
+    // widget used directly, same posture Scaffold/AppBar/ListView.builder/Scrollbar already take
+    // in this file (the component registry wraps only this app's own custom design-system atoms,
+    // not stock Flutter/Material widgets).
+    const searchBarBlock = searchEnabled
+      ? `                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  child: SearchBar(
+                    controller: _searchController,
+                    hintText: 'Search ${appBarTitle}',
+                    leading: const Icon(Icons.search),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
+`
+      : "";
+    const listOrEmpty = searchEnabled
+      ? `filtered.isEmpty && query.isNotEmpty
+                      ? EmptyState(message: 'No results for "\$_query"')
+                      : ScrollConfiguration(`
+      : `ScrollConfiguration(`;
+    body = `${listFilter}${searchPrelude}            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-${heroBlock}
+${searchBarBlock}${heroBlock}
                 Expanded(
                   // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
                   // stylus) into drag-to-scroll — Flutter's default excludes mouse, which is why
@@ -585,16 +625,16 @@ ${heroBlock}
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: ScrollConfiguration(
+                  child: ${listOrEmpty}
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        itemCount: items.length,
+                        itemCount: ${listVar}.length,
                         itemBuilder: (_, i) {
-                          final item = items[i];${isBudgetEntity ? `\n                          final budget = ${budgetLineExpr("item")};` : ""}
+                          final item = ${listVar}[i];${isBudgetEntity ? `\n                          final budget = ${budgetLineExpr("item")};` : ""}
                           return Padding(
                             padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
                             child: AppListCard(
@@ -725,7 +765,42 @@ ${body}
     );
   }
 }`
-    : `class ${s.name} extends StatelessWidget {
+    : searchEnabled
+      // P2: search needs local widget state (the query string) that lives OUTSIDE the Cubit/
+      // business state (contract §3/P3's "IR state ≠ scroll/UI state" principle, same reasoning
+      // applied to search) — the only reason this screen becomes a StatefulWidget instead of the
+      // usual StatelessWidget. Everything else (Scaffold/AppBar/BlocBuilder/fab) is unchanged.
+      ? `class ${s.name} extends StatefulWidget {
+  const ${s.name}({super.key});
+
+  @override
+  State<${s.name}> createState() => _${s.name}State();
+}
+
+class _${s.name}State extends State<${s.name}> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+${preBuild}    return Scaffold(
+      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
+      body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
+        builder: (context, state) {
+${checks}
+${body}
+        },
+      )${fab},
+    );
+  }
+}`
+      : `class ${s.name} extends StatelessWidget {
   const ${s.name}({super.key});
 
   @override
@@ -748,7 +823,7 @@ ${body}
   // never references the router either (dead-route guard).
   const routerImport = comp.layout !== "wizard" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
 
-  return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}.v1 class=structural ownership=generated
+  return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}${searchEnabled ? "_search" : ""}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 ${routerImport}${stateLibImport}

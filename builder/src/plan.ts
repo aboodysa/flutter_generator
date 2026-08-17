@@ -1,5 +1,5 @@
 import { FeatureModel } from "./types";
-import { ShellDestination } from "./composition";
+import { ShellDestination, SearchSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -33,7 +33,10 @@ export interface GenerationPlan {
   // decisions, recorded as data — same "decision as data" posture `scoring` already uses, and the
   // artifact validate.ts's [shell] gate reads instead of re-deriving the decision from output.
   // Absent entirely for a single-feature app (no shell applies) — never `{ shell: { destinations: [] } }` noise.
-  patterns?: { shell: { destinations: ShellDestination[] } };
+  // P2 (contract §4): `search` is additive alongside `shell` — keyed by screenPath() (the brief's
+  // exact instruction), one entry per list screen the selector turned on; omitted when no list
+  // screen in this app qualifies.
+  patterns?: { shell?: { destinations: ShellDestination[] }; search?: Record<string, SearchSpec> };
 }
 
 /** Map an IR collection key to its artifact-id tag (e.g. "entities" → "entity"). */

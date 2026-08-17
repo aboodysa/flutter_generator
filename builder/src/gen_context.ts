@@ -8,6 +8,7 @@
 // narrowest capability they actually use — TS structural typing lets index.ts keep constructing
 // and passing one full GenContext everywhere without any caller-side change.
 import { StateManagementProvider } from "./types";
+import { SearchSpec } from "./composition";
 
 export interface PkgContext {
   pkg: string; // package name (e.g. "rasheed_replica_expense")
@@ -17,4 +18,7 @@ export interface PkgContext {
 export interface GenContext extends PkgContext {
   ir?: any; // full IR, for cross-reference lookups (operation param naming, etc.)
   sm?: StateManagementProvider; // selected state-management provider (from the arch layer)
+  // P2 (contract §4): composition.ts's searchTargets(ir), computed once per generateApp run —
+  // screen.ts looks itself up by `s.name` to render its own decided SearchSpec (or nothing).
+  search?: Map<string, SearchSpec>;
 }
