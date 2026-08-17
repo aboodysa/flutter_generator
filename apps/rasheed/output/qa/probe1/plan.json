@@ -1,0 +1,394 @@
+{
+  "schemaVersion": "1",
+  "generatorVersion": "1.0.0",
+  "artifactCount": 33,
+  "entries": [
+    {
+      "artifact": "enum:PaymentMethod",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/payment_method.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "query:TransactionQuery",
+      "generator": "QueryGenerator",
+      "schema": "query",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_query.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "query:TransactionFilter",
+      "generator": "QueryGenerator",
+      "schema": "query",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_filter.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "wrapper:TransactionsPage",
+      "generator": "WrapperGenerator",
+      "schema": "wrapper",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transactions_page.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:TransactionEntity",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_entity.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:TransactionItemEntity",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_item_entity.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:TransactionAttachmentEntity",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_attachment_entity.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:ExpensePaymentEntity",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/expense_payment_entity.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:TransactionFeedbackEntity",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/expense/domain/entities/transaction_feedback_entity.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:ExpenseRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/expense/domain/repositories/expense_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "state:AllExpenses",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/expense/presentation/state/all_expenses.dart",
+      "strategy": "sealed-events",
+      "dependsOn": [
+        "entity:TransactionEntity"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "model:TransactionEntity",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expense/data/models/transaction_entity_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:TransactionEntity"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:TransactionItemEntity",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expense/data/models/transaction_item_entity_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:TransactionItemEntity"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:TransactionAttachmentEntity",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expense/data/models/transaction_attachment_entity_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:TransactionAttachmentEntity"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:ExpensePaymentEntity",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expense/data/models/expense_payment_entity_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:ExpensePaymentEntity"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:TransactionFeedbackEntity",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/expense/data/models/transaction_feedback_entity_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:TransactionFeedbackEntity"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:ExpenseRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/expense/data/repositories/expense_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:ExpenseRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:di",
+      "generator": "DIGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/di.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:router",
+      "generator": "RouteGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/router.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:components",
+      "generator": "ComponentRegistryGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/components.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:app_strings",
+      "generator": "LocalizationGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/app_strings.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:theme",
+      "generator": "ThemeGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/theme.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:config",
+      "generator": "ConfigGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/config.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:secrets",
+      "generator": "SecretsGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/secrets.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:observability",
+      "generator": "ObservabilityGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/observability.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:validator",
+      "generator": "ValidatorGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/validator.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:money",
+      "generator": "MoneyGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/money.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:widget",
+      "generator": "WidgetTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/widget_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:unit",
+      "generator": "UnitTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/unit_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:flow",
+      "generator": "FlowTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/flow_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:golden",
+      "generator": "GoldenTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/golden_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:barrel",
+      "generator": "BarrelGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/generated.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:main",
+      "generator": "MainGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/main.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "core:barrel"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    }
+  ],
+  "scoring": {
+    "stateManagement": "bloc",
+    "di": "get_it",
+    "routing": "go_router",
+    "persistence": "nosql",
+    "coupledPair": "bloc × get_it",
+    "complexity": 32
+  }
+}
