@@ -395,6 +395,25 @@ manage its context so work never dies to an uncached-token wall and tokens stay 
    CODE_CATALOGUE.md what the next agent should re-anchor on. The disk is the memory; the session
    should be disposable.
 
+## Mermaid diagrams in decision docs (owner workflow, 2026-08-17)
+
+Owner asks for **pipeline + sequence diagrams as mermaid** in decision docs (e.g. `SCTX_DECISION.md`),
+with **areas of interest highlighted** — the parts the document actually decides on get a distinct
+shade/fill (e.g. `style NODE fill:#fff3cd,stroke:#b8860b` amber for "the new gate/slice", a light
+blue `#e8f0fe` for "decision-as-data" nodes, a dashed `#f3f6f9` for gate/validate groupings).
+
+Workflow (mmdc installed globally; needs a puppeteer chrome):
+- Write the `.mmd` source under `design/flutter-app-builder/research/mermaid/` (keep sources in
+  the repo — rule 12; the PDF depends on re-rendering them).
+- Render with the CFT chrome bundle (mac): `mmdc -p
+  design/flutter-app-builder/research/mermaid/puppeteer-config.json -i <in>.mmd -o <out>.png
+  -b white -s 2` — the config pins puppeteer to `chrome-mac-arm64/Google Chrome for Testing`
+  (installed headless-shell is absent; plain `mmdc` fails with "Could not find chrome-headless-shell").
+- Embed the PNGs in the PDF build (Chrome `--headless --print-to-pdf`) — markdown can't render
+  mermaid code, so always produce the PNG for the PDF version.
+- Deliver both **MD + PDF** to the owner on Telegram as `sendDocument` attachments, never text
+  chunks (rule 10). Send MD and PDF as separate documents.
+
 ## References
 
 - Architecture/design: `design/flutter-app-builder/DESIGN.md`

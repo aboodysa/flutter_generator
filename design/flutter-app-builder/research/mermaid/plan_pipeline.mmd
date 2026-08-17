@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph INPUT["🎯 Input (declared, human-approved)"]
+        IR["<b>IR</b> (schema-validated)"]
+        ORACLE["<b>rules/*.oracle.json</b>"]
+    end
+
+    subgraph CORE["⚙️ Deterministic Core — 0% LLM"]
+        direction TB
+        subgraph SEL["Decision selectors (pure (IR,ctx)→value)"]
+            S1["shellFor 🛡"]
+            S2["searchTargets 🛡"]
+            S3["scoreApp / decideArchitecture 🛡"]
+        end
+        PLAN["<b>GenerationPlan</b><br/>plan.json — decision as data"]
+        GEN["Generators<br/>(IR, ctx) → string"]
+    end
+
+    subgraph GATES["🛂 Validate gates (right of ship)"]
+        DET["[determinism] lib/ byte-identical"]
+        FID["[strategy-fidelity]"]
+        PDM["<b>[plan-determinism]</b> 🆕<br/>re-derive selectors vs plan.json"]
+    end
+
+    OUTPUT["✅ Generated Flutter app<br/>lib/ + test/ + web/"]
+
+    IR --> SEL
+    ORACLE -.oracle coverage.-> GATES
+    SEL --> PLAN
+    PLAN --> GEN
+    GEN --> OUTPUT
+    PLAN -. '""read back""'.-> PDM
+    IR -. "re-derived (same selectors)" .-> PDM
+    PDM -. "diff" .-> FID
+    DET --> FID
+
+    style PDM fill:#fff3cd,stroke:#b8860b,stroke-width:2px
+    style PLAN fill:#e8f0fe,stroke:#0b5394,stroke-width:2px
+    style SEL fill:#e8f0fe,stroke:#0b5394,stroke-width:1px
+    style GATES fill:#f3f6f9,stroke:#999,stroke-dasharray:3 3
+    style CORE fill:#f8f9fa,stroke:#666,stroke-dasharray:3 3
