@@ -119,7 +119,7 @@
       "schema": "state",
       "layer": "presentation/state",
       "file": "lib/features/expense/presentation/state/all_expenses.dart",
-      "strategy": "sealed-events",
+      "strategy": "enum-status",
       "dependsOn": [
         "entity:TransactionEntity"
       ],

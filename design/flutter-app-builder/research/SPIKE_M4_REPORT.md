@@ -260,7 +260,13 @@ app. Implementing it now buys a second template family that nothing exercises.
 
 ## 17. Follow-up
 
-- Implement M4a (selector fix) as its own slice with the stated negative-control gate.
+- **M4a now DONE (2026-08-17).** `scoreStateStrategy(s, ir)` selects `sealed-events` from declared
+  IR semantics only (a `stateMachines` entry whose state vocabulary matches the state's statuses
+  AND declares events+transitions); `SEALED_EVENTS_THRESHOLD` + synthetic status list removed
+  (owner: no hardcoded magic numbers). `arch.ts` passes `ir`; `index.ts` unused import dropped.
+  Verified: typecheck; `[strategy-fidelity]` PASS on all 4 apps + all samples (rasheed probe
+  FAIL→PASS); negative control still fires (hand-edited sealed claim → FAIL(1)); determinism
+  byte-identical. Evidence updated in `apps/rasheed/output/qa/`. M4b remains deferred.
 - Update `LEFTOVER_NOTES.md` M4 and `HANDOFF.md` (state: scoring corrected, sealed template deferred,
   gate already live). Move this report's summary into the spike ledger.
 - Re-run `npm run validate:gen` + per-app validation after M4a: all 4 apps + all samples must be

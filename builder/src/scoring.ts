@@ -47,8 +47,6 @@ const PERMISSION: Record<string, number> = { none: 0, basic: 1, sensitive: 2 };
 
 // Below this normalized complexity, over-generating state/DI/routing is unjustified → none.
 const NONE_FLOOR = 3;
-// Above this state complexity, exhaustive matching pays for itself → sealed-events.
-const SEALED_EVENTS_THRESHOLD = 8;
 
 export function computeInputs(ir: FeatureModel): ScoringInputs {
   const a = ir.attributes ?? {};
@@ -161,13 +159,26 @@ export function scoreApp(ir: FeatureModel): ScoringDecision {
   };
 }
 
-/** Per-state strategy (granular) — chosen by the state's own transition surface. */
-export function scoreStateStrategy(s: StateModel): StateStrategy {
-  const statuses = s.statuses ?? ["initial", "loading", "success", "failure"];
-  const extra = s.extraFields ?? [];
-  const complexity = statuses.length + extra.length;
+/**
+ * Per-state strategy (granular). Decided purely from declared IR semantics — never from a
+ * frozen threshold or a synthetic status list (owner directive: no hardcoded magic numbers).
+ *
+ * §5.2-F3: a state strategy lifts to `sealed-events` ONLY when the IR itself declares a state
+ * machine whose state vocabulary matches this state's declared statuses AND that carries a real
+ * event/transition surface (events + transitions). Without such a declared machine the
+ * generator emits the enum-status template, so claiming sealed-events would be a lie
+ * (caught by the [strategy-fidelity] gate — see SPIKE M4 / RCA).
+ */
+export function scoreStateStrategy(s: StateModel, ir: FeatureModel): StateStrategy {
+  const statuses = s.statuses ?? [];
+  const vocab = (sm: { states?: string[] }) => new Set(sm.states ?? []);
+  const matches = (sm: { states?: string[] }) =>
+    statuses.length > 0 && statuses.every((st) => vocab(sm).has(st));
+  const hasSurface = (sm: { events?: string[]; transitions?: unknown[] }) =>
+    (sm.events?.length ?? 0) > 0 && (sm.transitions?.length ?? 0) > 0;
 
-  if (statuses.length <= 0) return "none";
-  if (complexity >= SEALED_EVENTS_THRESHOLD) return "sealed-events";
+  for (const sm of ir.stateMachines ?? []) {
+    if (matches(sm) && hasSurface(sm)) return "sealed-events";
+  }
   return "enum-status";
 }

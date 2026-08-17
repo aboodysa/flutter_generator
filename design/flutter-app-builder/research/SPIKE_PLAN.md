@@ -362,12 +362,12 @@ through to the call site). **No overlap with P3/P4/P5/D2** — different generat
 in parallel with the sequential interface-pattern chain.
 
 **Acceptance (M4a):**
-- [ ] Typecheck; byte-identical for every existing sample's *generated code* (nothing currently
+- [x] Typecheck; byte-identical for every existing sample's *generated code* (nothing currently
       emits sealed regardless of what the plan claims, so the selector fix only changes `plan.json`
       declarations — rasheed's `AllExpenses` entry flips `sealed-events`→`enum-status`).
-- [ ] `[strategy-fidelity]` PASSes on all 4 apps + all samples, including a fresh `npm run
+- [x] `[strategy-fidelity]` PASSes on all 4 apps + all samples, including a fresh `npm run
       build:rasheed` + validate (was FAIL, must now PASS).
-- [ ] Negative control still fires: a deliberately hand-edited `plan.json` claiming `sealed-events`
+- [x] Negative control still fires: a deliberately hand-edited `plan.json` claiming `sealed-events`
       against an emitted `enum-status` template still FAILs the gate (proves M4a didn't weaken it).
 
 **Evidence:** `design/flutter-app-builder/research/SPIKE_M4_REPORT.md` (full report, decision +

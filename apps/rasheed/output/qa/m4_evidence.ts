@@ -1,9 +1,10 @@
-// M4 spike evidence harness (research artifact — SPIKE M4, 2026-08-17).
-// Read-only investigation: computes the per-state strategy every repo IR would
-// get from scoring.ts's scoreStateStrategy under (a) the CURRENT metric
-// (statuses.length + extraFields.length >= SEALED_EVENTS_THRESHOLD=8) and
-// (b) the DESIGN §5.2-STATED metric (stateMachines[] state/transition/guard
-// surface), to show which metric explains the mismatch on rasheed.
+// M4 spike evidence harness (research artifact — SPIKE M4 2026-08-17, updated for M4a 2026-08-17).
+// Read-only investigation: computes the per-state strategy every repo IR gets from scoring.ts's
+// scoreStateStrategy under (a) the PRE-FIX metric (statuses.length + extraFields.length >=
+// SEALED_EVENTS_THRESHOLD=8, which fired sealed-events on rasheed with zero declared machines —
+// the [strategy-fidelity] FAIL) and (b) the FIXED selector (sealed-events ONLY when a declared
+// stateMachines[] entry's state vocabulary matches the state's statuses AND carries events +
+// transitions — no threshold, no synthetic list; owner directive: no hardcoded magic numbers).
 // Run: npx ts-node --transpile-only apps/rasheed/output/qa/m4_evidence.ts
 import * as fs from "fs";
 import * as path from "path";
@@ -29,35 +30,24 @@ const irFiles = [
   "apps/work_auth/input/work_auth.ir.json",
 ];
 
-function smMetric(ir: any, s: any): number {
-  // DESIGN §5.2: "stateComplexity is computed from the already-declared
-  // stateMachines[] shape (state count, transition count, guard presence)".
-  const machines = (ir.stateMachines ?? []).filter((m: any) =>
-    m.name === s.name || (s.entity && m.name === s.entity),
-  );
-  let c = 0;
-  for (const m of machines) {
-    c += (m.states?.length ?? 0) + (m.transitions?.length ?? 0);
-    c += (m.transitions ?? []).filter((t: any) => t.guard).length;
-  }
-  return c;
-}
-
-console.log("Current selector (scoreStateStrategy: statuses+extraFields >= 8) vs DESIGN §5.2 metric (stateMachines surface):");
+console.log("Fixed selector (scoreStateStrategy(s, ir): declared-machine semantics — no threshold):");
 for (const f of irFiles) {
   const p = path.join(ROOT, f);
   if (!fs.existsSync(p)) continue;
   const ir = JSON.parse(fs.readFileSync(p, "utf8"));
   const models = ir.features ? ir.features.flatMap((fe: any) => fe.states ?? []) : (ir.states ?? []);
   for (const s of models) {
-    const cur: StateStrategy = scoreStateStrategy(s);
-    const alt = smMetric(ir, s);
-    const curC = (s.statuses ?? ["initial", "loading", "success", "failure"]).length + (s.extraFields ?? []).length;
+    const cur: StateStrategy = scoreStateStrategy(s, ir);
+    const machineCount = (ir.stateMachines ?? []).filter((m: any) =>
+      (s.statuses ?? []).every((st: string) => (m.states ?? []).includes(st)),
+    ).length;
     const flag = cur === "sealed-events" ? "  <== FIRES" : "";
     console.log(`  ${f}`.slice(0, 44).padEnd(46), `${s.name}`.padEnd(22),
-      `current(idx=${curC}) -> ${cur}${flag}`, `| sm-metric=${alt}`);
+      `-> ${cur}${flag}`, `| matching machines=${machineCount}`);
   }
 }
-console.log("\nReading: only rasheed crosses under the CURRENT metric; under a stateMachines-driven");
-console.log("metric rasheed (zero stateMachines) would NOT fire — the sealed selection is driven by");
-console.log("data-field count (5 statuses + 6 extraFields), not by any transition/event surface.");
+console.log("\nReading: no repo IR declares a stateMachines entry whose state vocabulary matches a");
+console.log("state's statuses with events+transitions, so sealed-events fires nowhere — the post-fix");
+console.log("selector is honest with the generator (which only emits state_enum_status/notifier.v1).");
+console.log("When a future IR declares a real event/transition surface, sealed-events selects by");
+console.log("declaration — not by a magic field-count threshold.");

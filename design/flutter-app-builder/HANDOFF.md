@@ -1,12 +1,43 @@
-# HANDOFF — P2 CLOSED, SPIKE M4 COMPLETE (round: 2026-08-17)
+# HANDOFF — SPIKE M4 CLOSED (M4a applied), next: P2 → S-CTX (round: 2026-08-17)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-**P2 (per-list search) — CLOSED.** **SPIKE M4 (sealed-class state codegen) — COMPLETE, decision
-MODIFY.** Both per `INTERFACE_PATTERN_CONTRACT.md`/`SPIKE_PLAN.md` sequencing; `SPIKE_PLAN.md`
-updated to reflect the M4 outcome (commit `908cd84`).
+**P2 (per-list search) — CLOSED.** **SPIKE M4 — FULLY CLOSED: decision MODIFY acted on via M4a now
+applied.** `SPIKE_PLAN.md`'s M4a acceptance checklist is all `[x]`; `[strategy-fidelity]` now PASSes
+everywhere including the rasheed probe (was FAIL). Next per the frozen order: S-CTX → P3 → P4 →
+P5/D2.
+
+## M4a — corrected `scoreStateStrategy` selector, APPLIED
+
+Implements `SPIKE_PLAN.md`'s M4a (the actionable half of SPIKE M4's MODIFY decision), per the
+owner's directive **"no hardcoded magic numbers"**. Before, `scoreStateStrategy` fired
+`sealed-events` when `statuses.length + extraFields.length >= SEALED_EVENTS_THRESHOLD (8)` (plus a
+synthetic `["initial","loading","success","failure"]` status list when none declared) — while
+`generators/state.ts` only ever emits `state_enum_status.v1` / `state_notifier.v1` (no sealed
+template exists). rasheed's `AllExpenses` (5+6=11) selected sealed → `[strategy-fidelity]` FAIL.
+
+Fix (`scoring.ts` only, plus the `arch.ts` call site): `scoreStateStrategy(s, ir)` now selects
+`sealed-events` **purely from declared IR semantics** — a `stateMachines` entry whose state
+vocabulary covers the state's declared `statuses` AND which declares a non-empty `events` +
+`transitions` surface (the DESIGN §5.2 "transition surface"). No threshold constant, no synthetic
+list. Every other state resolves to `enum-status`. Since no repo IR declares such a matching
+machine, sealed fires nowhere today — honest with the generator, and M4b (the sealed template
+family) stays deferred exactly as the spike ruled.
+
+Verification (all green):
+- `npm run typecheck:builder` — clean.
+- `[strategy-fidelity] PASS` on all 4 apps (tasks/ledgerly/hr_service/work_auth) + all samples
+  (todo/inventory/expense.semantic/promo/rasheed). rasheed probe refresh:
+  `apps/rasheed/output/qa/validate_probe1.log` now `PASS` (was `FAIL (1)`).
+- Determinism **byte-identical** across the 8-IR sweep (only `plan.json` strategy string changed on
+  rasheed's `AllExpenses` entry: `sealed-events` → `enum-status`; determinism gate diffs `lib/`
+  only, so unaffected).
+- **Negative control still fires**: a hand-edited `plan.json` claiming `sealed-events` against an
+  emitted `enum-status` template → `[strategy-fidelity] FAIL (1)` — the gate is not weakened.
+- `apps/rasheed/output/qa/m4_evidence.ts` updated to the fixed signature: sealed fires in **0/25
+  states across all 15 IRs**; matching-machine count 0 everywhere.
 
 ## P2 — per-list search, CLOSED
 
@@ -66,7 +97,7 @@ implement-behind-current-metric) in `SPIKE_M4_REPORT.md` §13-§15. `SPIKE_PLAN.
 |---|---|
 | P1 (global shell) | ✅ shipped, committed `4e91e50` |
 | P2 (per-list search) | ✅ **CLOSED** this round — `99da57b`/`dafe4b1`/`f48e5a6` |
-| SPIKE M4 (sealed-state codegen) | ✅ **COMPLETE**, decision MODIFY — `b5eb50c`; **M4a not yet implemented** (next step) |
+| SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), **M4a selector fix applied this round** (`scoring.ts`, no threshold); **M4b (sealed template family) deferred** until a real event-rich IR declares `stateMachines` |
 | S-CTX, P3, P4, P5/D2, S-HERMETIC, S-DEEPLINK | Not started — see `SPIKE_PLAN.md` for scope/sequencing |
 | Ledgerly-MVP, LEFTOVER_NOTES queue (pre-P1/P2 items) | ✅ complete (prior round, see `context_history.md`) |
 | SwiftUI target S1+S2 | PARKED/DEFERRED (prior round) |
@@ -84,13 +115,12 @@ probe).
 
 ## Next steps (not started, for whoever picks this up)
 
-1. **M4a** — implement the `scoring.ts` selector fix (own slice, small — see `SPIKE_PLAN.md` M4
-   section for the exact acceptance checklist). Can run locally or on a remote opencode channel;
-   zero overlap with the interface-pattern spikes below, safe to do first or in parallel.
-2. **S-CTX** — composition/plan determinism contract + `[plan-determinism]` validate gate (small,
+1. **S-CTX** — composition/plan determinism contract + `[plan-determinism]` validate gate (small,
    do before P3 per `SPIKE_PLAN.md`'s sequencing rule).
-3. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1.
-4. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
+2. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1.
+3. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
+4. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
+   genuine `stateMachines` transition vocabulary (new sample or owner request).
 5. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
 
 ## Rules

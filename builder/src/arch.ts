@@ -42,7 +42,7 @@ const PROVEN_COUPLED_PAIRS: Set<string> = new Set([
 export function decideArchitecture(ir: FeatureModel): ArchitectureDecision {
   const app = scoreApp(ir);
   const perStateStrategy = new Map<string, StateStrategy>();
-  for (const s of ir.states ?? []) perStateStrategy.set(s.name, scoreStateStrategy(s));
+  for (const s of ir.states ?? []) perStateStrategy.set(s.name, scoreStateStrategy(s, ir));
 
   const coupledPair = `${app.stateManagement} × ${app.di}`;
   if (!PROVEN_COUPLED_PAIRS.has(coupledPair)) {

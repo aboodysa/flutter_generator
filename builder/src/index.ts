@@ -29,7 +29,6 @@ import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlo
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
-import { scoreStateStrategy } from "./scoring";
 import { decideArchitecture, ArchitectureDecision } from "./arch";
 import { PlanEntry, GenerationPlan, dependsOnFor, tagForIrKey, validatePlanReferences, GenClass } from "./plan";
 import { RegionConflict, checkOverwrite, userRegionHash } from "./region";
