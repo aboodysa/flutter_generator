@@ -255,6 +255,28 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const readMutator = (method: string, args: string) =>
     sm === "riverpod" ? `ref.read(${camelize(s.state)}Provider.notifier).${method}(${args})` : `context.read<${s.state}Cubit>().${method}(${args})`;
 
+  // P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §14.1/§14.2): the decided StatePlacementSpec for THIS
+  // screen (composition.ts's statePlacementTargets, computed once per generateApp run) — consumed
+  // by name only, never re-derived here (contract §1: composition.ts is the single owner). No
+  // entry (wizard: the flow-status field is `wizardStatus`, not `status`) emits none of the
+  // triad's rendered pieces. Hoisted above the list/wizard/detail branch (rather than computed
+  // just before `checks` below) because Slice 3's empty-state CTA and refresh also need it, and
+  // both are decided inside the list branch, upstream of where `checks` is built.
+  const placement = ctx?.states?.get(s.name);
+
+  // G6: on a child list screen (reached via a parent's "View <Child>s" link, e.g. FollowUps under
+  // a Task), the create-form nav must carry the SAME `?<fk>=<parentId>` query param forward —
+  // otherwise "New FollowUp" from a filtered list loses which parent it belongs to, and
+  // crud_form.ts's own query-param prefill never gets an id to prefill with. Shared by the FAB
+  // (below) and Slice 3's empty-state "New <Entity>" CTA — both must navigate identically.
+  const newFormOnPressed = childFk
+    ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.push(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
+    : `() => context.push('${formPath}/new')`;
+  // L4: only the fixed "New" word is translatable — ${s.entity} is a dynamic, IR-derived name with
+  // no deterministic Arabic source (see infra.ts's documented scope boundary). Shared by the FAB
+  // tooltip and Slice 3's empty-state CTA button label.
+  const newLabel = loc ? `'\${AppStrings.of(context).newLabel} ${s.entity}'` : `'New ${s.entity}'`;
+
   // Hero block: gated by the archetype (comp.hasHero) AND an IR-declared headline — an archetype
   // with hasHero:false never renders one even if `s.hero` is set, and vice versa. heroGap (the
   // registry's rhythm field) drives the padding below the hero.
@@ -614,24 +636,9 @@ ${contentCases}
                 ),
 `
       : "";
-    const listOrEmpty = searchEnabled
-      ? `filtered.isEmpty && query.isNotEmpty
-                      ? EmptyState(message: 'No results for "\$_query"')
-                      : ScrollConfiguration(`
-      : `ScrollConfiguration(`;
-    body = `${listFilter}${searchPrelude}            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-${searchBarBlock}${heroBlock}
-                Expanded(
-                  // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
-                  // stylus) into drag-to-scroll — Flutter's default excludes mouse, which is why
-                  // a real mouse-drag never scrolled this list even though touch always did.
-                  // Scrollbar(thumbVisibility: true) makes the list's scrollability visible up
-                  // front, not just discoverable by already dragging (the owner's "no scroller"
-                  // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
-                  // even on the rare screen where content doesn't yet overflow.
-                  child: ${listOrEmpty}
+    // P5/D2 Slice 3 (SPIKE_P5_D2_REPORT.md §14.1, brief): the list's scroll parent, pulled out so
+    // it can be wrapped in RefreshIndicator (below) without hand-balancing parens inline.
+    const scrollConfigExpr = `ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -656,7 +663,58 @@ ${searchBarBlock}${heroBlock}
                         },
                       ),
                     ),
-                  ),
+                  )`;
+    // O6.3 (retry/refresh — lists only, §16 decision): RefreshIndicator wraps the scroll parent
+    // when composition.ts decided this screen's repo has load() and the archetype is a list.
+    // `readMutator("load", "")` already resolves bloc vs riverpod (context.read<X>().load() /
+    // ref.read(...).load()) — RefreshIndicator's onRefresh wants exactly the Future<void> it
+    // returns.
+    const refreshableScroll = placement?.refresh
+      ? `RefreshIndicator(
+                    onRefresh: () => ${readMutator("load", "")},
+                    child: ${scrollConfigExpr},
+                  )`
+      : scrollConfigExpr;
+    // The pre-existing search/no-results branch stays exactly as it was (contract boundary #4:
+    // it coexists with, and is distinct from, the plain-empty-collection case below) — it only
+    // ever fires once `items` itself is non-empty (query.isNotEmpty on an empty collection can't
+    // happen: the SearchBar is only reachable once there's something to search).
+    const searchOrList = searchEnabled
+      ? `filtered.isEmpty && query.isNotEmpty
+                      ? EmptyState(message: 'No results for "\$_query"')
+                      : ${refreshableScroll}`
+      : refreshableScroll;
+    // O6.2 (empty-state CTA): "New <Entity>" navigates and labels itself IDENTICALLY to the FAB
+    // (newFormOnPressed/newLabel, hoisted near formPath/childFk) — only rendered when
+    // crudFormTargets(ir) says this entity has a create form (placement.emptyCta); a non-CRUD
+    // entity (e.g. an update-only review queue) still gets the plain EmptyState, never a CTA
+    // with no target (contract boundary #3's DoD bullet).
+    const emptyCtaAction = placement?.emptyCta
+      ? `,\n                        action: OutlinedButton(onPressed: ${newFormOnPressed}, child: Text(${newLabel}))`
+      : "";
+    const plainEmptyExpr = `EmptyState(message: 'No ${appBarTitle} yet'${emptyCtaAction})`;
+    // placement.empty (list archetype, composition.ts) gates the plain-empty-collection branch —
+    // checked BEFORE the search-not-found branch above, since a truly empty collection also has
+    // query.isEmpty (nothing typed yet), so search's ternary would otherwise fall through to an
+    // empty ListView with no message (the bug this slice fixes, brief's screen.ts:71 citation).
+    const listOrEmpty = placement?.empty
+      ? `items.isEmpty
+                      ? ${plainEmptyExpr}
+                      : ${searchOrList}`
+      : searchOrList;
+    body = `${listFilter}${searchPrelude}            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+${searchBarBlock}${heroBlock}
+                Expanded(
+                  // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
+                  // stylus) into drag-to-scroll — Flutter's default excludes mouse, which is why
+                  // a real mouse-drag never scrolled this list even though touch always did.
+                  // Scrollbar(thumbVisibility: true) makes the list's scrollability visible up
+                  // front, not just discoverable by already dragging (the owner's "no scroller"
+                  // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
+                  // even on the rare screen where content doesn't yet overflow.
+                  child: ${listOrEmpty},
                 ),
               ],
             );`;
@@ -668,17 +726,24 @@ ${searchBarBlock}${heroBlock}
   const componentsImport = ctx ? `import 'package:${ctx.pkg}/core/components.dart';` : "import '../../core/components.dart';";
   const themeImport = ctx ? `import 'package:${ctx.pkg}/core/theme.dart';` : "import '../../core/theme.dart';";
 
-  // P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §14.1/§14.2): the decided StatePlacementSpec for THIS
-  // screen (composition.ts's statePlacementTargets, computed once per generateApp run) — consumed
-  // by loading/error only, never re-derived here (contract §1: composition.ts is the single
-  // owner). No entry (wizard: the flow-status field is `wizardStatus`, not `status`) emits neither
-  // branch — this is the wizard compile-bug fix (§3.3): the old unconditional literals compared
-  // against a `status` getter the wizard state never declares.
-  const placement = ctx?.states?.get(s.name);
+  // P5/D2 Slice 2 (placement decided above, near formPath/newFormOnPressed) drives loading/error;
+  // Slice 3 (SPIKE_P5_D2_REPORT.md §14.1) adds the retry OutlinedButton onto the error branch when
+  // placement.retry (error AND the state's Cubit/Notifier has load(), which state.ts emits
+  // unconditionally on every non-wizard state — see composition.ts's statePlacementFor doc
+  // comment). No entry (wizard) emits neither branch — the wizard compile-bug fix (§3.3): the old
+  // unconditional literals compared against a `status` getter the wizard state never declares.
+  // `s.type === "list"` extra gate: composition.ts's `retry` field mirrors `error` at the STATE-
+  // MODEL level (so a detail screen sharing a list's cubit also sees placement.retry=true) — but
+  // the owner's §16 decision scopes the rendered button to lists only ("detail-screen retry is a
+  // follow-up, not this slice"); `checks` itself (loading/error) still renders unchanged on a
+  // shared-cubit detail screen, only the retry button is withheld there.
+  const errorState = placement?.retry && s.type === "list"
+    ? `ErrorState(message: state.errorMessage, onRetry: () => ${readMutator("load", "")})`
+    : `ErrorState(message: state.errorMessage)`;
   const checks = placement
     ? [
         placement.loading ? `        if (state.${placement.flowField} == ${statusEnum}.loading) return const LoadingState();` : null,
-        placement.error ? `        if (state.${placement.flowField} == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);` : null,
+        placement.error ? `        if (state.${placement.flowField} == ${statusEnum}.failure) return ${errorState};` : null,
       ].filter(Boolean).join("\n")
     : "";
 
@@ -826,20 +891,13 @@ ${searchBarBlock}${heroBlock}
     ? `,\n      actions: [\n${inlineActions.join("")}${overflowMenu}      ]`
     : "";
 
-  // G6: on a child list screen (reached via a parent's "View <Child>s" link, e.g. FollowUps under
-  // a Task), the create-FAB must carry the SAME `?<fk>=<parentId>` query param forward into the
-  // create form — otherwise "New FollowUp" from a filtered list loses which parent it belongs to,
-  // and crud_form.ts's own query-param prefill (below) never gets an id to prefill with.
-  const fabOnPressed = childFk
-    ? `() {\n          final id = GoRouterState.of(context).uri.queryParameters['${childFk.name}'];\n          context.push(id != null ? '${formPath}/new?${childFk.name}=\$id' : '${formPath}/new');\n        }`
-    : `() => context.push('${formPath}/new')`;
-  // L4: only the fixed "New" word is translatable — ${s.entity} is a dynamic, IR-derived name
-  // with no deterministic Arabic source (see infra.ts's documented scope boundary).
+  // FAB reuses newFormOnPressed/newLabel (hoisted above, near formPath/childFk) — Slice 3's
+  // empty-state CTA navigates and labels itself IDENTICALLY (SPIKE_P5_D2_REPORT.md §16: "confirm
+  // the existing FAB `?<fk>=` forwarding is the desired nav").
   const fabApplies = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate;
   if (loc && fabApplies) appStringsUsed = true;
-  const newTooltip = loc ? `'\${AppStrings.of(context).newLabel} ${s.entity}'` : `'New ${s.entity}'`;
   const fab = fabApplies
-    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newTooltip},\n        onPressed: ${fabOnPressed},\n        child: const Icon(Icons.add),\n      )`
+    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newLabel},\n        onPressed: ${newFormOnPressed},\n        child: const Icon(Icons.add),\n      )`
     : "";
   // L4: AppStrings import — same leading-"\n"-folded-into-the-value trick as budgetImport/
   // exportImport use, so a non-locale (or locale-aware-but-unused-here) screen's import block
