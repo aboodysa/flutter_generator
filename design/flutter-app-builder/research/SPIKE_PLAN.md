@@ -51,10 +51,18 @@
   no single *placement* owner — the placement logic already lives ad hoc inside `screen.ts`, and
   `DESIGN_OPTS.md` was scoped before the contract existed, so it never names a placement owner
   either. P5/D2 below fixes this.
-- `scoring.ts:15,51,164-171` confirms `LEFTOVER_NOTES.md` M4 exactly: `StateStrategy` includes
-  `"sealed-events"` and `SEALED_EVENTS_THRESHOLD = 8` selects it, but `grep` for `sealed` in
-  `generators/state.ts` returns nothing — the strategy is chosen and never implemented. Real,
-  scoped, independent gap.
+- SPIKE M4 (complete, decision **MODIFY** — `SPIKE_M4_REPORT.md`, commit `b5eb50c`) corrected this
+  entry: the claim below in the original grounding pass ("no sample crosses that threshold") was
+  **wrong**. `builder/samples/rasheed.ir.json`'s `AllExpenses` state (5 statuses + 6 extraFields =
+  11 ≥ `SEALED_EVENTS_THRESHOLD=8`, `scoring.ts:15,51,165-173`) already fires `sealed-events`, and
+  the already-shipped `[strategy-fidelity]` gate (`validate.ts:90-112`) already catches the
+  resulting plan/emit mismatch (probe: `plan.json` declares `sealed-events`, the emitted file's
+  `template=state_enum_status.v1` header proves otherwise → gate FAILs —
+  `apps/rasheed/output/qa/validate_probe1.log`). The real defect is upstream: `scoreStateStrategy`'s
+  metric (`statuses.length + extraFields.length`) counts the wrong surface — DESIGN §5.2 defines
+  sealed-events off the `stateMachines[]` transition/guard surface, which is zero in every current
+  IR (`apps/rasheed/output/qa/m4_evidence.ts`, all 15 sample/app IRs). See the M4 section below for
+  the resolved scope (MODIFY: fix the selector now, defer the template family).
 - `project.ts:9-10,28-29,51-58` pins Flutter/Dart deps with caret ranges (`^8.1.6`, `^17.1.0`,
   `^3.0.0`, …), and no `pubspec.lock` is emitted by the compiler. Generator **output** determinism
   (string-for-string) is already the proven acceptance invariant (P1/P2's own diff harnesses) — the
@@ -68,11 +76,12 @@
 ## 1. Ordered spike list
 
 Sequencing rule: **S-CTX first** (cheap, and every later spike's acceptance checklist cites its
-invariant). **M4** has zero file overlap with the interface-pattern spikes (owns `state.ts` +
-`scoring.ts`, not `composition.ts`/`screen.ts`/`route.ts`) — it can run **in parallel** with P3/P4
-at any point, doesn't block or get blocked by them. Everything else is sequential per the frozen
-roadmap (contract §8) because each later spike's `screen.ts`/`app_shell.ts` edits assume the
-earlier ones already landed at named insertion points (see §2 ownership matrix's Notes column).
+invariant). **M4 is now spike-complete** (decision MODIFY, commit `b5eb50c`) — its resolved next
+step, **M4a**, is a `scoring.ts`-only fix with zero file overlap with the interface-pattern spikes
+(`composition.ts`/`screen.ts`/`route.ts`), so it can run **in parallel** with P3/P4 at any point,
+doesn't block or get blocked by them. Everything else is sequential per the frozen roadmap
+(contract §8) because each later spike's `screen.ts`/`app_shell.ts` edits assume the earlier ones
+already landed at named insertion points (see §2 ownership matrix's Notes column).
 
 ```text
 S-CTX  → P3 → P4 → P5/D2  (sequential; screen.ts/app_shell.ts insertion-point chain)
@@ -287,43 +296,84 @@ point), `validate.ts` (new/extended gate).
 
 ---
 
-### M4 — Sealed-class state codegen (parallel track, independent)
+### M4 — Sealed-class state codegen — **SPIKE COMPLETE, decision MODIFY**
 
-**Source:** `LEFTOVER_NOTES.md` M4, root-caused, deliberately left OPEN. Not a grill item.
+**Source:** `LEFTOVER_NOTES.md` M4, root-caused, deliberately left OPEN → investigated by SPIKE M4
+(`design/flutter-app-builder/research/SPIKE_M4_REPORT.md`, commit `b5eb50c`, remote
+opencode/tracematrix `germany3`). Not a grill item (no C-number). **Status: spike complete.
+Decision: MODIFY.** The scope below (originally "implement the sealed branch") is superseded by
+the spike's findings — do not implement per the old scope; follow the resolved scope instead.
 
-**Objective:** `scoring.ts:171` can select `"sealed-events"` (`SEALED_EVENTS_THRESHOLD = 8`,
-`:51`) but `generators/state.ts` never implements that branch — always emits `enum-status`
-regardless of what the plan says. This is a real strategy-fidelity mismatch between `plan.json`'s
-declared `strategy` field (`plan.ts:20`) and the actual generated code.
+**What the spike proved (corrects this doc's prior ground truth, §0):**
+- The original claim "today no sample crosses that threshold" was **factually wrong**.
+  `builder/samples/rasheed.ir.json`'s `AllExpenses` state does cross it (idx=11 ≥ 8) — confirmed by
+  a real probe generation (`apps/rasheed/output/qa/probe1`).
+- The "add a plan-vs-output drift gate" half of the old scope item 3 was **already shipped** before
+  the spike ran: `[strategy-fidelity]` (`validate.ts:90-112`) already exists and already FAILs on
+  the probe (`[strategy-fidelity] FAIL (1)`, `apps/rasheed/output/qa/validate_probe1.log`). No new
+  gate work was needed for that half — it's done.
+- The actual defect is the **scoring metric**, not a missing template: `scoreStateStrategy`
+  (`scoring.ts:15,51,165-173`) measures `statuses.length + extraFields.length`, but DESIGN §5.2
+  defines sealed-events off the `stateMachines[]` transition/guard surface (`DESIGN.md:211,378`).
+  Every IR in the repo declares zero `stateMachines` (`m4_evidence.ts` confirms sm-metric=0 across
+  all 15 sample/app IRs) — so under the DESIGN-correct metric, nothing fires sealed today, and
+  rasheed's field-heavy-but-transition-free state is exactly the false positive the wrong metric
+  produces.
+- H1 (implementing sealed-events now is worthwhile) does not survive the evidence: the repo's own
+  reference app (`RASHEED_AUDIT_OUTPUT.md:142,244`) is enum-status-dominant (one sealed class in
+  the whole codebase), no sample declares a transition vocabulary, the shape is invisible to end
+  users (internal exhaustiveness only), and it costs a permanent dual-template maintenance burden
+  (`SPIKE_M4_REPORT.md` §11-§12).
 
-**Scope:**
-1. Implement the `sealed-events` branch in `state.ts`: a sealed base class + one subclass per
-   event/transition, exhaustive `when`/`map`-style dispatch, instead of the single enum-status
-   field. Only fires when `scoring.ts` actually selects it (complexity ≥ 8) — today no sample
-   crosses that threshold, so this needs either a synthetic high-complexity probe IR or raising a
-   real sample's complexity deliberately to exercise it.
-2. `screen.ts`/`crud_form.ts`/`test.ts` consumers of state fields need a parallel branch wherever
-   they currently assume the enum-status shape (`state.status == X.loading` style checks,
-   `screen.ts:665` pattern) — this is the actual size of the slice, not just `state.ts` alone.
-3. Extend the existing plan-vs-output gate (or add `[state-strategy]`) to catch drift: declared
-   `strategy` in `plan.json` must match what's actually emitted (this is the same species of check
-   as S-CTX's `[plan-determinism]` gate, applied to `scoring.ts`'s decision instead of
-   `composition.ts`'s — cite S-CTX's gate as the reusable pattern, don't reinvent it).
+**Resolved scope — two concrete actions (MODIFY, not ADOPT/REJECT):**
 
-**Owner modules:** `generators/state.ts` (primary), `scoring.ts` (no change — already correct),
-`screen.ts`/`crud_form.ts`/`generators/test.ts` (consumer branches), `validate.ts` (new gate).
+1. **M4a — correct the selector.** `scoring.ts`-only change: `scoreStateStrategy` recomputes
+   complexity from the `ir.stateMachines` surface (states + transitions + guarded-transition count)
+   instead of `statuses + extraFields`, falling back to `enum-status` when a state has no declared
+   machine/event vocabulary. Update `arch.ts`'s call site to pass `ir` through. No schema/IR change
+   (`stateMachines` already exists, DESIGN §2/§5.2). Regression: `[strategy-fidelity]` PASSes on
+   all 4 apps + all samples afterward (rasheed flips FAIL→PASS); the existing probe's negative
+   control (declare sealed / emit enum) still FAILs, proving the gate isn't weakened by the fix.
+   **Owner module: `scoring.ts` only** — zero overlap with `state.ts`/`screen.ts`/`crud_form.ts`/
+   `test.ts`, and zero overlap with P3/P4/P5-D2's `composition.ts`/`screen.ts` insertion points.
+   **Estimate: S (1 slice).** This is the next actionable step.
+2. **M4b — implement the sealed template family — DEFERRED, not scheduled.** Real and
+   implementable (a standard Dart-3 sealed-class pattern), but not scheduled: no current sample
+   would exercise it under M4a's corrected selector, and the cost (`state.ts` sealed branch +
+   parallel consumer branches in `screen.ts`'s status-switch/collection-reads/export block,
+   `generators/test.ts` seeding, and the cubit CRUD-mutation rebuild — `SPIKE_M4_REPORT.md` §5.1,
+   §14) buys a second, permanently-synced template family with no verifiable current benefit. Pick
+   this back up only when a real IR declares a genuine `stateMachines` transition surface (new
+   sample or explicit owner request) — at that point run a fresh ADOPT/MODIFY spike against the
+   *corrected* selector, don't resume this old plan verbatim. If/when it lands: **owner modules**
+   `generators/state.ts` (primary, additive branch on the same `generateState` function — never a
+   fork, per the standing merge rule in §2), `screen.ts`/`crud_form.ts`/`generators/test.ts`
+   (consumer branches). No new gate needed — `[strategy-fidelity]` already covers the drift case.
+   **Estimate: M-L, unscoped further until triggered.**
 
-**No overlap with P3/P4/P5/D2** — different generator surface entirely (state shape, not
-navigation/search/scroll/actions/placement). Safe to run in parallel.
+**Consequence flagged for the owner:** under the corrected M4a selector, roadmap item C3 ("ship
+enum-status AND sealed-events at parity", `PHASE_PLAN.md`/`TIMELINE.md:20`) becomes **inert** — no
+current IR fires sealed, so there's nothing for it to ship until an event-rich sample exists. This
+is a roadmap consequence of the fix, not a new bug.
 
-**Acceptance:**
-- [ ] Typecheck; byte-identical for every existing sample (none currently cross the threshold).
-- [ ] A synthetic probe IR (≥8-complexity state) exercises the sealed branch; `flutter analyze &&
-      flutter test` green on the generated probe app.
-- [ ] New gate catches a deliberately-broken case (declare sealed, emit enum — should FAIL) as a
-      negative control.
+**Owner modules (M4a only, the active next step):** `scoring.ts` (the fix), `arch.ts` (pass `ir`
+through to the call site). **No overlap with P3/P4/P5/D2** — different generator surface entirely
+(state-strategy scoring, not navigation/search/scroll/actions/placement). Safe to run at any time,
+in parallel with the sequential interface-pattern chain.
 
-**Estimate:** M (2-3 slices: state.ts branch, consumer updates, gate + probe).
+**Acceptance (M4a):**
+- [ ] Typecheck; byte-identical for every existing sample's *generated code* (nothing currently
+      emits sealed regardless of what the plan claims, so the selector fix only changes `plan.json`
+      declarations — rasheed's `AllExpenses` entry flips `sealed-events`→`enum-status`).
+- [ ] `[strategy-fidelity]` PASSes on all 4 apps + all samples, including a fresh `npm run
+      build:rasheed` + validate (was FAIL, must now PASS).
+- [ ] Negative control still fires: a deliberately hand-edited `plan.json` claiming `sealed-events`
+      against an emitted `enum-status` template still FAILs the gate (proves M4a didn't weaken it).
+
+**Evidence:** `design/flutter-app-builder/research/SPIKE_M4_REPORT.md` (full report, decision +
+rejected alternatives), `apps/rasheed/output/qa/m4_evidence.ts` (reproducible per-IR metric table),
+`apps/rasheed/output/qa/probe1/` (probe generation), `apps/rasheed/output/qa/validate_probe1.log`
+(gate FAIL proof). Commit `b5eb50c`.
 
 ---
 
@@ -412,13 +462,15 @@ never forks it (the concrete resolution rule for co-owned generators, C3).
 | **P3** | owns `scrollFor` | owns `patterns.scroll` | **owns AppBar-tint block** | — | extends `generateAppShell` (nav-bar hide) | — | owns `[scroll]` | — | — |
 | **P4** | owns `actionsFor` + action icon map | owns `patterns.actions` | **owns detail "…" menu block** | — | — | **owns extended-FAB block** | owns `[actions]` | — | reuses existing predicates only (no new ones) |
 | **P5/D2** | owns minimal `statePlacementFor` | owns `patterns.states` (optional) | **owns Loading/Error/Empty triad + CTA block** (formalizes existing `:665-666`/`:613`) | — | — | — | owns `[states]` | — | reuses `crudFormTargets` (no new predicate) |
-| **M4** | — | strategy field already exists (`scoring.ts` owns) | — | — | — | consumer branch update | owns `[state-strategy]` | — | — |
+| **M4a** (active) | — | strategy field already exists; `scoring.ts` owns the fix (not in this table's columns — see `scoring.ts`/`arch.ts`) | — | — | — | — | `[strategy-fidelity]` already shipped (pre-dates the spike; no new gate work) | — | — |
+| **M4b** (deferred) | — | — | consumer branch update (deferred) | — | — | consumer branch update (deferred) | — | — | — |
 | **S-HERMETIC** | — | — | — | — | — | — | owns timestamp-absence check | — | — |
 | **S-DEEPLINK** | reuses `ShellDestination`, no edit | — | — | owns branch-index mapping | extends (restoration wiring) | — | extends `[shell]` | — | — |
 
-**Additional module touched only by M4/P5-D2, not in the table above:** `generators/state.ts`
-(M4 primary), `generators/test.ts` (M4 + P4 + P5/D2 each add their own regression-test generation
-branch — same "own named block" rule applies there too, not just in `screen.ts`).
+**Additional module touched only by M4b/P5-D2, not in the table above:** `generators/state.ts`
+(M4b primary, deferred — not touched by the active M4a fix, which is `scoring.ts`-only),
+`generators/test.ts` (M4b + P4 + P5/D2 each add their own regression-test generation branch — same
+"own named block" rule applies there too, not just in `screen.ts`).
 
 **The merge rule, stated once, for every future co-ownership case:** each spike claims a named,
 disjoint insertion point in a shared generator, recorded in this table's Notes; if two spikes
@@ -524,14 +576,15 @@ recreating exactly the C3 ownership problem this plan exists to prevent.
 | NavigationRail adaptive shell | Backlog / stretch |
 | Skeleton loading | DESIGN_OPTS defer (O6.1) |
 | Undo | Explicitly deferred |
+| M4b sealed-events template family | SPIKE M4 complete (MODIFY, `b5eb50c`) — deferred until a real `stateMachines`-declaring IR exists; M4a (scoring.ts selector fix) is the only active M4 next step |
 
 ### Frozen order (unchanged except the gate)
 
 ```text
 S-CTX → P3 → P4 → P5/D2        (P2 closure is the gate in front of S-CTX/P3)
-M4 ─────────────────────────┐
-S-HERMETIC ────────────────┤ parallel
-S-DEEPLINK → backlog ──────┘
+M4a (M4 spike complete, MODIFY — scoring.ts only) ┐
+S-HERMETIC ───────────────────────────────────────┤ parallel
+S-DEEPLINK → backlog ──────────────────────────────┘
 ```
 
 Do not add further interface patterns until this contract + its validators are closed — every new
