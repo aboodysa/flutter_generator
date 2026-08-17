@@ -1,117 +1,59 @@
-# HANDOFF — S-CTX COMPLETE, next: P3 scroll (round: 2026-08-17)
+# HANDOFF — P3 COMPLETE, next: P4 actions (round: 2026-08-17)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-**S-CTX — COMPLETE** (contract + `[plan-determinism]` gate). **P2 — CLOSED.** **SPIKE M4 — FULLY
-CLOSED (M4a applied).** Next per the frozen order (`SPIKE_PLAN.md`): **P3** scroll behavior.
+**P3 (scroll behavior) — COMPLETE** (commit `f0254f9`). **S-CTX — COMPLETE.** **P2 — CLOSED.**
+**SPIKE M4 — FULLY CLOSED (M4a applied).** Next per the frozen order (`SPIKE_PLAN.md`): **P4**
+(ActionSpec v1 — `presentation: inline|overflow|primary`, ChatGPT round-2 edit #3).
 
-## S-CTX — plan-determinism contract + gate, COMPLETE
+## P3 — per-screen on-scroll AppBar tint, COMPLETE
 
-Resolves grills C1 ("'ctx' undefined / determinism tautology") + C15 ("LLM-authored plan recurses
-nondeterminism") — the roadmap's standing guard before P3/P4/P5-D2 (each cites plan.json in its
-acceptance).
+Implements `INTERFACE_PATTERN_CONTRACT.md` §5 + `SPIKE_PLAN.md` §P3 via the **declared contract
+rule** (ChatGPT round-2 edit #2): `scroll.enabled = screen.kind ∈ { list, detail }`.
 
-- **`research/DETERMINISM_CONTRACT.md`** — field-by-field derivation map of `GenContext` +
-  `GenerationPlan` (`scoring`, `patterns.shell`, `patterns.search`, `entry.*`) with each pure
-  selector cited (file:line), + the **transitivity invariant** (every helper in the closure must be
-  pure — no wall clock/FS-content/network/env/randomness/mutable state/LLM).
-- **`[plan-determinism]` gate in `validate.ts`** — reuses the existing `[determinism]` regeneration
-  (one fresh generate), diffs the regenerated `plan.json` against the on-disk one
-  (JSON.stringify compare — stable, key-stable output). Catches hand-edits, stale plans, and any
-  purity leak in a plan-field helper. Additive (new field in `ValidationResult` + printout), zero
-  generator changes, zero IR/schema changes.
-- **Negative controls proven**: hand-edit `patterns.shell` → `[plan-determinism] FAIL (1)`;
-  delete `plan.json` → `FAIL (1)` (not vacuous).
-- **Verification**: typecheck clean; `[plan-determinism] PASS` on all 4 apps + all 5 samples
-  (9 IRs), `[determinism]`/`[strategy-fidelity]`/`[verdict]` all still PASS.
-- **Decision brief delivered** to owner first (MD + PDF with mermaid pipeline/sequence diagrams,
-  shaded areas of interest — `research/SCTX_DECISION.{md,pdf}`, committed `5a67f5f`).
-everywhere including the rasheed probe (was FAIL). Next per the frozen order: S-CTX → P3 → P4 →
-P5/D2.
+- **`composition.ts`** — `ScrollSpec {enabled:true}` + `scrollFor(screen)` (the ONE selector that
+  decides; rule inline as a versioned declared rule) + `scrollTargets(ir)` (name-keyed, same shape
+  as `searchTargets`). **State-management AGNOSTIC on purpose** — unlike P2 search's bloc-only
+  carve-out, the tint is pure presentation, so the riverpod sample tints too (no latent `[scroll]`
+  gate gap).
+- **`screen.ts`** — `scrollEnabled = !!ctx?.scroll?.get(s.name)`; `NotificationListener<ScrollNotification>`
+  wrapper flips a widget-local `_scrolled` on `extentBefore > 0` (contract §5 "IR state ≠ scroll/UI
+  state"); AppBar `backgroundColor: _scrolled ? surfaceContainerHighest : null` (`null` at rest =
+  theme default ⇒ at-rest pixels/goldens byte-identical; `surfaceContainerHighest` is a stock M3
+  token, passes the `[architecture]` raw-color gate). Riverpod list/detail → `ConsumerStatefulWidget`;
+  bloc list/detail → `StatefulWidget` only when `needsLocalState = scrollEnabled || searchEnabled`.
+  Template tag gains `_scroll` suffix.
+- **`validate.ts`** — `[scroll]` gate + exported `scrollCheck`: re-derives via the **SAME**
+  `scrollTargets`, cross-checks `plan.json patterns.scroll` (missing / wrong `enabled` / stale
+  path), then scans **every** screen — list/detail must render the listener, wizard/form must NOT
+  (the null-set is a *checked* claim).
+- **`index.ts`/`plan.ts`/`gen_context.ts`** — `scrollByPath`, `patterns.scroll` (screenPath-keyed),
+  `ctx.scroll` (name-keyed); threaded through single- and multi-feature paths.
 
-## M4a — corrected `scoreStateStrategy` selector, APPLIED
+### Verification (all green)
 
-Implements `SPIKE_PLAN.md`'s M4a (the actionable half of SPIKE M4's MODIFY decision), per the
-owner's directive **"no hardcoded magic numbers"**. Before, `scoreStateStrategy` fired
-`sealed-events` when `statuses.length + extraFields.length >= SEALED_EVENTS_THRESHOLD (8)` (plus a
-synthetic `["initial","loading","success","failure"]` status list when none declared) — while
-`generators/state.ts` only ever emits `state_enum_status.v1` / `state_notifier.v1` (no sealed
-template exists). rasheed's `AllExpenses` (5+6=11) selected sealed → `[strategy-fidelity]` FAIL.
-
-Fix (`scoring.ts` only, plus the `arch.ts` call site): `scoreStateStrategy(s, ir)` now selects
-`sealed-events` **purely from declared IR semantics** — a `stateMachines` entry whose state
-vocabulary covers the state's declared `statuses` AND which declares a non-empty `events` +
-`transitions` surface (the DESIGN §5.2 "transition surface"). No threshold constant, no synthetic
-list. Every other state resolves to `enum-status`. Since no repo IR declares such a matching
-machine, sealed fires nowhere today — honest with the generator, and M4b (the sealed template
-family) stays deferred exactly as the spike ruled.
-
-Verification (all green):
-- `npm run typecheck:builder` — clean.
-- `[strategy-fidelity] PASS` on all 4 apps (tasks/ledgerly/hr_service/work_auth) + all samples
-  (todo/inventory/expense.semantic/promo/rasheed). rasheed probe refresh:
-  `apps/rasheed/output/qa/validate_probe1.log` now `PASS` (was `FAIL (1)`).
-- Determinism **byte-identical** across the 8-IR sweep (only `plan.json` strategy string changed on
-  rasheed's `AllExpenses` entry: `sealed-events` → `enum-status`; determinism gate diffs `lib/`
-  only, so unaffected).
-- **Negative control still fires**: a hand-edited `plan.json` claiming `sealed-events` against an
-  emitted `enum-status` template → `[strategy-fidelity] FAIL (1)` — the gate is not weakened.
-- `apps/rasheed/output/qa/m4_evidence.ts` updated to the fixed signature: sealed fires in **0/25
-  states across all 15 IRs**; matching-machine count 0 everywhere.
-
-## P2 — per-list search, CLOSED
-
-Three commits close the P2 brief (`research/P2_IMPLEMENTATION_BRIEF.md`) in full:
-
-- `99da57b` — `searchFor`/`searchTargets` selector (`composition.ts`), `entity.primaryDisplayField`
-  IR semantic (schema + `types.ts`), `screen.ts` SearchBar/filter/no-results template, `plan.json`
-  `patterns.search`, new `[search]` validate gate. Also fixed a real `scroll_test.dart` fragility
-  the slice surfaced (switched to `tester.scrollUntilVisible`).
-- `dafe4b1` — declared `primaryDisplayField` on all 4 samples (tasks/hr_service/work_auth/ledgerly),
-  regenerated real search UI + goldens. `validate.ts` 22/22 gates PASS on all 4 (`[search]` +
-  `[shell]` + determinism all PASS), `flutter analyze` clean, `flutter test` green
-  (36/36 hr_service, 22/22 work_auth, 83/83 ledgerly, tasks clean aside from a pre-existing
-  unrelated harness issue).
-- `f48e5a6` — CDP walk (ledgerly + tasks): filter-as-you-type, case-insensitive contains,
-  no-results EmptyState, clear — all confirmed live on both a shelled (ledgerly) and unshelled
-  (tasks) app, proving search and P1's shell compose independently. Findings under
-  `apps/{ledgerly,tasks}/output/qa/p2-search/`.
-
-Gate evidence: `[search]` PASS, `[shell]` still PASS, `[determinism]` still PASS, across all 4 real
-apps — the acceptance invariant (contract §3.3) holds.
-
-## SPIKE M4 — sealed-class state codegen, COMPLETE (decision MODIFY)
-
-`research/SPIKE_M4_REPORT.md` (commit `b5eb50c`, remote opencode/tracematrix `germany3`) closes the
-`LEFTOVER_NOTES.md` M4 item that had been root-caused but left OPEN. Investigated per
-`SPIKE_PROTOCOL.md`'s research-not-implementation discipline: no `builder/src` edits from the spike
-itself, decision recorded before any implementation.
-
-**Finding — `SPIKE_PLAN.md`'s prior ground truth for M4 was wrong.** It claimed "today no sample
-crosses the sealed-events threshold"; the spike's probe proves `builder/samples/rasheed.ir.json`'s
-`AllExpenses` state does (11 ≥ `SEALED_EVENTS_THRESHOLD=8`), and that the already-shipped
-`[strategy-fidelity]` validate gate already catches the resulting plan/emit mismatch
-(`apps/rasheed/output/qa/validate_probe1.log`: `[strategy-fidelity] FAIL (1)`). The real defect is
-that `scoreStateStrategy` (`builder/src/scoring.ts`) measures `statuses + extraFields` count
-instead of DESIGN §5.2's stated `stateMachines[]` transition/guard surface — every IR in the repo
-declares zero `stateMachines`, so the correct metric would fire sealed nowhere today.
-
-**Decision: MODIFY.**
-- **M4a (next step, not yet implemented)** — fix `scoreStateStrategy` to measure the
-  `stateMachines` surface instead of field count. `scoring.ts`-only (+ `arch.ts` call-site passing
-  `ir` through). No IR/schema change. Estimate S (1 slice). Unblocks `npm run build:rasheed` +
-  validate, which currently FAILs.
-- **M4b (deferred)** — implement the `sealed-events` template family in `generators/state.ts` +
-  consumer branches (`screen.ts`, `crud_form.ts`, `generators/test.ts`). Not scheduled: no sample
-  would exercise it under the corrected selector, and the cost is a permanent second
-  template-family sync burden with no verifiable current benefit. Revisit only when a real IR
-  declares a genuine `stateMachines` transition vocabulary.
-
-Full decision, evidence, and rejected alternatives (ADOPT / REJECT-outright / raise-the-threshold /
-implement-behind-current-metric) in `SPIKE_M4_REPORT.md` §13-§15. `SPIKE_PLAN.md` updated to match
-(§0 grounding, M4 section, ownership matrix, sequencing diagram, not-scheduled register).
+- typecheck clean; regen+validate **13/13 IRs** PASS (`[scroll] [search] [shell]
+  [plan-determinism] [determinism] [verdict]`).
+- **Negative controls (both directions):** stale `patterns.scroll["/bogus"]` → `[scroll] FAIL(1)`
+  + `[plan-determinism] FAIL(1)`; listener stripped from a fresh generate → `[scroll] FAIL(1)`
+  (`apps/tasks/output/qa/p3-scroll/scroll_negative_harness.ts`).
+- **Byte-identical proofs:** wizard screen (`signup_wizard_screen.dart`) diff EMPTY pre/post P3
+  (stash-based); list/detail at-rest renders 0/329160 px diff pre/post (CDP pixel compare).
+- **CDP walk** (tasks web build on tailnet, CFT headless + shared driver): wheel-scroll over a
+  300px viewport flips the AppBar `(244,251,248)→(204,218,215)` on list AND detail; scroll-back
+  restores byte-identically; no overflow at 320/390/768/1280. Evidence under
+  `apps/tasks/output/qa/p3-scroll/`.
+- tasks (bloc) + `todo.riverpod` analyze clean; tests green (riverpod golden freshly captured;
+  bloc golden_test+focus_test pass).
+- **Pre-existing, NOT P3:** `test/temp_all_flows_test.dart` (P1-era harness) fails the same 5
+  goldens before AND after P3 — `ArgumentError: Type TaskRepository is already registered inside
+  GetIt` (harness calls `setupDependencies()` per test into a shared GetIt singleton). Not a pixel
+  diff, not a regression; tracked in `LEFTOVER_NOTES.md`.
+- **Decision brief delivered:** `research/P3_DECISION.{md,pdf}` + mermaid
+  `research/mermaid/p3_{pipeline,sequence}.{mmd,png}` (amber = `scrollFor` + `[scroll]` gate,
+  blue = decision-as-data), committed `f0254f9`.
 
 ## Ground truth (roadmap), updated
 
@@ -119,32 +61,37 @@ implement-behind-current-metric) in `SPIKE_M4_REPORT.md` §13-§15. `SPIKE_PLAN.
 |---|---|
 | P1 (global shell) | ✅ shipped, committed `4e91e50` |
 | P2 (per-list search) | ✅ **CLOSED** — `99da57b`/`dafe4b1`/`f48e5a6` |
-| SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), **M4a applied** (`scoring.ts`, no threshold); **M4b deferred** until a real event-rich IR |
-| **S-CTX** (plan determinism) | ✅ **COMPLETE this round** — `DETERMINISM_CONTRACT.md` + `[plan-determinism]` gate; decision brief `SCTX_DECISION.{md,pdf}` committed `5a67f5f` |
-| P3 scroll, P4 actions, P5/D2 placement | **Next** — sequential, per `SPIKE_PLAN.md` §1 |
+| SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), M4a applied; M4b deferred |
+| S-CTX (plan determinism) | ✅ **COMPLETE** — `DETERMINISM_CONTRACT.md` + `[plan-determinism]` gate (`5a67f5f`) |
+| **P3 (scroll)** | ✅ **COMPLETE this round** — commit `f0254f9`; declared rule, `[scroll]` gate, SM-agnostic, CDP-verified |
+| P4 actions, P5/D2 placement | **Next** — sequential, per `SPIKE_PLAN.md` §1 |
 | S-HERMETIC, S-DEEPLINK | Backlog / owner call, see `SPIKE_PLAN.md` |
-| Ledgerly-MVP, LEFTOVER_NOTES queue (pre-P1/P2 items) | ✅ complete (prior round, see `context_history.md`) |
+| Ledgerly-MVP, LEFTOVER_NOTES queue | ✅ complete (prior rounds) |
 | SwiftUI target S1+S2 | PARKED/DEFERRED (prior round) |
 
 ## Verification commands
 ```bash
-npx tsc -p builder/tsconfig.json --noEmit
-npx ts-node builder/src/index.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
-npx ts-node builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
-cd apps/<app>/output/app && flutter analyze && flutter test
+npm run typecheck:builder
+npx ts-node --transpile-only builder/src/index.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
+npx ts-node --transpile-only builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
+cd apps/<app>/output/app && flutter pub get && flutter analyze && flutter test
+npx ts-node --transpile-only apps/tasks/output/qa/p3-scroll/scroll_negative_harness.ts  # P3 negative control
 ```
-Samples: `apps/{hr_service, ledgerly, tasks, work_auth}` (real, full `apps/<app>/{input,output}`
-convention) + `builder/samples/*.ir.json` (smaller probes, incl. `rasheed.ir.json` for the M4
-probe).
+Samples: `apps/{hr_service, ledgerly, tasks, work_auth}` (real) + `builder/samples/*.ir.json`
+(9 probes incl. `wizard.ir.json` / `reimbursement.ir.json` — the wizard null-set proof targets).
 
 ## Next steps (not started, for whoever picks this up)
 
-1. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1 (P3 scroll
-   first: contract rule `scroll.enabled = screen.kind ∈ {list, detail}`).
+1. **P4 → P5/D2** — sequential interface-pattern chain per `SPIKE_PLAN.md` §1. P4 = ActionSpec v1:
+   `presentation: inline|overflow|primary` (ChatGPT round-2 edit #3 — `params` dropped), same
+   composition-selector + plan.json + validate-gate loop as P2/P3. P5/D2 = state-model-conditional
+   triad (edit #4).
 2. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
-3. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
-   genuine `stateMachines` transition vocabulary (new sample or owner request).
-4. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
+3. **P1 harness bug** (`temp_all_flows_test.dart` GetIt re-registration) — pre-existing, not P3;
+   candidate: make `setupDependencies()` idempotent or `GetIt.reset()` per test.
+4. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
+   genuine `stateMachines` transition vocabulary.
+5. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
 
 ## Rules
 Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;

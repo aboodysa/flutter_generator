@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    participant O as Owner
+    participant C as composition.ts<br/>(scrollFor / scrollTargets)
+    participant P as plan.json<br/>patterns.scroll
+    participant S as screen.ts<br/>(template tag *_scroll)
+    participant V as validate.ts<br/>[scroll] gate
+    participant F as Flutter app
+    Note over O,C: IR is BLOCKED until human approval (AGENTS #3 trust boundary)
+    O->>C: approved IR (list/detail/wizard screens)
+    rect rgb(255,243,205)
+        Note over C,P: P3 area ① — declared rule + decision-as-data
+        C->>C: scrollFor: kind ∈ {list,detail} ? ScrollSpec : null
+        C->>P: scrollTargets re-keyed by screenPath → patterns.scroll
+    end
+    rect rgb(232,240,254)
+        Note over P,S: P3 area ② — render, never re-derive
+        P->>S: ctx.scroll (name-keyed ScrollSpec)
+        S->>S: scrollEnabled ? listener + _scrolled : plain template
+        S->>F: AppBar bg: _scrolled ? surfaceContainerHighest : null
+    end
+    rect rgb(255,243,205)
+        Note over V: P3 area ③ — [scroll] gate re-proves
+        V->>V: re-derive via SAME scrollTargets
+        V->>V: diff vs plan.json + scan every generated screen
+        alt no drift — list/detail tint, wizard/form stay clean
+            V-->>F: PASS (byte-identical at rest)
+        else drift — listener stripped / stale plan entry
+            V-->>V: [scroll] FAIL — fix generator, not output
+        end
+    end
