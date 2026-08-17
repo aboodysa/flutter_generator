@@ -37,18 +37,44 @@ class LoadingState extends StatelessWidget {
 
 /// semanticContract: { role: alert, accessibleName: {source: message}, states: [error] }
 class ErrorState extends StatelessWidget {
-  const ErrorState({super.key, this.message});
+  const ErrorState({super.key, this.message, this.onRetry});
   final String? message;
+  final VoidCallback? onRetry;
   @override
-  Widget build(BuildContext context) => Center(child: Text(message ?? 'Something went wrong'));
+  Widget build(BuildContext context) {
+    if (onRetry == null) return Center(child: Text(message ?? 'Something went wrong'));
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message ?? 'Something went wrong'),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
 }
 
 /// semanticContract: { role: text, accessibleName: {source: message}, states: [empty] }
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, this.message});
+  const EmptyState({super.key, this.message, this.action});
   final String? message;
+  final Widget? action;
   @override
-  Widget build(BuildContext context) => Center(child: Text(message ?? 'No items'));
+  Widget build(BuildContext context) {
+    if (action == null) return Center(child: Text(message ?? 'No items'));
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message ?? 'No items'),
+          const SizedBox(height: AppSpacing.sm),
+          action!,
+        ],
+      ),
+    );
+  }
 }
 
 /// semanticContract: { role: image, accessibleName: {source: label}, states: [] }

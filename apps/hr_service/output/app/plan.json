@@ -766,6 +766,35 @@
           "presentation": "overflow"
         }
       ]
+    },
+    "states": {
+      "/leave-request": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      },
+      "/leave-request/:id": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": false,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": false
+      },
+      "/approval": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      }
     }
   }
 }

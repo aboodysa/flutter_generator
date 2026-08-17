@@ -41,7 +41,7 @@ class _UserListScreenState extends State<UserListScreen> {
         child: BlocBuilder<UserListCubit, UserListState>(
         builder: (context, state) {
         if (state.status == UserListStatus.loading) return const LoadingState();
-        if (state.status == UserListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == UserListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<UserListCubit>().load());
     final items = state.users;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -66,9 +66,13 @@ class _UserListScreenState extends State<UserListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Users yet')
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<UserListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -93,6 +97,7 @@ class _UserListScreenState extends State<UserListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

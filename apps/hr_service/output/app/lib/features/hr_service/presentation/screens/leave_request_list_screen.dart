@@ -63,7 +63,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
         child: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
         builder: (context, state) {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();
-        if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<LeaveRequestListCubit>().load());
     final items = state.leaveRequests;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -88,9 +88,14 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Leave Requests yet',
+                        action: OutlinedButton(onPressed: () => context.push('/leave-request/new'), child: Text('${AppStrings.of(context).newLabel} LeaveRequest')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<LeaveRequestListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -115,6 +120,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

@@ -42,7 +42,7 @@ class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
         child: BlocBuilder<WorkAuthListCubit, WorkAuthListState>(
         builder: (context, state) {
         if (state.status == WorkAuthListStatus.loading) return const LoadingState();
-        if (state.status == WorkAuthListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == WorkAuthListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<WorkAuthListCubit>().load());
     final items = state.workAuths;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -67,9 +67,14 @@ class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Work Auths yet',
+                        action: OutlinedButton(onPressed: () => context.push('/work-auth/new'), child: Text('New WorkAuth')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<WorkAuthListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -94,6 +99,7 @@ class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

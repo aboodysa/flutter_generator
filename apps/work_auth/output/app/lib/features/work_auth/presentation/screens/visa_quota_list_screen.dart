@@ -42,7 +42,7 @@ class _VisaQuotaListScreenState extends State<VisaQuotaListScreen> {
         child: BlocBuilder<VisaQuotaListCubit, VisaQuotaListState>(
         builder: (context, state) {
         if (state.status == VisaQuotaListStatus.loading) return const LoadingState();
-        if (state.status == VisaQuotaListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == VisaQuotaListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<VisaQuotaListCubit>().load());
     final items = state.visaQuotas;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -67,9 +67,14 @@ class _VisaQuotaListScreenState extends State<VisaQuotaListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Visa Quotas yet',
+                        action: OutlinedButton(onPressed: () => context.push('/visa-quota/new'), child: Text('New VisaQuota')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<VisaQuotaListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -95,6 +100,7 @@ class _VisaQuotaListScreenState extends State<VisaQuotaListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

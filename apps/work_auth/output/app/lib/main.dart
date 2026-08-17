@@ -2,6 +2,7 @@
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'core/theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'generated.dart';import 'core/router.dart';
 import 'core/di.dart';
@@ -27,7 +28,9 @@ class ReplicaApp extends StatelessWidget {
       create: (_) => sl<WorkAuthWizardCubit>()..load(),
       child: MaterialApp.router(
         title: 'Generated app',
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.light,
         routerConfig: appRouter,
       ))));
   }

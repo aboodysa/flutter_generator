@@ -31,4 +31,5 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(WorkAuthListScreen), matchesGoldenFile('goldens/work_auth_list_screen.png'));
   });
+
 }

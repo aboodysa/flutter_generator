@@ -43,7 +43,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
         child: BlocBuilder<ApprovalListCubit, ApprovalListState>(
         builder: (context, state) {
         if (state.status == ApprovalListStatus.loading) return const LoadingState();
-        if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<ApprovalListCubit>().load());
     final qp = GoRouterState.of(context).uri.queryParameters;
     final items = qp.containsKey('leaveRequestId')
         ? state.approvals.where((e) => e.leaveRequestId == qp['leaveRequestId']).toList()
@@ -71,9 +71,17 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Approvals yet',
+                        action: OutlinedButton(onPressed: () {
+          final id = GoRouterState.of(context).uri.queryParameters['leaveRequestId'];
+          context.push(id != null ? '/approval/new?leaveRequestId=$id' : '/approval/new');
+        }, child: Text('${AppStrings.of(context).newLabel} Approval')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<ApprovalListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -98,6 +106,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

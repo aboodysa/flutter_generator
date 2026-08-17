@@ -31,4 +31,5 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(LeaveRequestListScreen), matchesGoldenFile('goldens/leave_request_list_screen.png'));
   });
+
 }

@@ -42,7 +42,7 @@ class _FollowUpListScreenState extends State<FollowUpListScreen> {
         child: BlocBuilder<FollowUpListCubit, FollowUpListState>(
         builder: (context, state) {
         if (state.status == FollowUpListStatus.loading) return const LoadingState();
-        if (state.status == FollowUpListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == FollowUpListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<FollowUpListCubit>().load());
     final qp = GoRouterState.of(context).uri.queryParameters;
     final items = qp.containsKey('taskId')
         ? state.followUps.where((e) => e.taskId == qp['taskId']).toList()
@@ -70,9 +70,17 @@ class _FollowUpListScreenState extends State<FollowUpListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Follow Ups yet',
+                        action: OutlinedButton(onPressed: () {
+          final id = GoRouterState.of(context).uri.queryParameters['taskId'];
+          context.push(id != null ? '/follow-up/new?taskId=$id' : '/follow-up/new');
+        }, child: Text('New FollowUp')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<FollowUpListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -97,6 +105,7 @@ class _FollowUpListScreenState extends State<FollowUpListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

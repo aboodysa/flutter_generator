@@ -710,6 +710,44 @@
           "presentation": "inline"
         }
       ]
+    },
+    "states": {
+      "/task": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      },
+      "/task/:id": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": false,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": false
+      },
+      "/follow-up": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      },
+      "/follow-up/:id": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": false,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": false
+      }
     }
   }
 }

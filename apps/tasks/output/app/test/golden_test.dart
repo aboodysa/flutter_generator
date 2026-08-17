@@ -31,4 +31,5 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(TaskListScreen), matchesGoldenFile('goldens/task_list_screen.png'));
   });
+
 }

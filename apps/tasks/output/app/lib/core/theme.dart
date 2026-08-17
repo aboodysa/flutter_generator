@@ -59,3 +59,30 @@ ThemeData buildTheme() => ThemeData(
     contentPadding: const EdgeInsets.all(AppSpacing.md),
   ),
 );
+
+// D1 (DESIGN_OPTS §1 O1.3): dark mirror — same seed/radius/spacing/fontFamily as buildTheme(),
+// rendered on dark surfaces (scaffold + filled-input tint). The scaffold/fill hexes below are the
+// deterministic dark palette; the [theme] validator asserts main.dart wires this in.
+ThemeData buildThemeDark() => ThemeData(
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: AppColors.primary,
+    brightness: Brightness.dark,
+  ),
+  scaffoldBackgroundColor: const Color(0xFF0F172A),
+  useMaterial3: true,
+  fontFamily: 'Roboto',
+  cardTheme: const CardThemeData(
+    elevation: 0,
+    margin: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(AppRadius.surface))),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: const Color(0xFF1E293B),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadius.control)),
+      borderSide: BorderSide.none,
+    ),
+    contentPadding: const EdgeInsets.all(AppSpacing.md),
+  ),
+);

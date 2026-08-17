@@ -18,8 +18,7 @@ class WorkAuthWizardScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Work Auths')),
       body: BlocBuilder<WorkAuthWizardCubit, WorkAuthWizardState>(
         builder: (context, state) {
-        if (state.status == WorkAuthWizardStatus.loading) return const LoadingState();
-        if (state.status == WorkAuthWizardStatus.failure) return ErrorState(message: state.errorMessage);
+
             if (state.wizardStatus == WorkAuthWizardStatus.success) return const Center(child: Text('All done!'));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

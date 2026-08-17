@@ -43,7 +43,7 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
         child: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
         builder: (context, state) {
         if (state.status == MealBudgetListStatus.loading) return const LoadingState();
-        if (state.status == MealBudgetListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == MealBudgetListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<MealBudgetListCubit>().load());
     final items = state.mealBudgets;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -68,9 +68,14 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Meal Budgets yet',
+                        action: OutlinedButton(onPressed: () => context.push('/meal-budget/new'), child: Text('${AppStrings.of(context).newLabel} MealBudget')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<MealBudgetListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -96,6 +101,7 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

@@ -42,7 +42,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         child: BlocBuilder<TaskListCubit, TaskListState>(
         builder: (context, state) {
         if (state.status == TaskListStatus.loading) return const LoadingState();
-        if (state.status == TaskListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == TaskListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<TaskListCubit>().load());
     final items = state.tasks;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.title).toLowerCase().contains(query)).toList();
@@ -67,9 +67,14 @@ class _TaskListScreenState extends State<TaskListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Tasks yet',
+                        action: OutlinedButton(onPressed: () => context.push('/task/new'), child: Text('New Task')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<TaskListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -94,6 +99,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

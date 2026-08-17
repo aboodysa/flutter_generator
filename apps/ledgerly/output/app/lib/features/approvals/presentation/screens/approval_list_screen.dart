@@ -42,7 +42,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
         child: BlocBuilder<ApprovalListCubit, ApprovalListState>(
         builder: (context, state) {
         if (state.status == ApprovalListStatus.loading) return const LoadingState();
-        if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<ApprovalListCubit>().load());
     final items = state.approvals;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -67,9 +67,13 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Approvals yet')
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<ApprovalListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -101,6 +105,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],

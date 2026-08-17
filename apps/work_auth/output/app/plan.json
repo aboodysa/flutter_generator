@@ -641,6 +641,35 @@
           "presentation": "inline"
         }
       ]
+    },
+    "states": {
+      "/work-auth": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      },
+      "/visa-quota": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      },
+      "/visa-quota/:id": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": false,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": false
+      }
     }
   }
 }

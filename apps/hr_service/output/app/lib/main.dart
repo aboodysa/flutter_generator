@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/app_strings.dart';
+import 'core/theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'generated.dart';import 'core/router.dart';
 import 'core/di.dart';
@@ -33,7 +34,9 @@ class ReplicaApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.light,
         routerConfig: appRouter,
       )));
   }

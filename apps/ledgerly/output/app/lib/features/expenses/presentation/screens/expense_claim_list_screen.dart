@@ -63,7 +63,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
         child: BlocBuilder<ExpenseClaimListCubit, ExpenseClaimListState>(
         builder: (context, state) {
         if (state.status == ExpenseClaimListStatus.loading) return const LoadingState();
-        if (state.status == ExpenseClaimListStatus.failure) return ErrorState(message: state.errorMessage);
+        if (state.status == ExpenseClaimListStatus.failure) return ErrorState(message: state.errorMessage, onRetry: () => context.read<ExpenseClaimListCubit>().load());
     final items = state.expenseClaims;
             final query = _query.trim().toLowerCase();
             final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
@@ -88,9 +88,14 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: filtered.isEmpty && query.isNotEmpty
+                  child: items.isEmpty
+                      ? EmptyState(message: 'No Expense Claims yet',
+                        action: OutlinedButton(onPressed: () => context.push('/expense-claim/new'), child: Text('${AppStrings.of(context).newLabel} ExpenseClaim')))
+                      : filtered.isEmpty && query.isNotEmpty
                       ? EmptyState(message: 'No results for "$_query"')
-                      : ScrollConfiguration(
+                      : RefreshIndicator(
+                    onRefresh: () => context.read<ExpenseClaimListCubit>().load(),
+                    child: ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
@@ -115,6 +120,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                         },
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],
