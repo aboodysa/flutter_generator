@@ -21,7 +21,7 @@ product shape (feature-first folders, sealed states, Result/Failure, tenant-scop
 | Capture + OCR stub | **MF3** camera/image_picker + ReceiptOcrPort stub | done (core capability, no UI entry point by design — LEFTOVER_NOTES.md LM7) — 9f70dcb |
 | Expense CRUD + split (sum 100%) | **MF4** split allocation | done — ExpenseClaimSplit, 9f70dcb |
 | Budget remaining | **MF5** budget entity + live remaining calc | done — CDP-verified live in browser |
-| Submit + manager approve/reject | ✅ already have (wizard + approvals, reimbursement app) | submit: done (ledgerly). approve/reject: NOT wired for ledgerly's own Approval entity (read-only repo) — validated elsewhere (reimbursement's wizard) only. LEFTOVER_NOTES.md LM6 |
+| Submit + manager approve/reject | ✅ already have (wizard + approvals, reimbursement app) | done — submit (ledgerly) + approve/reject now wired for ledgerly's own Approval entity too (repo `updateApproval` + list-row quick-decision buttons, generalized via `quickDecisionTargets`), not just reimbursement's wizard. LEFTOVER_NOTES.md LM6, 9415190 |
 | Multi-feature app shell | **MF1** multi-feature IR (features[] → feature folders + shared core) | done |
 | Offline outbox | **MF6** outbox + sync queue (drift-based) | done — 9f70dcb |
 
@@ -38,8 +38,8 @@ environment (no Telegram integration tool) — goldens committed to git instead.
 - [x] Money never emitted as double anywhere ([money] gate — genuinely checked as of 9d3b948/e6608f5's G2b fix, not vacuous)
 - [x] Policy rule oracle tests run (policy engine pure domain + tests) — 8 rules, all oracle-covered, all pass
 - [x] Split allocation sums 100% (test) — split_test.dart passes
-- [ ] Approve/reject workflow: required steps cannot be skipped (flow test) — TRUE for reimbursement's wizard, NOT for ledgerly's own Approval (read-only, no UI action — LM6)
+- [x] Approve/reject workflow: required steps cannot be skipped (flow test) — TRUE for reimbursement's wizard AND now for ledgerly's own Approval (quick-decision test, quick_decision_test.dart) — LM6 fixed, 9415190
 - [x] Every repo method takes tenantId (or entity carries tenantId) ([tenant] gate — genuinely checked as of the G2b fix)
 - [x] RTL goldens render without overflow (l10n_test, incl. login screen as of 1b297af)
 - [x] Feature folders match architecture (auth/expenses/approvals/budgets exist as features; policy/audit/export/outbox/attachment are app-level core capabilities by design, not separate feature folders — matches every other sample's convention)
-- [~] CDP: demo login → capture(stub) → submit → manager approve → budget shows remaining → CSV — login/submit/budget/CSV all confirmed live in-browser; capture(stub) has no UI entry point (by design, LM7); manager approve has no UI entry point (gap, LM6)
+- [~] CDP: demo login → capture(stub) → submit → manager approve → budget shows remaining → CSV — login/submit/budget/CSV confirmed live in-browser pre-LM6; capture(stub) has no UI entry point (by design, LM7); manager approve now has a real UI entry point (list-row quick-decision buttons, LM6 fixed) — re-run pending, see apps/ledgerly/output/qa/cdp-acceptance/
