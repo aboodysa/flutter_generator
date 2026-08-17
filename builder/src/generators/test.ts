@@ -1,5 +1,5 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -823,6 +823,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 ${getItImport}import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/generated.dart';
+${diImport}
+${session.import}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * QuickDecisionTestGenerator — structural, deterministic, 0% LLM (LM6 regression guard).
+ * For every review-queue entity (operations.ts's quickDecisionTargets — a status-role field +
+ * repo update, no detail screen, no full CRUD form: e.g. Approval.decision), taps the first
+ * quick-decision action button on the first list row and asserts the tapped-for value actually
+ * appears on screen afterward — proves the button's onPressed genuinely calls update() and the
+ * Cubit/Notifier re-renders, not just that the button exists (render+analyze alone wouldn't catch
+ * a button wired to the wrong method, same class of gap D1 already closed for ChoiceChip taps).
+ * Reads the button's OWN advertised target value (its tooltip) rather than hardcoding an
+ * entity-specific value name, so this generalizes to any app's review-queue entity.
+ */
+export function generateQuickDecisionTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const targets = [...quickDecisionTargets(feature).values()].filter((t) => isTargetReachable(feature, t.entity));
+  if (!targets.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const session = authSession(feature, pkg, "    ", true);
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+
+  // Explicit navigation (appRouter.push, same convention back_test.dart/focus_test.dart use for
+  // any screen that isn't necessarily the app's boot/home screen) — a review-queue entity's own
+  // list is rarely the first persona's home (e.g. ledgerly's employee home is ExpenseClaim, not
+  // Approval), so relying on the boot screen would silently test the WRONG list's first row.
+  const cases = targets.map((t) => `  testWidgets('${t.entity}: quick decision action flips ${t.field.name}', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.push('/${kebab(t.entity)}');
+    await tester.pumpAndSettle();
+    // Scoped to ${t.screen.name} specifically — go_router's Navigator stack keeps the previous
+    // (pushed-from) route's widgets findable too, and it can carry its own AppListCard rows.
+    final screenFinder = find.byType(${t.screen.name});
+    final card = find.descendant(of: screenFinder, matching: find.byType(AppListCard)).first;
+    final action = find.descendant(of: card, matching: find.byType(IconButton)).first;
+    final target = tester.widget<IconButton>(action).tooltip!;
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: screenFinder, matching: find.text(target)), findsWidgets, reason: 'tapping the quick-decision action must flip ${t.field.name} to the tapped value');
+  });`);
+
+  const getItReset = sm === "bloc" ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
+
+  return `// [generated] generator=QuickDecisionTestGenerator template=quick_decision_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+import 'package:${pkg}/core/components.dart';
 import 'package:${pkg}/generated.dart';
 ${diImport}
 ${session.import}

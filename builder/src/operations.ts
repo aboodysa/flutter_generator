@@ -84,6 +84,43 @@ export function crudFormTargets(ir: FeatureModel): Map<string, CrudFormTarget> {
   return out;
 }
 
+// LM6: a "review queue" entity — a status-role enum field (fieldRole, e.g. Approval.decision)
+// whose repo declares `update` but has no detail screen and no full create+update CRUD form
+// (crudFormTargets requires both create+update — an update-only repo, like ApprovalRepository,
+// never qualifies there). Single source of truth shared by screen.ts (renders the quick-decision
+// buttons on the list row — nowhere else for the action to live, since there's no row target to
+// navigate to) and test.ts (the regression test asserting the tap actually flips the field).
+export interface QuickDecisionTarget {
+  entity: string;
+  screen: ScreenModel;
+  field: Field;
+  enumType: string;
+  enumValues: string[];
+}
+
+export function quickDecisionTargets(ir: FeatureModel): Map<string, QuickDecisionTarget> {
+  const out = new Map<string, QuickDecisionTarget>();
+  const crudTargets = crudFormTargets(ir);
+  for (const sc of ir.screens ?? []) {
+    if (sc.type !== "list" || out.has(sc.entity) || crudTargets.has(sc.entity)) continue;
+    if ((ir.screens ?? []).some((d) => d.entity === sc.entity && d.type === "detail")) continue;
+    const repo = findRepoForEntity(ir.repositories, sc.entity);
+    if (!repo) continue;
+    const kinds = crudOperations(repo, sc.entity);
+    if (!kinds.update) continue;
+    const entity = (ir.entities ?? []).find((e) => e.name === sc.entity);
+    if (!entity) continue;
+    const roleCtx: FieldRoleContext = { identityField: entity.identity?.field ?? "id", entityNames: (ir.entities ?? []).map((e) => e.name) };
+    const field = entity.fields.find((f) => fieldRole(f, roleCtx) === "status");
+    if (!field) continue;
+    const enumType = field.of || capitalize(field.name);
+    const enumDef = (ir.enums ?? []).find((e) => e.name === enumType);
+    if (!enumDef || enumDef.values.length < 2) continue;
+    out.set(sc.entity, { entity: sc.entity, screen: sc, field, enumType, enumValues: enumDef.values });
+  }
+  return out;
+}
+
 // P8-W2: the wizard-type screen bound to a given state (if any) — a state generates wizard
 // fields/methods (currentStep, next/back/jumpTo, per-step setters, canAdvance) only when it's
 // used by a "wizard" screen with a non-empty step list. Shared by state.ts and screen.ts so both
@@ -171,7 +208,10 @@ export interface FieldRoleContext {
 export function fieldRole(field: Field, ctx: FieldRoleContext = {}): FieldRole {
   if (ctx.identityField && field.name === ctx.identityField) return "identifier";
   if (isMoneyField(field)) return "money";
-  if (field.type === "enum" && field.name === "status") return "status";
+  // LM6: "decision" is a common domain synonym for a status-shaped approve/reject/pending enum
+  // (an Approval entity's own field, for instance) — only ledgerly currently uses this name, so
+  // widening the match is byte-identical for every other sample.
+  if (field.type === "enum" && (field.name === "status" || field.name === "decision")) return "status";
   if (field.type === "enum" && field.name === "priority") return "priority";
   if (field.type === "DateTime") return "date";
   if (TITLE_FIELD_NAMES.includes(field.name)) return "title";

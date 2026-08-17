@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_ledgerly/features/approvals/domain/entities/approval.dart';
 import 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/list_approvals.dart';
 import 'package:rasheed_replica_ledgerly/core/no_params.dart';
+import 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/update_approval.dart';
 
 enum ApprovalListStatus { initial, loading, success, failure }
 
@@ -35,7 +36,8 @@ class ApprovalListState extends Equatable {
 
 class ApprovalListCubit extends Cubit<ApprovalListState> {
   final ListApprovals _listApprovals;
-  ApprovalListCubit(this._listApprovals) : super(const ApprovalListState());
+  final UpdateApproval? _updateApproval;
+  ApprovalListCubit(this._listApprovals, [this._updateApproval]) : super(const ApprovalListState());
 
   Future<void> load() async {
     emit(state.copyWith(status: ApprovalListStatus.loading));
@@ -46,5 +48,13 @@ class ApprovalListCubit extends Cubit<ApprovalListState> {
     } catch (e) {
       emit(state.copyWith(status: ApprovalListStatus.failure, errorMessage: e.toString()));
     }
+  }
+
+  Future<void> update(Approval item) async {
+    if (_updateApproval != null) await _updateApproval!.call(item);
+    final idx = state.approvals.indexWhere((e) => e.id == item.id);
+    if (idx == -1) return;
+    final next = List<Approval>.of(state.approvals)..[idx] = item;
+    emit(state.copyWith(approvals: next));
   }
 }

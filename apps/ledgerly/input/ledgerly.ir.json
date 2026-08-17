@@ -500,6 +500,17 @@
               "name": "listApprovals",
               "returns": "Future<List<Approval>>",
               "params": []
+            },
+            {
+              "name": "updateApproval",
+              "returns": "Future<void>",
+              "params": [
+                {
+                  "name": "approval",
+                  "type": "Approval",
+                  "named": false
+                }
+              ]
             }
           ]
         }
@@ -525,6 +536,13 @@
           "operation": "listApprovals",
           "paramType": "NoParams",
           "returnType": "List<Approval>"
+        },
+        {
+          "name": "UpdateApproval",
+          "repository": "ApprovalRepository",
+          "operation": "updateApproval",
+          "paramType": "Approval",
+          "returnType": "void"
         }
       ],
       "businessRules": [

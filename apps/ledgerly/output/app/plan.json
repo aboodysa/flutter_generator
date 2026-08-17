@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 107,
+  "artifactCount": 109,
   "entries": [
     {
       "artifact": "feature:auth:enum:UserRole",
@@ -488,6 +488,19 @@
       "schema": "usecase",
       "layer": "domain/usecases",
       "file": "lib/features/approvals/domain/usecases/list_approvals.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "feature:approvals:repository:ApprovalRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "feature:approvals:usecase:UpdateApproval",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/approvals/domain/usecases/update_approval.dart",
       "strategy": "default",
       "dependsOn": [
         "feature:approvals:repository:ApprovalRepository"
@@ -1087,6 +1100,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/back_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:quickDecision",
+      "generator": "QuickDecisionTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/quick_decision_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

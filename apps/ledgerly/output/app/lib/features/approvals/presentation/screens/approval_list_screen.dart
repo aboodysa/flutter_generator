@@ -5,7 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_ledgerly/core/components.dart';
 import 'package:rasheed_replica_ledgerly/core/theme.dart';
 import 'package:rasheed_replica_ledgerly/features/approvals/presentation/state/approval_list.dart';
-
+import 'package:rasheed_replica_ledgerly/features/approvals/domain/entities/approval.dart';
+import 'package:rasheed_replica_ledgerly/features/approvals/domain/entities/approval_decision.dart';
 
 
 
@@ -48,10 +49,17 @@ class ApprovalListScreen extends StatelessWidget {
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,
-                              leading: AppAvatar(label: item.name),
+                              leading: AppStatusDot(tone: AppChip.toneForStatus(item.decision.name), semanticLabel: item.decision.name),
                               title: Text(item.name),
                               subtitle: Text('${item.decision.name}'),
-                              trailing: const SizedBox.shrink(),
+                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                for (final v in ApprovalDecision.values.where((v) => v != item.decision))
+                                  IconButton(
+                                    tooltip: v.name,
+                                    icon: Icon(AppChip.toneForStatus(v.name) == AppChipTone.danger ? Icons.close : Icons.check, color: AppChip.colorForTone(context, AppChip.toneForStatus(v.name))),
+                                    onPressed: () => context.read<ApprovalListCubit>().update(Approval(id: item.id, name: item.name, decision: v)),
+                                  ),
+                              ]),
                               onTap: null,
                             ),
                           );

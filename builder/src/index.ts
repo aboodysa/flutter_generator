@@ -22,7 +22,7 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -344,6 +344,18 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:back", generator: "BackTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // LM6 regression guard — a review-queue entity's quick-decision button (screen.ts) actually
+  // calls update() and re-renders, not just that it exists.
+  const quickDecisionTest = generateQuickDecisionTest(ir, arch.stateManagement);
+  if (quickDecisionTest) {
+    const f = path.join(testDir, "quick_decision_test.dart");
+    fs.writeFileSync(f, quickDecisionTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:quickDecision", generator: "QuickDecisionTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }

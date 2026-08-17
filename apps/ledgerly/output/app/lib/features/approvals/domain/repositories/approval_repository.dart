@@ -4,4 +4,5 @@ import 'package:rasheed_replica_ledgerly/features/approvals/domain/entities/appr
 
 abstract interface class ApprovalRepository {
   Future<List<Approval>> listApprovals();
+  Future<void> updateApproval(Approval approval);
 }

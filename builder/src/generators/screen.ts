@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale } from "../operations";
+import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -516,24 +516,58 @@ ${contentCases}
     const onTapTarget = hasAnyTarget
       ? (!hasDetailScreen && canEditCreate ? `${formPath}/\${item.${identity}}/edit` : `${detailPath}/\${item.${identity}}`)
       : null;
+    // UIX Slice C: a status/priority-colored dot is more meaningful than a generic initial-letter
+    // avatar — replaces AppAvatar when the entity has either role (status wins if it has both,
+    // since "is this done" is the row's primary at-a-glance fact); AppAvatar is the fallback for
+    // every other entity, unchanged. Computed before trailingWidget below (quick-decision also
+    // needs statusField).
+    const roleCtx = entity ? roleContextFor(entity, ctx) : undefined;
+    const statusField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "status") : undefined;
+    const priorityField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "priority") : undefined;
+    // LM6/general "quick decision" capability (operations.ts's quickDecisionTargets — single
+    // source shared with test.ts's regression test): a review-queue entity has nowhere else for a
+    // "set the status" action to live, since there's no row target to navigate to. Renders one
+    // small button per OTHER enum value directly on the row, reconstructing the full entity
+    // (identity + every other field carried from `item` unchanged) with just this field flipped,
+    // through the SAME update() the repo/Cubit already expose (§5.2-F1) — no new repo/usecase
+    // surface. Icon choice reuses AppChip.toneForStatus's existing vocabulary heuristic
+    // (danger-toned values, e.g. "rejected", get a close icon; everything else gets a check)
+    // rather than hardcoding entity-specific value names.
+    const quickDecision = !hasAnyTarget && ctx?.ir ? quickDecisionTargets(ctx.ir).get(s.entity) : undefined;
+    const quickDecisionWidget = quickDecision && entity
+      ? (() => {
+          const reconstruct = (valueExpr: string) =>
+            entity.fields.map((f) => (f.name === quickDecision.field.name ? `${f.name}: ${valueExpr}` : `${f.name}: item.${f.name}`)).join(", ");
+          return `Row(mainAxisSize: MainAxisSize.min, children: [
+                                for (final v in ${quickDecision.enumType}.values.where((v) => v != item.${quickDecision.field.name}))
+                                  IconButton(
+                                    tooltip: v.name,
+                                    icon: Icon(AppChip.toneForStatus(v.name) == AppChipTone.danger ? Icons.close : Icons.check, color: AppChip.colorForTone(context, AppChip.toneForStatus(v.name))),
+                                    onPressed: () => ${readMutator("update", `${entity.name}(${reconstruct("v")})`)},
+                                  ),
+                              ])`;
+        })()
+      : undefined;
+    // quickDecisionWidget writes the enum type name literally (`${quickDecision.enumType}.values`),
+    // unlike every other list/detail expression in this file (which only ever accesses `.name` on
+    // an already-typed `item.field`) — same reasoning wizardTypeImports already documents for
+    // wizard bodies; reuses that same slot rather than adding a new always-present template line.
+    if (quickDecision) {
+      wizardTypeImports = importsFromTypes([quickDecision.enumType, s.entity], ctx).join("\n");
+    }
     // G3: `push` (not `go`) so the detail/edit screen this row leads to gets a real back stack
     // entry — go_router renders the AppBar's back chevron automatically once Navigator.canPop is
     // true, no explicit `leading:` needed. `go` REPLACES the current entry, which is why the
     // owner's report ("no back affordance" + "browser back behaves oddly") traced to every arrival
     // navigation in this file using `go`.
-    const trailingWidget = !hasDetailScreen && canDelete
-      ? `IconButton(tooltip: ${str("delete", "'Delete'")}, icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
-      : (hasAnyTarget ? `const Icon(Icons.chevron_right)` : `const SizedBox.shrink()`);
+    const trailingWidget = quickDecisionWidget
+      ? quickDecisionWidget
+      : !hasDetailScreen && canDelete
+        ? `IconButton(tooltip: ${str("delete", "'Delete'")}, icon: const Icon(Icons.delete), onPressed: () => ${readMutator("delete", `item.${identity}`)})`
+        : (hasAnyTarget ? `const Icon(Icons.chevron_right)` : `const SizedBox.shrink()`);
     // Parent-scoped list filtering (child list screens reached via a parent's detail link): a
     // `?<fk>=<parentId>` query param restricts rows to that parent's children; no param → all rows.
     const listFilter = listFilterExpr(childFk, collection);
-    // UIX Slice C: a status/priority-colored dot is more meaningful than a generic initial-letter
-    // avatar — replaces AppAvatar when the entity has either role (status wins if it has both,
-    // since "is this done" is the row's primary at-a-glance fact); AppAvatar is the fallback for
-    // every other entity, unchanged.
-    const roleCtx = entity ? roleContextFor(entity, ctx) : undefined;
-    const statusField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "status") : undefined;
-    const priorityField = entity && roleCtx ? entity.fields.find((f) => fieldRole(f, roleCtx) === "priority") : undefined;
     const leadingWidget = statusField
       ? (() => { const c = chipToneExpr(statusField, "toneForStatus"); return `AppStatusDot(tone: ${c.tone}, semanticLabel: ${c.value})`; })()
       : priorityField

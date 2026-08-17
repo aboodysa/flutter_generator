@@ -28,6 +28,7 @@ export 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/creat
 export 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/update_expense_claim_split.dart';
 export 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/delete_expense_claim_split.dart';
 export 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/list_approvals.dart';
+export 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/update_approval.dart';
 export 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/list_meal_budgets.dart';
 export 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/create_meal_budget.dart';
 export 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/update_meal_budget.dart';

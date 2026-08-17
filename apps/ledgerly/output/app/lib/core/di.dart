@@ -21,6 +21,7 @@ import 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/creat
 import 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/update_expense_claim_split.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/domain/usecases/delete_expense_claim_split.dart';
 import 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/list_approvals.dart';
+import 'package:rasheed_replica_ledgerly/features/approvals/domain/usecases/update_approval.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/list_meal_budgets.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/create_meal_budget.dart';
 import 'package:rasheed_replica_ledgerly/features/budgets/domain/usecases/update_meal_budget.dart';
@@ -49,6 +50,7 @@ void setupDependencies() {
   sl.registerLazySingleton<UpdateExpenseClaimSplit>(() => UpdateExpenseClaimSplit(sl<ExpenseClaimSplitRepository>()));
   sl.registerLazySingleton<DeleteExpenseClaimSplit>(() => DeleteExpenseClaimSplit(sl<ExpenseClaimSplitRepository>()));
   sl.registerLazySingleton<ListApprovals>(() => ListApprovals(sl<ApprovalRepository>()));
+  sl.registerLazySingleton<UpdateApproval>(() => UpdateApproval(sl<ApprovalRepository>()));
   sl.registerLazySingleton<ListMealBudgets>(() => ListMealBudgets(sl<MealBudgetRepository>()));
   sl.registerLazySingleton<CreateMealBudget>(() => CreateMealBudget(sl<MealBudgetRepository>()));
   sl.registerLazySingleton<UpdateMealBudget>(() => UpdateMealBudget(sl<MealBudgetRepository>()));
@@ -56,6 +58,6 @@ void setupDependencies() {
   sl.registerFactory<UserListCubit>(() => UserListCubit(sl<ListUsers>()));
   sl.registerFactory<ExpenseClaimListCubit>(() => ExpenseClaimListCubit(sl<ListExpenseClaims>(), sl<CreateExpenseClaim>(), sl<UpdateExpenseClaim>(), sl<DeleteExpenseClaim>()));
   sl.registerFactory<ExpenseClaimSplitListCubit>(() => ExpenseClaimSplitListCubit(sl<ListExpenseClaimSplits>(), sl<CreateExpenseClaimSplit>(), sl<UpdateExpenseClaimSplit>(), sl<DeleteExpenseClaimSplit>()));
-  sl.registerFactory<ApprovalListCubit>(() => ApprovalListCubit(sl<ListApprovals>()));
+  sl.registerFactory<ApprovalListCubit>(() => ApprovalListCubit(sl<ListApprovals>(), sl<UpdateApproval>()));
   sl.registerFactory<MealBudgetListCubit>(() => MealBudgetListCubit(sl<ListMealBudgets>(), sl<CreateMealBudget>(), sl<UpdateMealBudget>(), sl<DeleteMealBudget>()));
 }

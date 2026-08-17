@@ -9,6 +9,7 @@
   "update_expense_claim_split.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
   "delete_expense_claim_split.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
   "list_approvals.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
+  "update_approval.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
   "list_meal_budgets.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
   "create_meal_budget.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",
   "update_meal_budget.dart": "86ef087d57bebcb2e05755266c3a7813be0ac03ec14257741a80583511df31ac",

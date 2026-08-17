@@ -1,6 +1,6 @@
 import { EntityModel } from "../types";
 import { fieldDartType, referencedType, nullable, defaultValue, importsFromTypes, GenContext } from "../dart";
-import { crudFormTargets } from "../operations";
+import { crudFormTargets, quickDecisionTargets } from "../operations";
 
 /**
  * EntityGenerator — structural, deterministic, 0% LLM.
@@ -15,8 +15,12 @@ export function generateEntity(entity: EntityModel, ctx?: GenContext): string {
   // state == the old state via Equatable, and a List<Entity> compares element-wise — with
   // identity-only equality ([id]), "same id, different title" looks unchanged, so a genuine
   // field edit silently never reaches the UI. Auto-upgrade CRUD-capable entities to "full"
-  // unless the IR explicitly pins a mode (an explicit `equality` always wins).
-  const crudCapable = ctx?.ir ? crudFormTargets(ctx.ir).has(entity.name) : false;
+  // unless the IR explicitly pins a mode (an explicit `equality` always wins). Same reasoning
+  // applies to update-only "quick decision" entities (LM6: e.g. an Approval flipped via a
+  // review-queue button, not a form) — they call the identical Cubit update() path.
+  const crudCapable = ctx?.ir
+    ? crudFormTargets(ctx.ir).has(entity.name) || quickDecisionTargets(ctx.ir).has(entity.name)
+    : false;
   const equality = entity.equality ?? (crudCapable ? "full" : "identity");
 
   const imports = importsFromTypes(
