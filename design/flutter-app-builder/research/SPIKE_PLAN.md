@@ -577,6 +577,7 @@ recreating exactly the C3 ownership problem this plan exists to prevent.
 | Skeleton loading | DESIGN_OPTS defer (O6.1) |
 | Undo | Explicitly deferred |
 | M4b sealed-events template family | SPIKE M4 complete (MODIFY, `b5eb50c`) — deferred until a real `stateMachines`-declaring IR exists; M4a (scoring.ts selector fix) is the only active M4 next step |
+| **TOOL-1 — OpenCode Zen context compression/persistence** | ⏸ **Roadmap only, NOT now** (owner 2026-08-17). Reduce OpenCode Zen token usage/cost without quality loss in the OpenCode codebase itself (`github.com/sst/opencode`, installed `/opt/homebrew/Cellar/opencode/1.18.13`, SQLite store `/Users/username/Documents/cto/opencode.db`). Requirements: baseline BEFORE, benchmark AFTER the same long task (input/total tokens, cost, latency, success, context-loss/regression); deterministic first (dedupe msgs/tool results; compress large tool output preserving errors/lines/metadata; files-as-durable-memory, re-read not resend; compact structured session state = goal/constraints/decisions/changed files/failures/completed/next; archive + retrieval; configurable budget/threshold), LLM summarization only when deterministic fails (cheap model); provider-agnostic; tests; minimal, aligned with existing architecture. No win claim without measured reduction + equivalent/better completion. Needs OpenCode source clone (was aborted 2026-08-17). Not scheduled — owner call. |
 
 ### Frozen order (unchanged except the gate)
 
