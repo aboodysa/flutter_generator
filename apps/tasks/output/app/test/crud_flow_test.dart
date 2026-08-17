@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:rasheed_replica_tasks/main.dart';
 import 'package:rasheed_replica_tasks/core/di.dart';
 
+
 void main() {
   testWidgets('Task: create -> edit -> delete', (tester) async {
     setupDependencies();
@@ -15,6 +16,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Widget test value');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'medium'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'medium')).selected, isTrue, reason: 'tapping a chip must select it (onSelected wiring)');
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'low')).selected, isFalse, reason: 'selecting a new chip must deselect the previous one');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     expect(find.text('Widget test value'), findsOneWidget);

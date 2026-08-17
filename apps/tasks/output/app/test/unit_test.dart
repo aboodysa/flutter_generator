@@ -11,6 +11,7 @@ void main() {
         'dueDate': '2024-01-01T00:00:00.000Z',
         'priority': 'low',
         'status': 'open',
+        'description': null,
     };
     final m = TaskModel.fromJson(json);
     expect(m.toJson(), isNotEmpty);

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 50,
+  "artifactCount": 53,
   "entries": [
     {
       "artifact": "enum:TaskStatus",
@@ -373,6 +373,20 @@
       "class": "pattern"
     },
     {
+      "artifact": "policy:Task",
+      "generator": "PolicyEngineGenerator",
+      "schema": "policy",
+      "layer": "domain/policy",
+      "file": "lib/features/tasks/domain/policy/task_policy.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Task",
+        "rule:HighPriority"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "core:di",
       "generator": "DIGenerator",
       "schema": "core",
@@ -483,6 +497,17 @@
       "class": "structural"
     },
     {
+      "artifact": "core:policy",
+      "generator": "PolicyCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/policy.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:widget",
       "generator": "WidgetTestGenerator",
       "schema": "test",
@@ -565,6 +590,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/back_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:policy",
+      "generator": "PolicyTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/policy_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

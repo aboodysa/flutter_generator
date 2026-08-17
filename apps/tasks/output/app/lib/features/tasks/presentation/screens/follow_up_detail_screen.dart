@@ -8,6 +8,8 @@ import 'package:rasheed_replica_tasks/core/theme.dart';
 import 'package:rasheed_replica_tasks/features/tasks/presentation/state/follow_up_list.dart';
 
 
+
+
 class FollowUpDetailScreen extends StatelessWidget {
   const FollowUpDetailScreen({super.key});
 
@@ -30,17 +32,14 @@ class FollowUpDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
 
+              Text(item.subject, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 4.0),
               Row(children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
                 Text('Created At', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: AppSpacing.xs),
                 Text(((item.createdAt?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium),
-              ]),
-              const SizedBox(height: 4.0),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Note', style: Theme.of(context).textTheme.bodySmall),
-                Text(item.note, style: Theme.of(context).textTheme.bodyMedium),
               ]),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),

@@ -8,6 +8,7 @@ import 'package:rasheed_replica_tasks/core/router.dart';
 import 'package:rasheed_replica_tasks/generated.dart';
 import 'package:rasheed_replica_tasks/core/di.dart';
 
+
 void main() {
   setUp(() => GetIt.instance.reset());
 

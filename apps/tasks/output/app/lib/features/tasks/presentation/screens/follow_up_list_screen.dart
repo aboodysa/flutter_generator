@@ -8,6 +8,8 @@ import 'package:rasheed_replica_tasks/core/theme.dart';
 import 'package:rasheed_replica_tasks/features/tasks/presentation/state/follow_up_list.dart';
 
 
+
+
 class FollowUpListScreen extends StatelessWidget {
   const FollowUpListScreen({super.key});
 
@@ -50,8 +52,8 @@ class FollowUpListScreen extends StatelessWidget {
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,
-                              leading: AppAvatar(label: item.id),
-                              title: Text(item.id),
+                              leading: AppAvatar(label: item.subject),
+                              title: Text(item.subject),
                               subtitle: Text('${((item.createdAt?.toIso8601String() ?? '').split('T').first)}'),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => context.push('/follow-up/${item.id}'),

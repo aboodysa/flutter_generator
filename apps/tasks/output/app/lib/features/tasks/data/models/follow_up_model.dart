@@ -6,40 +6,40 @@ class FollowUpModel {
   const FollowUpModel({
     required this.id,
     required this.taskId,
-    required this.note,
+    required this.subject,
     this.createdAt,
   });
 
   final String id;
   final String taskId;
-  final String note;
+  final String subject;
   final DateTime? createdAt;
 
   factory FollowUpModel.fromJson(Map<String, dynamic> json) => FollowUpModel(
       id: json['id'] as String,
       taskId: json['taskId'] as String,
-      note: json['note'] as String,
+      subject: json['subject'] as String,
       createdAt: (json['createdAt'] as String?) != null ? DateTime.parse(json['createdAt'] as String) : null,
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
       'id': id,
       'taskId': taskId,
-      'note': note,
+      'subject': subject,
       'createdAt': createdAt?.toIso8601String(),
   };
 
   FollowUp toEntity() => FollowUp(
     id: id,
     taskId: taskId,
-    note: note,
+    subject: subject,
     createdAt: createdAt,
   );
 
   factory FollowUpModel.fromEntity(FollowUp e) => FollowUpModel(
     id: e.id,
     taskId: e.taskId,
-    note: e.note,
+    subject: e.subject,
     createdAt: e.createdAt,
   );
 }

@@ -8,6 +8,8 @@ import 'package:rasheed_replica_tasks/core/theme.dart';
 import 'package:rasheed_replica_tasks/features/tasks/presentation/state/follow_up_list.dart';
 import 'package:rasheed_replica_tasks/features/tasks/domain/entities/follow_up.dart';
 
+
+
 class FollowUpFormScreen extends StatelessWidget {
   const FollowUpFormScreen({super.key});
 
@@ -48,8 +50,11 @@ class _FollowUpFormScreenBody extends StatefulWidget {
 
 class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
   final _taskId = TextEditingController();
-  final _note = TextEditingController();
+  final _subject = TextEditingController();
   final _createdAt = TextEditingController();
+
+  final _taskIdFocus = FocusNode();
+
 
 
   @override
@@ -57,15 +62,19 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
     super.initState();
     final i = widget.initial;
     _taskId.text = i?.taskId ?? widget.queryParams['taskId'] ?? '';
-    _note.text = i?.note ?? '';
+    _subject.text = i?.subject ?? '';
     _createdAt.text = i?.createdAt == null ? '' : i!.createdAt!.toIso8601String().split('T').first;
+
   }
 
   @override
   void dispose() {
     _taskId.dispose();
-    _note.dispose();
+    _subject.dispose();
     _createdAt.dispose();
+    _taskIdFocus.dispose();
+
+
     super.dispose();
   }
 
@@ -75,8 +84,8 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: ListView(
         children: [
-        TextField(autofocus: widget.id == null, controller: _taskId, decoration: const InputDecoration(labelText: 'Task Id')),
-        TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note')),
+        TextField(controller: _taskId, focusNode: _taskIdFocus, onTap: () => _taskIdFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Task Id')),
+        TextField(controller: _subject, decoration: const InputDecoration(labelText: 'Subject')),
         TextField(controller: _createdAt, readOnly: true, decoration: const InputDecoration(labelText: 'Created At', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_createdAt.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _createdAt.text = picked.toIso8601String().split('T').first);
@@ -88,7 +97,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
               final item = FollowUp(
         id: widget.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         taskId: _taskId.text,
-        note: _note.text,
+        subject: _subject.text,
         createdAt: (_createdAt.text.isEmpty ? null : DateTime.tryParse(_createdAt.text)),
               );
               // Await the mutation before navigating — otherwise the detail/list screen we're

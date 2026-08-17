@@ -7,15 +7,15 @@ class FollowUp extends Equatable {
   const FollowUp({
     required this.id,
     required this.taskId,
-    required this.note,
+    required this.subject,
     this.createdAt,
   });
 
   final String id;
   final String taskId;
-  final String note;
+  final String subject;
   final DateTime? createdAt;
 
   @override
-  List<Object?> get props => [id, taskId, note, createdAt];
+  List<Object?> get props => [id, taskId, subject, createdAt];
 }
