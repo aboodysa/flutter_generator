@@ -644,7 +644,7 @@ export function actionsCheck(ir: any, outDir: string, files: string[]): string[]
 //           follow-up, not this slice") — the gate must match the REAL, intended render contract,
 //           not the raw spec alone, or it would FAIL every detail screen sharing a list's cubit
 //           (which is the normal, correct case, not a bug).
-function statesCheck(ir: any, outDir: string, files: string[]): string[] {
+export function statesCheck(ir: any, outDir: string, files: string[]): string[] {
   const issues: string[] = [];
   const flat = flattenedIr(ir);
   const screens: any[] = flat.screens ?? [];
