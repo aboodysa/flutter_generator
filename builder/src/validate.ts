@@ -7,6 +7,7 @@ import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitG
 import { fileName } from "./dart";
 import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor } from "./composition";
 import { screenPath } from "./routing";
+import { DART_SDK_FLOOR } from "./toolchain";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -970,6 +971,60 @@ function swiftPkgCheck(iosFiles: string[]): string[] {
   return [];
 }
 
+// S-HERMETIC 14.1 (S_HERMETIC_IMPL_BRIEF_CLAUDE.md, SPIKE_S_HERMETIC_REPORT.md §13 D1): every
+// regenerated app output must carry a committed `pubspec.lock` — it's the only artifact that
+// pins the *transitive* dependency graph (the generated `pubspec.yaml` only ever carries caret
+// ranges, ratified as staying that way). Severity split (ratified #2): a missing lock is an
+// ERROR (a governance break — the commit-per-app policy silently lapsed); a lock whose `sdks:`
+// dart floor differs from the declared toolchain floor is a WARNING only, logged into `issues`
+// but never counted toward the numeric `lockfile` field that drives the FAIL sum — historical
+// locks predating a floor bump are expected and accepted, not a defect. Returning
+// {errors, warnings} separately (rather than one flat array) is what makes that split possible
+// without a parallel severity-tagging scheme.
+function lockfileCheck(outDir: string): { errors: string[]; warnings: string[] } {
+  const lockPath = path.join(outDir, "pubspec.lock");
+  if (!fs.existsSync(lockPath)) {
+    return { errors: [`[lockfile] missing ${lockPath} — commit \`flutter pub get\`'s lockfile per app (S-HERMETIC policy, FLUTTER_TOOLCHAIN.md)`], warnings: [] };
+  }
+  const src = fs.readFileSync(lockPath, "utf8");
+  const sdksBlock = src.match(/^sdks:\n((?:  .+\n?)*)/m)?.[1] ?? "";
+  const dartFloor = sdksBlock.match(/^\s*dart:\s*"?([^"\n]+?)"?\s*$/m)?.[1];
+  if (!dartFloor || dartFloor !== DART_SDK_FLOOR) {
+    return {
+      errors: [],
+      warnings: [`[lockfile] ${lockPath} sdks.dart floor '${dartFloor ?? "<missing sdks: block>"}' differs from the declared toolchain floor '${DART_SDK_FLOOR}' (FLUTTER_TOOLCHAIN.md) — historical lock, accepted as a warning; refresh on the next natural regenerate`],
+    };
+  }
+  return { errors: [], warnings: [] };
+}
+
+// S-HERMETIC 14.1: a pure regex over the emitted file set's HEADER BAND ONLY — the first
+// HEADER_BAND_LINES lines, or fewer if an `import`/`dependencies:` line (the generated header's
+// own end-of-band marker) appears sooner. Scoped this way on purpose: `naming.ts`'s `newIdExpr`
+// (`DateTime.now().millisecondsSinceEpoch`) and `audit.ts`'s `recordMutation`
+// (`final at = DateTime.now()`) are legitimate generated RUNTIME content deep in file bodies, not
+// build-time stamps — a whole-file scan would false-positive on both (SPIKE_S_HERMETIC_REPORT.md
+// §3.3/§9). A build-time date/timestamp leaking into the header band would break L2
+// reproducibility (two generations of the same IR at different wall-clock times would then
+// differ in their headers alone), so header-band presence is exactly what's ERROR-worthy here.
+const HEADER_BAND_LINES = 4;
+const HEADER_BAND_BOUNDARY_RE = /^\s*import\s|^dependencies:/;
+const TIMESTAMP_DATE_RE = /\d{4}-\d{2}-\d{2}/;
+const TIMESTAMP_STAMP_RE = /generated on |Generated on | at \d{1,2}:\d{2}/;
+function timestampCheck(files: string[]): string[] {
+  const issues: string[] = [];
+  for (const f of files) {
+    const lines = fs.readFileSync(f, "utf8").split("\n");
+    const boundary = lines.findIndex((l) => HEADER_BAND_BOUNDARY_RE.test(l));
+    const bandEnd = boundary === -1 ? Math.min(HEADER_BAND_LINES, lines.length) : Math.min(HEADER_BAND_LINES, boundary);
+    const band = lines.slice(0, bandEnd).join("\n");
+    if (TIMESTAMP_DATE_RE.test(band) || TIMESTAMP_STAMP_RE.test(band)) {
+      issues.push(`[timestamp] ${f}: header band carries a build-time date/timestamp stamp — generated headers must stay dateless for L2 reproducibility`);
+    }
+  }
+  return issues;
+}
+
 export interface ValidationResult {
   determinism: boolean;
   planDeterminism: number; // count of plan.json-vs-fresh-derivation diffs (S-CTX)
@@ -998,6 +1053,8 @@ export interface ValidationResult {
   scroll: number;    // count of per-screen-scroll issues: plan/output drift, missing/unexpected scroll listener (P3)
   actions: number;   // count of per-screen-action issues: plan/output drift, missing/unexpected action, unconfirmed delete, save FAB (P4)
   states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
+  lockfile: number;  // count of missing pubspec.lock (ERROR only; floor-differs is a warning, logged but not counted — S-HERMETIC)
+  timestamps: number; // count of header-band build-time date/timestamp stamps (S-HERMETIC)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -1058,7 +1115,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, planDeterminism: 0,
-    theme: 0,
+    theme: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -1267,10 +1324,22 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...statesIssues);
   const states = statesIssues.length;
 
+  // Lockfile governance (S-HERMETIC 14.1): missing pubspec.lock is an ERROR (counted below);
+  // floor-differs is a WARNING, logged into issues but never counted toward `lockfile`.
+  const lockfileResult = lockfileCheck(outDir);
+  issues.push(...lockfileResult.errors, ...lockfileResult.warnings);
+  const lockfile = lockfileResult.errors.length;
+
+  // Timestamp absence (S-HERMETIC 14.1): header-band-only, never body content (naming.ts/audit.ts
+  // runtime DateTime.now() must not trip this).
+  const timestampIssues = timestampCheck(files);
+  issues.push(...timestampIssues);
+  const timestamps = timestampIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, outbox, platform, shell, search,
-    scroll, actions, states,
+    scroll, actions, states, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1326,7 +1395,9 @@ function main() {
   console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
   console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
   console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states > 0;
+  console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
+  console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
