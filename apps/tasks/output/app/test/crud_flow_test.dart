@@ -32,8 +32,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Widget test value updated'), findsOneWidget);
 
-    // delete (detail AppBar action -> back on the list, row gone)
+    // delete (detail AppBar action -> P4 confirm dialog -> confirm -> back on the list, row gone)
     await tester.tap(find.byIcon(Icons.delete));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Task?'), findsOneWidget); // P4 confirm dialog present
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(find.text('Widget test value updated'), findsNothing);
   });

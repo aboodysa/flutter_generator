@@ -3,9 +3,9 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec } from "./composition";
 import { screenPath } from "./routing";
 
 /**
@@ -460,6 +460,121 @@ export function scrollCheck(ir: any, outDir: string, files: string[]): string[] 
   return issues;
 }
 
+// P4 (INTERFACE_PATTERN_CONTRACT.md §6, SPIKE_PLAN §P4): per-screen capability-driven actions.
+// Same centralized-decision posture as [search]/[scroll]: re-asserts the selector by calling the
+// SAME `actionsTargets` composition.ts itself uses (not a re-implementation), then:
+//   (a) cross-checks plan.json's recorded patterns.actions against a fresh re-derivation, and
+//   (b) scans EVERY generated screen for output/decision agreement (S-P4 acceptance criteria 3-8):
+//       - a screen with a decided action set renders exactly it (positive set present, null set
+//         absent — byte-identical for capability-free screens),
+//       - Delete is ALWAYS confirmed (confirm dialog) when actionsFor decided confirm:true,
+//       - no Save "extended FAB" is generated anywhere (save is a semantic kind only),
+//       - v1 closed vocabulary: only the known kinds have a plan entry (invariant 8).
+export function actionsCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // Re-derive fresh from the raw IR — the authoritative "what SHOULD be rendered" answer.
+  const expected = actionsTargets(flat as any); // Map<screenName, ActionSpec[]>
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[actions] plan.json missing in ${outDir} — cannot verify action decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.actions ?? {};
+
+  // Build path→kinds maps for a clean set-diff that ignores ordering.
+  const recordedKindsByPath: Record<string, Set<string>> = {};
+  for (const [p, specs] of Object.entries(recorded)) {
+    recordedKindsByPath[p] = new Set((specs as any[]).map((s) => s.kind));
+  }
+  const expectedKindsByPath: Record<string, Set<string>> = {};
+  for (const [screenName, specs] of expected) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (!screen) continue;
+    const p = screenPath(screens, screen);
+    expectedKindsByPath[p] = new Set(specs.map((a) => a.kind));
+  }
+
+  // (a) plan.json drift vs fresh re-derivation (invariants 9: plan is derived, not authoritative).
+  for (const [p, kinds] of Object.entries(expectedKindsByPath)) {
+    const rec = recordedKindsByPath[p];
+    if (!rec) {
+      issues.push(`[actions] '${p}' should have actions (${[...kinds].join(", ")}) but plan.json's patterns.actions has no entry for it`);
+      continue;
+    }
+    const missing = [...kinds].filter((k) => !rec.has(k));
+    if (missing.length) issues.push(`[actions] '${p}' plan.json is missing decided action kind(s): ${missing.join(", ")}`);
+    const unexpected = [...rec].filter((k) => !kinds.has(k));
+    if (unexpected.length) issues.push(`[actions] '${p}' plan.json declares unexpected action kind(s): ${unexpected.join(", ")} (closed vocabulary: edit|export|delete|audit|save)`);
+  }
+  for (const [p, rec] of Object.entries(recordedKindsByPath)) {
+    if (!expectedKindsByPath[p]) {
+      issues.push(`[actions] plan.json declares actions for '${p}' but re-deriving the selector against the current IR no longer resolves them — stale plan entry`);
+    }
+    // Closed vocabulary (invariant 8): every plan action kind must be a known v1 kind.
+    for (const k of rec) {
+      if (!["edit", "export", "delete", "audit", "save"].includes(k)) {
+        issues.push(`[actions] plan.json declares action kind '${k}' for '${p}' — not in the v1 closed vocabulary (edit|export|delete|audit|save)`);
+      }
+    }
+  }
+
+  // (b) output/decision agreement per screen (invariants 3-7).
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue;
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const specs = expectedKindsByPath[p] ?? new Set<string>();
+
+    // Positive set: each decided non-export action must render in the generated screen. (Export is
+    // bloc-only this iteration — the [export] gate + exportButtons guard handle it; see S-P4.)
+    for (const kind of specs) {
+      if (kind === "export") continue;
+      if (kind === "edit" && !src.includes("Icons.edit")) {
+        issues.push(`[actions] '${p}' (${screen.name}) decides an edit action but the generated screen renders no edit button`);
+      }
+      if (kind === "delete" && !src.includes("Delete")) {
+        issues.push(`[actions] '${p}' (${screen.name}) decides a delete action but the generated screen renders no delete action`);
+      }
+      if (kind === "audit" && !src.includes("Icons.history") && !src.includes("/audit-log")) {
+        issues.push(`[actions] '${p}' (${screen.name}) decides an audit action but the generated screen has no audit entry point`);
+      }
+    }
+
+    // Invariant 4: a Delete action on a detail screen MUST be confirm-guarded (someone picked by
+    // actionsFor decided confirm:true). A bare `onPressed: () async { await ...delete` without the
+    // showDialog wrapper is a (rejected) unconfirmed-delete regression.
+    if (specs.has("delete")) {
+      if (!src.includes("showDialog<bool>") || !src.includes("confirmed != true")) {
+        issues.push(`[actions] '${p}' (${screen.name}) delete action is NOT confirm-guarded — Cancel must leave the entity untouched`);
+      }
+    }
+  }
+
+  // Invariant 6: `save` is a semantic kind only — NO extended FAB may appear on any form screen.
+  // Scan the form screens (crudFormTargets) for a FloatingActionButton (Save-FAB appearing fails).
+  // `files` are absolute paths under outDir/lib (walk()), so read them directly.
+  for (const [entityName] of crudFormTargets(flat as any)) {
+    const formFileName = `${entityName.toLowerCase()}_form_screen.dart`;
+    const formFiles = files.filter((f) => f.endsWith(formFileName));
+    for (const f of formFiles) {
+      const src = fs.readFileSync(f, "utf8");
+      if (src.includes("floatingActionButton") || src.includes("FloatingActionButton.extended")) {
+        issues.push(`[actions] ${path.relative(outDir, f)} renders a floatingActionButton — save must keep its single PrimaryButton (no FAB, invariant 6)`);
+      }
+    }
+  }
+
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -731,6 +846,7 @@ export interface ValidationResult {
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
   search: number;    // count of per-list-search issues: plan/output drift, missing/unexpected SearchBar (P2)
   scroll: number;    // count of per-screen-scroll issues: plan/output drift, missing/unexpected scroll listener (P3)
+  actions: number;   // count of per-screen-action issues: plan/output drift, missing/unexpected action, unconfirmed delete, save FAB (P4)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -790,7 +906,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, planDeterminism: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, planDeterminism: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -978,10 +1094,17 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...scrollIssues);
   const scroll = scrollIssues.length;
 
+  // Per-screen actions (P4): plan.json's recorded action decisions must match a fresh
+  // re-derivation (same actionsFor), every screen's output must agree (positive set renders, null
+  // set absent), Delete must be confirm-guarded, and no Save FAB may appear (invariants 3-8).
+  const actionsIssues = actionsCheck(ir, outDir, files);
+  issues.push(...actionsIssues);
+  const actions = actionsIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell, search,
-    scroll,
+    scroll, actions,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1034,7 +1157,8 @@ function main() {
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
   console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search + r.scroll > 0;
+  console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

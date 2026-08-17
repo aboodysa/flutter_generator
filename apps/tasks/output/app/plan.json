@@ -678,6 +678,38 @@
       "/follow-up/:id": {
         "enabled": true
       }
+    },
+    "actions": {
+      "/task/:id": [
+        {
+          "kind": "edit",
+          "label": "edit",
+          "icon": "Icons.edit",
+          "presentation": "inline"
+        },
+        {
+          "kind": "delete",
+          "label": "delete",
+          "icon": "Icons.delete",
+          "confirm": true,
+          "presentation": "inline"
+        }
+      ],
+      "/follow-up/:id": [
+        {
+          "kind": "edit",
+          "label": "edit",
+          "icon": "Icons.edit",
+          "presentation": "inline"
+        },
+        {
+          "kind": "delete",
+          "label": "delete",
+          "icon": "Icons.delete",
+          "confirm": true,
+          "presentation": "inline"
+        }
+      ]
     }
   }
 }

@@ -27,7 +27,33 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
       appBar: AppBar(title: const Text('Leave Request details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/leave-request/${id}/edit')),
-        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<LeaveRequestListCubit>().delete(id!); if (context.mounted) context.go('/leave-request'); }),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          tooltip: 'More actions',
+          onSelected: (value) {
+            if (value == 'delete') (() async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text('Delete LeaveRequest?'),
+                content: const Text('This action cannot be undone.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppStrings.of(context).cancel)),
+                  FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppStrings.of(context).delete)),
+                ],
+              ),
+            );
+            if (confirmed != true || !context.mounted) return;
+            await context.read<LeaveRequestListCubit>().delete(id!);
+            if (context.mounted) context.go('/leave-request');
+          })();
+            if (value == 'audit') (() => context.push('/audit-log'))();
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete), const SizedBox(width: AppSpacing.sm), Text(AppStrings.of(context).delete)])),
+            PopupMenuItem(value: 'audit', child: Row(children: [Icon(Icons.history), const SizedBox(width: AppSpacing.sm), Text(AppStrings.of(context).audit)])),
+          ],
+        ),
       ]),
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {

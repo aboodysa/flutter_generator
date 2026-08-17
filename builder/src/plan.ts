@@ -1,5 +1,5 @@
 import { FeatureModel } from "./types";
-import { ShellDestination, SearchSpec, ScrollSpec } from "./composition";
+import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -39,10 +39,15 @@ export interface GenerationPlan {
   // P3 (contract §5): `scroll` is additive alongside both — keyed by screenPath() like `search`,
   // one entry per list/detail screen (the declared contract rule scroll.enabled = screen.kind ∈
   // {list, detail}); omitted when the app has no list/detail screen.
+  // P4 (contract §6): `actions` is additive alongside the above — keyed by screenPath() like
+  // search/scroll, one entry per screen whose decided action set is non-empty (composition.ts's
+  // actionsFor). Recorded as data so [actions] re-derives-and-diffs; omitted entirely when no
+  // screen in this app has any applicable capability (never `{ actions: {} }` noise).
   patterns?: {
     shell?: { destinations: ShellDestination[] };
     search?: Record<string, SearchSpec>;
     scroll?: Record<string, ScrollSpec>;
+    actions?: Record<string, ActionSpec[]>;
   };
 }
 

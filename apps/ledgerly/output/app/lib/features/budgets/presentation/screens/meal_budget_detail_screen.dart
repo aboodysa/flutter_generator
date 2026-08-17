@@ -27,7 +27,22 @@ class _MealBudgetDetailScreenState extends State<MealBudgetDetailScreen> {
       appBar: AppBar(title: const Text('Meal Budget details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/meal-budget/${id}/edit')),
-        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<MealBudgetListCubit>().delete(id!); if (context.mounted) context.go('/meal-budget'); }),
+        IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text('Delete MealBudget?'),
+                content: const Text('This action cannot be undone.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppStrings.of(context).cancel)),
+                  FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppStrings.of(context).delete)),
+                ],
+              ),
+            );
+            if (confirmed != true || !context.mounted) return;
+            await context.read<MealBudgetListCubit>().delete(id!);
+            if (context.mounted) context.go('/meal-budget');
+          }),
       ]),
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {

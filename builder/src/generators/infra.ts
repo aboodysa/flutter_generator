@@ -106,9 +106,11 @@ class AppStrings {
 `;
 }
 
-// L4: locale-aware apps get a small, FIXED vocabulary (app chrome: title/loading/error/retry/
-// save/create/back/edit/delete/noData/newLabel) resolved per-locale via AppStrings.of(context) —
-// deliberately NOT per-entity/per-field labels (fieldLabel() output, entity plural titles): those
+// L4: locale-aware apps get a small, FIXED vocabulary (app chrome: appTitle/loading/error/retry/
+// save/create/back/edit/delete/cancel/audit/noData/newLabel) resolved per-locale via
+// AppStrings.of(context) — cancel + audit added for P4 (delete-confirm dialog cancel; audit
+// action label). Deliberately NOT per-entity/per-field labels (fieldLabel() output, entity plural
+// titles): those
 // are dynamically derived from whatever the IR's author named a field/entity, and there is no
 // deterministic, 0%-LLM source for their Arabic translation without inventing content. Documented
 // scope boundary, not silently dropped — see the task report.
@@ -130,6 +132,8 @@ class AppStrings {
     'back': 'Back',
     'edit': 'Edit',
     'delete': 'Delete',
+    'cancel': 'Cancel',
+    'audit': 'Audit log',
     'noData': 'No data',
     'newLabel': 'New',
     'signIn': 'Sign in',
@@ -146,6 +150,8 @@ class AppStrings {
     'back': 'رجوع',
     'edit': 'تعديل',
     'delete': 'حذف',
+    'cancel': 'إلغاء',
+    'audit': 'سجل التدقيق',
     'noData': 'لا توجد بيانات',
     'newLabel': 'جديد',
     'signIn': 'تسجيل الدخول',
@@ -169,6 +175,8 @@ class AppStrings {
   String get back => _values['back']!;
   String get edit => _values['edit']!;
   String get delete => _values['delete']!;
+  String get cancel => _values['cancel']!;
+  String get audit => _values['audit']!;
   String get noData => _values['noData']!;
   String get newLabel => _values['newLabel']!;
   String get signIn => _values['signIn']!;

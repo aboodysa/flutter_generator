@@ -8,7 +8,7 @@
 // narrowest capability they actually use — TS structural typing lets index.ts keep constructing
 // and passing one full GenContext everywhere without any caller-side change.
 import { StateManagementProvider } from "./types";
-import { SearchSpec, ScrollSpec } from "./composition";
+import { SearchSpec, ScrollSpec, ActionSpec } from "./composition";
 
 export interface PkgContext {
   pkg: string; // package name (e.g. "rasheed_replica_expense")
@@ -24,4 +24,8 @@ export interface GenContext extends PkgContext {
   // P3 (contract §5): composition.ts's scrollTargets(ir), computed once per generateApp run —
   // screen.ts looks itself up by `s.name` to decide whether to emit the scroll-tint listener.
   scroll?: Map<string, ScrollSpec>;
+  // P4 (contract §6): composition.ts's actionsTargets(ir), computed once per generateApp run —
+  // screen.ts looks itself up by `s.name` to render its decided ActionSpec[] (or nothing). The
+  // ONLY action decision — screen.ts never re-derives from crudTarget/audit/export.
+  actions?: Map<string, ActionSpec[]>;
 }

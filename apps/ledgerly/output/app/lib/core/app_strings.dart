@@ -17,6 +17,8 @@ class AppStrings {
     'back': 'Back',
     'edit': 'Edit',
     'delete': 'Delete',
+    'cancel': 'Cancel',
+    'audit': 'Audit log',
     'noData': 'No data',
     'newLabel': 'New',
     'signIn': 'Sign in',
@@ -33,6 +35,8 @@ class AppStrings {
     'back': 'رجوع',
     'edit': 'تعديل',
     'delete': 'حذف',
+    'cancel': 'إلغاء',
+    'audit': 'سجل التدقيق',
     'noData': 'لا توجد بيانات',
     'newLabel': 'جديد',
     'signIn': 'تسجيل الدخول',
@@ -56,6 +60,8 @@ class AppStrings {
   String get back => _values['back']!;
   String get edit => _values['edit']!;
   String get delete => _values['delete']!;
+  String get cancel => _values['cancel']!;
+  String get audit => _values['audit']!;
   String get noData => _values['noData']!;
   String get newLabel => _values['newLabel']!;
   String get signIn => _values['signIn']!;

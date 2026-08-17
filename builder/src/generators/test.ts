@@ -3,6 +3,7 @@ import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassFiel
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
+import { actionsTargets } from "../composition";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
 import { GenContext } from "../gen_context";
@@ -459,6 +460,17 @@ export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementP
   const createExpect = money ? `1,250.50 ${currency}` : createValue;
   const updateExpect = money ? `1,999.25 ${currency}` : updateValue;
 
+  // P4 (contract §6): consume the DECIDED delete presentation (composition.ts's actionsTargets —
+  // the SAME selector index.ts uses, never re-derived) so the flow test either taps the inline
+  // Delete icon then the confirm dialog, or — when actionsFor overflowed Delete into the "…" menu
+  // (a >2-action detail like hr_service's audited LeaveRequest) — opens the overflow menu first.
+  let deleteViaOverflow = false;
+  const detailScreen = (feature.screens ?? []).find((s) => s.entity === target.entity && s.type === "detail");
+  if (detailScreen) {
+    const specs = actionsTargets(feature).get(detailScreen.name) ?? [];
+    deleteViaOverflow = specs.some((a) => a.kind === "delete" && a.presentation === "overflow");
+  }
+
   // D1: crud_form.ts renders a status/priority enum as a ChoiceChip row (see crud_form.ts's
   // "UIX Slice D" comment) instead of a Dropdown — this test only ever typed into the first
   // TextField, so onSelected was proven by render+analyze, never by an actual tap. The form's
@@ -509,8 +521,19 @@ ${chipTapStep}    await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     expect(find.text('${updateExpect}'), findsOneWidget);
 
-    // delete (detail AppBar action -> back on the list, row gone)
-    await tester.tap(find.byIcon(Icons.delete));
+    // delete (detail action -> P4 confirm dialog -> confirm -> back on the list, row gone).
+    // When actionsFor overflowed Delete into the "…" menu (a >2-action detail), open the overflow
+    // menu and pick Delete first; otherwise Delete is an inline AppBar icon. Then the confirm
+    // dialog appears either way.
+    ${deleteViaOverflow
+      ? `    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();`
+      : `    await tester.tap(find.byIcon(Icons.delete));
+    await tester.pumpAndSettle();`}
+    expect(find.text('Delete ${target.entity}?'), findsOneWidget); // P4 confirm dialog present
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(find.text('${updateExpect}'), findsNothing);
   });

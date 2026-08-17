@@ -1422,6 +1422,52 @@
       "/meal-budget/:id": {
         "enabled": true
       }
+    },
+    "actions": {
+      "/expense-claim": [
+        {
+          "kind": "export",
+          "label": "export",
+          "icon": "Icons.download",
+          "presentation": "inline"
+        }
+      ],
+      "/expense-claim/:id": [
+        {
+          "kind": "edit",
+          "label": "edit",
+          "icon": "Icons.edit",
+          "presentation": "inline"
+        },
+        {
+          "kind": "delete",
+          "label": "delete",
+          "icon": "Icons.delete",
+          "confirm": true,
+          "presentation": "overflow"
+        },
+        {
+          "kind": "audit",
+          "label": "audit",
+          "icon": "Icons.history",
+          "presentation": "overflow"
+        }
+      ],
+      "/meal-budget/:id": [
+        {
+          "kind": "edit",
+          "label": "edit",
+          "icon": "Icons.edit",
+          "presentation": "inline"
+        },
+        {
+          "kind": "delete",
+          "label": "delete",
+          "icon": "Icons.delete",
+          "confirm": true,
+          "presentation": "inline"
+        }
+      ]
     }
   }
 }

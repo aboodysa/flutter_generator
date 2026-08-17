@@ -1,6 +1,6 @@
 import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
-import { compositionFor } from "../composition";
+import { compositionFor, ActionKind, ActionSpec } from "../composition";
 import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
 
 /**
@@ -680,6 +680,14 @@ ${searchBarBlock}${heroBlock}
   // and the nested BlocBuilder/Builder body can use it (§5.2-F1).
   const preBuild = comp.layout === "detail" ? `    final id = GoRouterState.of(context).pathParameters['id'];\n` : "";
 
+  // P4 (contract §6): THIS screen's decided ActionSpec[] (composition.ts's actionsTargets,
+  // computed once per generateApp run) — consumed by kind/presentation, NEVER re-derived here
+  // (S-P4 invariants 1 & 3: actionsFor() is the only action decision; this renderer never counts
+  // actions or re-reads crudTarget/audit/export). Null-set: no entry in ctx.actions → no actions
+  // rendered (byte-identical, invariant 7). `save` is a semantic kind only and is never emitted
+  // as a control (invariant 6 — the form's PrimaryButton is its renderer).
+  const decided = ctx?.actions?.get(s.name) ?? [];
+
   // L3: export action(s) on a list screen whose `export:` resolves against a real `exported: bool`
   // field (operations.ts's resolveExport) — bloc-only this iteration, same documented-gap posture
   // MF4's split-breakdown block already takes ("no current sample combines riverpod with X").
@@ -720,17 +728,92 @@ ${searchBarBlock}${heroBlock}
     if (mode === "json" || mode === "csv+json") exportButtons.push(stampAndSnack("JSON", "json", `final json = toJson(rows);`));
   }
 
-  // tooltip: doubles as the accessible/semantic label for these icon-only buttons (Flutter maps
-  // IconButton/FloatingActionButton `tooltip` to the semantics label) — required for CDP flow
-  // drivers (research/cdp_flow_test.json) to locate them by aria-label, not just a11y hygiene.
-  const appBarActions = comp.layout === "detail" && (canEditCreate || canDelete)
-    ? `,\n      actions: [\n` +
-      (canEditCreate ? `        IconButton(tooltip: ${str("edit", "'Edit'")}, icon: const Icon(Icons.edit), onPressed: () => context.push('${formPath}/\${id}/edit')),\n` : "") +
-      (canDelete ? `        IconButton(tooltip: ${str("delete", "'Delete'")}, icon: const Icon(Icons.delete), onPressed: () async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }),\n` : "") +
-      `      ]`
-    : exportButtons.length
-      ? `,\n      actions: [\n${exportButtons.join("")}      ]`
-      : "";
+  // P4 renderer — emits each decided ActionSpec by its decided presentation (invariant 3: this
+  // never computes grouping). Inline/primary actions render as AppBar IconButtons; overflow
+  // actions collapse into ONE PopupMenuButton (the "…" menu). Each action's handler closure is
+  // built ONCE (per kind) and consumed by whichever presentation it's assigned. Delete with
+  // confirm wraps the handler in a showDialog — Cancel returns early (no mutation), Confirm runs
+  // the existing delete (invariant 4). Audit navigates to the generated /audit-log route
+  // (invariant 5). `save` is never emitted (invariant 6). Export reuses exportButtons (bloc-only,
+  // documented gap) as inline actions. tooltip doubles as the accessible/semantic label for these
+  // icon-only buttons (required for CDP flow drivers to locate them by aria-label).
+  //
+  // `handlersByKind` maps an action kind → its complete Dart handler EXPRESSION, reused by both
+  // presentations. edit/audit are sync arrow closures; delete is an async closure (confirm +
+  // mutate + go). The SAME closure literal feeds onPressed (inline) and onSelected/onTap
+  // (overflow), so each action's behavior lives in ONE place.
+  const handlersByKind: Partial<Record<ActionKind, string>> = {};
+  for (const a of decided) {
+    const t = (key: string, literal: string) => str(key, literal);
+    if (a.kind === "edit" && !handlersByKind.edit) {
+      handlersByKind.edit = `() => context.push('${formPath}/\${id}/edit')`;
+    } else if (a.kind === "delete" && !handlersByKind.delete) {
+      const label = t("delete", "'Delete'");
+      handlersByKind.delete = a.confirm
+        ? `() async {\n` +
+          `            final confirmed = await showDialog<bool>(\n` +
+          `              context: context,\n` +
+          `              builder: (_) => AlertDialog(\n` +
+          `                title: Text('Delete ${s.entity}?'),\n` +
+          `                content: const Text('This action cannot be undone.'),\n` +
+          `                actions: [\n` +
+          `                  TextButton(onPressed: () => Navigator.pop(context, false), child: Text(${t("cancel", "'Cancel'")})),\n` +
+          `                  FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(${label})),\n` +
+          `                ],\n` +
+          `              ),\n` +
+          `            );\n` +
+          `            if (confirmed != true || !context.mounted) return;\n` +
+          `            await ${readMutator("delete", "id!")};\n` +
+          `            if (context.mounted) context.go('${formPath}');\n` +
+          `          }`
+        : `() async { await ${readMutator("delete", "id!")}; if (context.mounted) context.go('${formPath}'); }`;
+    } else if (a.kind === "audit" && !handlersByKind.audit) {
+      handlersByKind.audit = `() => context.push('/audit-log')`;
+    }
+  }
+  const handlerFor = (a: ActionSpec): string => handlersByKind[a.kind] ?? `() {}`;
+
+  // Partition by the DECIDED presentation (never counted/grouped here — invariant 3).
+  const inlineActions: string[] = [];
+  const overflowActions: { id: string; label: string; icon: string; handler: string }[] = [];
+  for (const a of decided) {
+    const capitalized = a.label ? a.label.charAt(0).toUpperCase() + a.label.slice(1) : a.label;
+    const label = str(a.label, `'${capitalized}'`);
+    // export (list screen) is emitted by the exportButtons block above (bloc-only, documented
+    // gap) — its real CSV/JSON + stamp-and-snack logic, never a generic IconButton. The action's
+    // presence is still a DECIDED fact (actionsFor returned it); exporting via exportButtons keeps
+    // the implementation, decided separately from the payload it gates on.
+    if (a.kind === "export") {
+      inlineActions.push(...exportButtons);
+      continue;
+    }
+    if (a.presentation === "overflow") {
+      overflowActions.push({ id: a.kind, label, icon: a.icon, handler: handlerFor(a) });
+    } else {
+      inlineActions.push(`        IconButton(tooltip: ${label}, icon: const Icon(${a.icon}), onPressed: ${handlerFor(a)}),\n`);
+    }
+  }
+
+  // Overflow "…" menu: ONE PopupMenuButton whose onSelected dispatches by action VALUE to the SAME
+  // handler closure the inline path uses (single behavior home). Each PopupMenuItem carries a
+  // leading icon + the localized label; selecting it pops with its kind value and onSelected runs
+  // that kind's handler. Unknown values (defensive) are ignored.
+  const overflowMenu = overflowActions.length
+    ? `        PopupMenuButton<String>(\n` +
+      `          icon: const Icon(Icons.more_vert),\n` +
+      `          tooltip: 'More actions',\n` +
+      `          onSelected: (value) {\n` +
+      overflowActions.map((a) => `            if (value == '${a.id}') (${a.handler})();\n`).join("") +
+      `          },\n` +
+      `          itemBuilder: (_) => [\n` +
+      overflowActions.map((a) => `            PopupMenuItem(value: '${a.id}', child: Row(children: [Icon(${a.icon}), const SizedBox(width: AppSpacing.sm), Text(${a.label})])),\n`).join("") +
+      `          ],\n` +
+      `        ),\n`
+    : "";
+
+  const appBarActions = inlineActions.length || overflowActions.length
+    ? `,\n      actions: [\n${inlineActions.join("")}${overflowMenu}      ]`
+    : "";
 
   // G6: on a child list screen (reached via a parent's "View <Child>s" link, e.g. FollowUps under
   // a Task), the create-FAB must carry the SAME `?<fk>=<parentId>` query param forward into the

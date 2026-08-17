@@ -7,7 +7,7 @@
 import { FeatureModel, ScreenModel, EntityModel, RepositoryModel } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
-import { findRepoForEntity } from "./operations";
+import { findRepoForEntity, crudFormTargets, isAudited, resolveExport } from "./operations";
 
 export interface CompositionSpec {
   archetype: string;
@@ -219,6 +219,112 @@ export function scrollTargets(ir: FeatureModel): Map<string, ScrollSpec> {
   for (const screen of ir.screens ?? []) {
     const spec = scrollFor(screen);
     if (spec) out.set(screen.name, spec);
+  }
+  return out;
+}
+
+/**
+ * P4 (INTERFACE_PATTERN_CONTRACT.md §6, SPIKE_PLAN §P4) — capability-driven actions.
+ *
+ * The S-P4 spike (research/SPIKE_P4_REPORT.md) concluded MODIFY, owner-accepted with a tightened
+ * architecture contract (2026-08-17):
+ *
+ *   - operations.ts  → "can this capability exist?"  (semantic truth — already exists)
+ *   - actionsFor()   → "which actions does THIS screen get, and how are they presented?" (THE
+ *                      single action-composition decision — the ONLY place screen.ts's actions
+ *                      come from; never a second operations.ts)
+ *   - screen.ts      → "how do I render the decided payload?" (consumes ActionSpec[].presentation;
+ *                      NEVER computes grouping, never re-derives from crudTarget/audit/export)
+ *   - validate.ts    → "does the generated output agree with the decision?" ([actions] gate)
+ *
+ * Invariants this slice implements (owner-accepted acceptance criteria):
+ *   1. Single decision source — actionsFor() is the only action decision.
+ *   2. Existing semantics reused — NO new capability predicates, NO IR/schema additions.
+ *   3. No heuristic rendering — renderer consumes ActionSpec.presentation, never counts actions.
+ *   4. Delete is always confirmed — Delete → confirm dialog; Cancel = no mutation; Confirm =
+ *      existing delete behavior.
+ *   5. Audit becomes reachable — only audited entities get the Audit action; navigates to the
+ *      existing /audit-log route.
+ *   6. Save has NO second visual affordance — existing in-body PrimaryButton remains the renderer;
+ *      NO FAB generated. `save` exists as a SEMANTIC kind only ("semantic action ≠ mandatory
+ *      visual widget") — it is never emitted as a separate control.
+ *   7. Null-set preservation — screens with no applicable capability render byte-identically.
+ *   8. Closed vocabulary — ActionKind is exactly { edit, export, delete, audit, save } where the
+ *      four SEMANTIC kinds are export/delete/audit/save and `edit` is the pre-existing navigation
+ *      affordance (crudFormTargets) carried through the same decided payload (owner's example:
+ *      actionsFor(detail) → [edit:inline, delete:overflow, audit:overflow]).
+ *   9. Plan is derived, not authoritative — [actions] validates plan.json against actionsFor().
+ *  10. Negative controls — stale plan entry, removed expected action, unexpected action,
+ *      Delete-without-confirm, and Save-FAB all FAIL the gate.
+ */
+export type ActionKind = "edit" | "export" | "delete" | "audit" | "save";
+export type ActionPresentation = "inline" | "overflow" | "primary";
+
+export interface ActionSpec {
+  kind: ActionKind;
+  label: string;                 // tooltip / menu text stem (locale-aware via screen.ts's str())
+  icon: string;                  // a `Icons.*` Dart expression from the fixed stem map below
+  confirm?: boolean;             // true → screen.ts wraps the action in a confirm dialog (Delete only)
+  presentation: ActionPresentation; // decided here, consumed verbatim by screen.ts (invariant 3)
+}
+
+// Fixed action-kind → Material icon stem map (contract §6 + C13 extension of the P1 shell map).
+// Additive only; glyph-absence impossible by construction; collision allowed by design.
+const ACTION_ICONS: [ActionKind, string][] = [
+  ["edit", "Icons.edit"],
+  ["export", "Icons.download"],
+  ["delete", "Icons.delete"],
+  ["audit", "Icons.history"],
+  ["save", "Icons.save"],
+];
+const ACTION_ICON: Record<ActionKind, string> = Object.fromEntries(ACTION_ICONS) as Record<ActionKind, string>;
+export const KNOWN_ACTION_ICONS = new Set(ACTION_ICONS.map(([, icon]) => icon));
+
+// P4 selector (contract §6): the ONE place that decides a screen's action list and each action's
+// presentation. Reads ONLY the existing closed operations.ts predicates (invariant 2) — never
+// re-implements resolveExport/audit/CRUD (owner: "operations.ts owns capability semantics;
+// actionsFor() owns action composition"). Null-set: a screen with no applicable capability gets
+// an empty list (byte-identical output, invariant 7).
+//
+// Overflow grouping (invariant 3): the ">2 → overflow" decision is made HERE, as a declared
+// `presentation` on each ActionSpec — screen.ts never counts. Match the owner's accepted example:
+// a 3-action detail ([edit, delete, audit]) becomes [edit:inline, delete:overflow, audit:overflow].
+export function actionsFor(screen: ScreenModel, entity: EntityModel | undefined, repo: RepositoryModel | undefined, ir: FeatureModel): ActionSpec[] {
+  const out: ActionSpec[] = [];
+  if (screen.type === "detail") {
+    const crud = entity ? crudFormTargets(ir).get(entity.name) : undefined;
+    // edit = the pre-existing navigation affordance (crudFormTargets create+update), carried
+    // through the same decided payload so screen.ts never re-derives it from crudTarget.
+    if (crud) {
+      out.push({ kind: "edit", label: "edit", icon: ACTION_ICON.edit, presentation: "inline" });
+      if (crud.delete) out.push({ kind: "delete", label: "delete", icon: ACTION_ICON.delete, confirm: true, presentation: "inline" });
+    }
+    // audit (invariant 5): only audited entities get the Audit action; navigates to /audit-log.
+    if (entity && isAudited(ir, entity.name)) out.push({ kind: "audit", label: "audit", icon: ACTION_ICON.audit, presentation: "overflow" });
+  } else if (screen.type === "list") {
+    // export: resolves against a real `exported: bool` field (operations.ts's resolveExport) —
+    // the SAME predicate the [export] gate and the export button already use.
+    if (resolveExport(ir, screen)) out.push({ kind: "export", label: "export", icon: ACTION_ICON.export, presentation: "inline" });
+  }
+  // Overflow decision (invariant 3): detail screens with >2 actions push the non-edit actions into
+  // the overflow menu (edit stays inline as the primary affordance). Decided HERE, as
+  // presentation, never counted in screen.ts. For ≤2 actions everything stays inline.
+  if (out.length > 2) {
+    return out.map((a) => (a.kind === "edit" ? a : { ...a, presentation: "overflow" }));
+  }
+  return out;
+}
+
+// Runs actionsFor across every screen in one IR (single- or already-merged multi-feature — reads
+// only flat ir.screens/entities/repositories, same posture as searchTargets/scrollTargets).
+// Keyed by screen NAME (screen.ts's lookup); index.ts re-keys by screenPath() for plan.json.
+export function actionsTargets(ir: FeatureModel): Map<string, ActionSpec[]> {
+  const out = new Map<string, ActionSpec[]>();
+  for (const screen of ir.screens ?? []) {
+    const entity = ir.entities.find((e) => e.name === screen.entity);
+    const repo = findRepoForEntity(ir.repositories, screen.entity);
+    const actions = actionsFor(screen, entity, repo, ir);
+    if (actions.length) out.set(screen.name, actions);
   }
   return out;
 }

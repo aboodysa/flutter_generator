@@ -26,7 +26,22 @@ class _FollowUpDetailScreenState extends State<FollowUpDetailScreen> {
       appBar: AppBar(title: const Text('Follow Up details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/follow-up/${id}/edit')),
-        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<FollowUpListCubit>().delete(id!); if (context.mounted) context.go('/follow-up'); }),
+        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text('Delete FollowUp?'),
+                content: const Text('This action cannot be undone.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+                  FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete')),
+                ],
+              ),
+            );
+            if (confirmed != true || !context.mounted) return;
+            await context.read<FollowUpListCubit>().delete(id!);
+            if (context.mounted) context.go('/follow-up');
+          }),
       ]),
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {
