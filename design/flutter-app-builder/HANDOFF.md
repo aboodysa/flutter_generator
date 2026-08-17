@@ -1,83 +1,75 @@
-# HANDOFF — main capability loop COMPLETE (round: 2026-08-16 → 2026-08-17)
+# HANDOFF — P2 CLOSED, SPIKE M4 COMPLETE (round: 2026-08-17)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
-## Status: main capability loop declared COMPLETE
+## Status
 
-Every item the owner asked to close this round is closed, verified, and committed. This round
-had three threads: (1) a SwiftUI target spike, deliberately parked; (2) completing the
-Ledgerly-MVP sample to full slice coverage including the final acceptance gap (LM6); (3) working
-down the `LEFTOVER_NOTES.md` queue. All three are done.
+**P2 (per-list search) — CLOSED.** **SPIKE M4 (sealed-class state codegen) — COMPLETE, decision
+MODIFY.** Both per `INTERFACE_PATTERN_CONTRACT.md`/`SPIKE_PLAN.md` sequencing; `SPIKE_PLAN.md`
+updated to reflect the M4 outcome (commit `908cd84`).
 
-## What shipped this round
+## P2 — per-list search, CLOSED
 
-**SwiftUI target — S1 (schema/platform knob) + S2 (module skeleton) — PARKED/DEFERRED**
-`ca0eb39`. Landed and verified (typecheck clean, byte-identical regen across 10 IRs, 20 gates
-incl. new `[platform]`/`[swiftpkg]`/`[swiftarch]`/`[swiftdeterminism]`), then explicitly parked
-per owner directive so the main capability loop could continue. Not touched further this round —
-still parked, no regressions introduced by anything below (SwiftUI-target IRs weren't in the
-backward-compat sweep because no sample currently opts into it; the Flutter path is unaffected by
-construction, since every SwiftUI addition was additive-only per S1/S2's own hard constraints).
+Three commits close the P2 brief (`research/P2_IMPLEMENTATION_BRIEF.md`) in full:
 
-**Ledgerly-MVP extended to full slice coverage** `9f70dcb` + `1b297af`:
-L2 (8 seed policy rules across ExpenseClaim/MealBudget/Approval), MF3 (attachment/OCR stub),
-MF4 (ExpenseClaimSplit), MF6 (offline outbox), L3 (audit log + CSV export), plus the L4
-login-screen localization gap (G-L4-2). `apps/ledgerly/input/ledgerly.ir.json` now exercises
-L1-L5, MF1-MF6, C1-C2 — see `LEDGERLY_MVP.md` for the full slice map. Along the way, 5 real
-generator bugs the multi-feature combination surfaced (LM2-LM5, oracle-tag resolution /
-symbol registration / dormant Session import / multi-Waive-button test ambiguity) were found and
-fixed, each with its own regression test.
+- `99da57b` — `searchFor`/`searchTargets` selector (`composition.ts`), `entity.primaryDisplayField`
+  IR semantic (schema + `types.ts`), `screen.ts` SearchBar/filter/no-results template, `plan.json`
+  `patterns.search`, new `[search]` validate gate. Also fixed a real `scroll_test.dart` fragility
+  the slice surfaced (switched to `tester.scrollUntilVisible`).
+- `dafe4b1` — declared `primaryDisplayField` on all 4 samples (tasks/hr_service/work_auth/ledgerly),
+  regenerated real search UI + goldens. `validate.ts` 22/22 gates PASS on all 4 (`[search]` +
+  `[shell]` + determinism all PASS), `flutter analyze` clean, `flutter test` green
+  (36/36 hr_service, 22/22 work_auth, 83/83 ledgerly, tasks clean aside from a pre-existing
+  unrelated harness issue).
+- `f48e5a6` — CDP walk (ledgerly + tasks): filter-as-you-type, case-insensitive contains,
+  no-results EmptyState, clear — all confirmed live on both a shelled (ledgerly) and unshelled
+  (tasks) app, proving search and P1's shell compose independently. Findings under
+  `apps/{ledgerly,tasks}/output/qa/p2-search/`.
 
-**LEFTOVER_NOTES.md queue worked down**: D1, G2a, G2b, L1a, M2 (arch-linter vacuous layer
-detection + the real violation it surfaced), M3 (cross-feature symbol-table collisions) all
-closed `e6608f5`/`9d3b948`/`90cfd41`/`77e4ed1`. M4 (sealed-class state codegen: `scoring.ts` can
-select "sealed-events" but `state.ts` never implements that branch) was root-caused but
-deliberately left **OPEN** — it's a real, correctly-scoped-out generator gap, documented with its
-root cause and recommendation in `LEFTOVER_NOTES.md`, not attempted this round since it's its own
-slice.
+Gate evidence: `[search]` PASS, `[shell]` still PASS, `[determinism]` still PASS, across all 4 real
+apps — the acceptance invariant (contract §3.3) holds.
 
-**LM6 — the final Ledgerly-MVP acceptance gap — CLOSED** `9415190` + `2b6a24f`:
-ledgerly's own `Approval` entity was read-only (`ApprovalRepository` had only `listApprovals`);
-"approve/reject workflow" was only proven via reimbursement's wizard, not ledgerly's own list.
-Fixed generally, not as an Approval-special-case:
-- Added `ApprovalRepository.updateApproval` (+ `UpdateApproval` use case) to the IR.
-- New shared `operations.ts` helper, `quickDecisionTargets(ir)` — identifies any entity whose
-  repo has `update` but not `create` (i.e. an update-only "review queue" shape) and derives its
-  quick-decision button set from the entity's own status-shaped enum values, using the existing
-  `AppChip.toneForStatus` vocabulary (danger-toned value → close icon, otherwise check icon) —
-  no hardcoded "approved"/"rejected" strings anywhere.
-- `screen.ts` consumes it to render list-row quick-decision `IconButton`s; `test.ts` consumes the
-  *same* helper to generate a matching regression test (`quick_decision_test.dart`) — one source
-  of truth for both, per this generator's established pattern.
-- **Root-caused a second, real bug this surfaced**: `entity.ts` only auto-upgraded a Cubit's
-  Equatable `props` to full-field equality for `crudFormTargets` (create+update) entities.
-  Update-only entities stayed identity-only (`props => [id]`), so Bloc's `Cubit.emit()` silently
-  no-op'd on "same id, different decision" — the button looked wired but nothing visibly
-  happened. Fixed by extending the same auto-upgrade to `quickDecisionTargets` entities.
-- Backward-compat verified byte-identical for hr_service/tasks/work_auth (stash+regen+diff both
-  ways); real `apps/ledgerly/output/app` regenerated; `validate.ts` 20/20, `flutter analyze`
-  clean (only the pre-existing unrelated `split_test.dart` info-lint), `flutter test` 83/83,
-  goldens refreshed.
-- `LEDGERLY_MVP.md` Proof-of-MVP checklist and the LM6 leftover-note entry both updated to reflect
-  reality; capture(stub)/LM7 line re-confirmed accurate as-is (by design, no UI entry point).
+## SPIKE M4 — sealed-class state codegen, COMPLETE (decision MODIFY)
 
-**CDP acceptance re-run** against the regenerated app — `apps/ledgerly/output/qa/cdp-acceptance/
-LM6-approve-reject-rerun.md`: signed in as manager Khalid Aziz, navigated to `/approval`,
-approved one row and rejected another live in the browser — both flipped color/status/available-
-actions correctly, sibling row untouched. Budget-remaining and CSV export re-checked as
-non-regression controls (both still correct, unchanged from the prior run). Screenshots were
-visually confirmed in-session but couldn't be persisted as files this round — the browser
-automation's `save_to_disk` didn't yield a locally-resolvable path on this machine; the notes
-file documents exactly what was observed at each step as the substitute record.
+`research/SPIKE_M4_REPORT.md` (commit `b5eb50c`, remote opencode/tracematrix `germany3`) closes the
+`LEFTOVER_NOTES.md` M4 item that had been root-caused but left OPEN. Investigated per
+`SPIKE_PROTOCOL.md`'s research-not-implementation discipline: no `builder/src` edits from the spike
+itself, decision recorded before any implementation.
+
+**Finding — `SPIKE_PLAN.md`'s prior ground truth for M4 was wrong.** It claimed "today no sample
+crosses the sealed-events threshold"; the spike's probe proves `builder/samples/rasheed.ir.json`'s
+`AllExpenses` state does (11 ≥ `SEALED_EVENTS_THRESHOLD=8`), and that the already-shipped
+`[strategy-fidelity]` validate gate already catches the resulting plan/emit mismatch
+(`apps/rasheed/output/qa/validate_probe1.log`: `[strategy-fidelity] FAIL (1)`). The real defect is
+that `scoreStateStrategy` (`builder/src/scoring.ts`) measures `statuses + extraFields` count
+instead of DESIGN §5.2's stated `stateMachines[]` transition/guard surface — every IR in the repo
+declares zero `stateMachines`, so the correct metric would fire sealed nowhere today.
+
+**Decision: MODIFY.**
+- **M4a (next step, not yet implemented)** — fix `scoreStateStrategy` to measure the
+  `stateMachines` surface instead of field count. `scoring.ts`-only (+ `arch.ts` call-site passing
+  `ir` through). No IR/schema change. Estimate S (1 slice). Unblocks `npm run build:rasheed` +
+  validate, which currently FAILs.
+- **M4b (deferred)** — implement the `sealed-events` template family in `generators/state.ts` +
+  consumer branches (`screen.ts`, `crud_form.ts`, `generators/test.ts`). Not scheduled: no sample
+  would exercise it under the corrected selector, and the cost is a permanent second
+  template-family sync burden with no verifiable current benefit. Revisit only when a real IR
+  declares a genuine `stateMachines` transition vocabulary.
+
+Full decision, evidence, and rejected alternatives (ADOPT / REJECT-outright / raise-the-threshold /
+implement-behind-current-metric) in `SPIKE_M4_REPORT.md` §13-§15. `SPIKE_PLAN.md` updated to match
+(§0 grounding, M4 section, ownership matrix, sequencing diagram, not-scheduled register).
 
 ## Ground truth (roadmap), updated
 
 | Area | State |
 |---|---|
-| Ledgerly-MVP (L1-L5, MF1-MF6, C1-C2 on the ledgerly sample) | ✅ complete, all Proof-of-MVP checklist items `[x]` except the CDP line (`[~]`, only because capture(stub) has no entry point by design) |
-| LEFTOVER_NOTES queue | ✅ all closeable items closed; M4 correctly left OPEN (own slice) |
-| SwiftUI target S1+S2 | ✅ landed, PARKED/DEFERRED per owner directive |
-| M4 sealed-class codegen | OPEN — root cause documented (`state.ts` never implements the "sealed-events" branch `scoring.ts` can select), recommendation in `LEFTOVER_NOTES.md`, not attempted (own slice) |
+| P1 (global shell) | ✅ shipped, committed `4e91e50` |
+| P2 (per-list search) | ✅ **CLOSED** this round — `99da57b`/`dafe4b1`/`f48e5a6` |
+| SPIKE M4 (sealed-state codegen) | ✅ **COMPLETE**, decision MODIFY — `b5eb50c`; **M4a not yet implemented** (next step) |
+| S-CTX, P3, P4, P5/D2, S-HERMETIC, S-DEEPLINK | Not started — see `SPIKE_PLAN.md` for scope/sequencing |
+| Ledgerly-MVP, LEFTOVER_NOTES queue (pre-P1/P2 items) | ✅ complete (prior round, see `context_history.md`) |
+| SwiftUI target S1+S2 | PARKED/DEFERRED (prior round) |
 
 ## Verification commands
 ```bash
@@ -87,15 +79,22 @@ npx ts-node builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/ou
 cd apps/<app>/output/app && flutter analyze && flutter test
 ```
 Samples: `apps/{hr_service, ledgerly, tasks, work_auth}` (real, full `apps/<app>/{input,output}`
-convention) + `builder/samples/*.ir.json` (smaller probes).
+convention) + `builder/samples/*.ir.json` (smaller probes, incl. `rasheed.ir.json` for the M4
+probe).
 
 ## Next steps (not started, for whoever picks this up)
-1. M4 sealed-class state codegen — its own slice, see `LEFTOVER_NOTES.md` for root cause.
-2. SwiftUI target S3+ (CRUD/rules) — currently parked; resume only per owner directive.
-3. Anything from `ROADMAP.md`'s P9+ backlog (backend-gen, real auth adapters, payments) — none
-   of it was in scope this round.
+
+1. **M4a** — implement the `scoring.ts` selector fix (own slice, small — see `SPIKE_PLAN.md` M4
+   section for the exact acceptance checklist). Can run locally or on a remote opencode channel;
+   zero overlap with the interface-pattern spikes below, safe to do first or in parallel.
+2. **S-CTX** — composition/plan determinism contract + `[plan-determinism]` validate gate (small,
+   do before P3 per `SPIKE_PLAN.md`'s sequencing rule).
+3. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1.
+4. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
+5. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
 
 ## Rules
 Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;
 backward-compat verified via stash+regen+diff before every generator change lands; agents read
-`AGENTS.md` + briefs in `~/temp/opencode/flutter-app-builder/`.
+`AGENTS.md` + `research/SPIKE_PROTOCOL.md` (spike discipline) + the relevant
+`research/*_IMPLEMENTATION_BRIEF.md`/`SPIKE_PLAN.md` section before starting work.
