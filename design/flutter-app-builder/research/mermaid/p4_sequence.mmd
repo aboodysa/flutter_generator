@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    participant O as Owner
+    participant C as composition.ts<br/>(actionsFor)
+    participant P as plan.json<br/>patterns.actions
+    participant S as screen.ts<br/>(appBar actions + confirm + overflow)
+    participant V as validate.ts<br/>[actions] gate
+    participant F as Flutter app
+    O->>C: approved IR (list/detail/wizard screens + repos)
+    rect rgb(255,243,205)
+        Note over C,P: P4 area ① — single action decision
+        C->>C: actionsFor: export/delete/audit/save from operations.ts predicates
+        C->>P: path-keyed ActionSpec[] → patterns.actions
+    end
+    rect rgb(232,240,254)
+        Note over P,S: P4 area ② — render from payload (no screen.ts heuristic)
+        P->>S: ctx.actions (per-screen ActionSpec[])
+        S->>S: Delete → confirm dialog (destructive)
+        S->>S: Audit → /audit-log entry (was unreachable)
+        S->>S: detail actions >2 → overflow "…" menu
+        S->>F: appBar actions render only what actionsFor decided
+    end
+    rect rgb(255,243,205)
+        Note over V: P4 area ③ — [actions] gate re-proves
+        V->>V: re-derive via SAME actionsFor + diff plan.json
+        V->>V: scan every screen: positive set renders, null set doesn't, Delete confirms
+        alt no drift
+            V-->>F: PASS (byte-identical for capability-absent screens)
+        else stripped Audit / stale plan / unconfirmed Delete
+            V-->>V: [actions] FAIL — fix generator, not output
+        end
+    end

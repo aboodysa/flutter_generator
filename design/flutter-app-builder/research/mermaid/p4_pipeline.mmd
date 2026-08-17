@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph INPUT["🎯 Input (declared, human-approved)"]
+        IR["<b>IR</b> (schema-validated)"]
+    end
+    subgraph CORE["⚙️ Deterministic Core — 0% LLM"]
+        direction TB
+        subgraph SEL["Decision selectors (pure)"]
+            S1["shellFor 🛡"]
+            S2["searchTargets 🛡"]
+            S3["scrollFor 🛡"]
+            S4["<b>actionsFor 🆕</b><br/>kind ∈ {export, delete, audit, save}"]
+        end
+        PLAN["<b>GenerationPlan</b><br/>plan.json — decision as data<br/>patterns.actions 🆕"]
+        GEN["Generators<br/>(IR, ctx) → string"]
+    end
+    subgraph GATES["🛂 Validate gates (right of ship)"]
+        DET["[determinism]"]
+        SCR["[scroll]"]
+        ACN["<b>[actions] 🆕</b><br/>positive set renders, null set doesn't, Delete confirms"]
+    end
+    OUTPUT["✅ Generated Flutter app<br/>lib/ + test/ + web/"]
+    IR --> SEL
+    SEL --> PLAN
+    PLAN --> GEN
+    GEN --> OUTPUT
+    PLAN -. '""read back""'.-> ACN
+    IR -. "re-derived (same selector)" .-> ACN
+    EXIST["already-shipped Edit/Delete/Export<br/>(screen.ts inline today)"] --> S4
+    style ACN fill:#fff3cd,stroke:#b8860b,stroke-width:2px
+    style S4 fill:#fff3cd,stroke:#b8860b,stroke-width:2px
+    style EXIST fill:#e6f4ea,stroke:#137333,stroke-width:1.5px
+    style PLAN fill:#e8f0fe,stroke:#0b5394,stroke-width:2px
+    style SEL fill:#e8f0fe,stroke:#0b5394,stroke-width:1px
+    style GATES fill:#f3f6f9,stroke:#999,stroke-dasharray:3 3
+    style CORE fill:#f8f9fa,stroke:#666,stroke-dasharray:3 3
