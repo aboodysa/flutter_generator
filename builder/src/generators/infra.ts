@@ -189,7 +189,16 @@ export function generateLocalization(f: FeatureModel): string {
   return hasLocale(f) ? generateLocaleAwareLocalization() : generateFlatLocalization();
 }
 
-export function generateTheme(_f: FeatureModel): string {
+// D1 (DESIGN_OPTS §1 O1.2): normalize the declared brand seed to a deterministic uppercase hex.
+// Absent or malformed → today's token teal (0xFF0D9488), so samples that never set the attribute
+// stay byte-identical. The [theme] validator flags a malformed declared seed on the output.
+export function normalizeBrandSeed(value: string | undefined): string {
+  if (!value) return "0D9488";
+  const cleaned = value.replace(/^#/, "").trim();
+  return /^[0-9A-Fa-f]{6}$/.test(cleaned) ? cleaned.toUpperCase() : "0D9488";
+}
+
+export function generateTheme(f: FeatureModel): string {
   return `${hdr("ThemeGenerator", "theme.v1")}
 import 'package:flutter/material.dart';
 
@@ -198,7 +207,7 @@ import 'package:flutter/material.dart';
 // role (status, priority, errors) instead of being a lone cyan. Dark mode is a ThemeData.dark
 // built from the same tokens (attributes.themeMode picks it at the app root).
 abstract final class AppColors {
-  static const primary = Color(0xFF0D9488);
+  static const primary = Color(0xFF${normalizeBrandSeed(f.attributes?.brandSeedColor)});
   static const surface = Color(0xFFFFFFFF);
   static const textPrimary = Color(0xFF1F2937);
   static const textSecondary = Color(0xFF475569);
@@ -242,6 +251,33 @@ ThemeData buildTheme() => ThemeData(
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: const Color(0xFFF1F5F9),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadius.control)),
+      borderSide: BorderSide.none,
+    ),
+    contentPadding: const EdgeInsets.all(AppSpacing.md),
+  ),
+);
+
+// D1 (DESIGN_OPTS §1 O1.3): dark mirror — same seed/radius/spacing/fontFamily as buildTheme(),
+// rendered on dark surfaces (scaffold + filled-input tint). The scaffold/fill hexes below are the
+// deterministic dark palette; the [theme] validator asserts main.dart wires this in.
+ThemeData buildThemeDark() => ThemeData(
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: AppColors.primary,
+    brightness: Brightness.dark,
+  ),
+  scaffoldBackgroundColor: const Color(0xFF0F172A),
+  useMaterial3: true,
+  fontFamily: 'Roboto',
+  cardTheme: const CardThemeData(
+    elevation: 0,
+    margin: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(AppRadius.surface))),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: const Color(0xFF1E293B),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.all(Radius.circular(AppRadius.control)),
       borderSide: BorderSide.none,

@@ -157,6 +157,16 @@ export interface BudgetModel {
 export interface AppAttributes {
   refreshCadence?: "static" | "occasional" | "frequent" | "realtime";
   density?: "compact" | "comfortable";
+  // D1 (DESIGN_OPTS §1 O1.3): dark mode at the app root. "dark" forces a dark scheme, "system"
+  // follows the OS, "light" (absent) preserves today's always-light rendering. Consumed by
+  // generators/project.ts (main.v1 `themeMode:`), generators/infra.ts (buildThemeDark) and
+  // validate.ts's [theme] gate — informational for scoring, never weighed. Additive — absent =
+  // light, byte-identical output.
+  themeMode?: "light" | "dark" | "system";
+  // D1 (DESIGN_OPTS §1 O1.2): brand seed — "#RRGGBB" hex (leading # optional). Seeds
+  // ColorScheme.fromSeed via AppColors.primary in core/theme.dart (generators/infra.ts). Additive
+  // — absent or malformed = today's token teal (0xFF0D9488), byte-identical output.
+  brandSeedColor?: string;
   responsiveness?: "mobile" | "responsive";
   offlinePolicy?: "none" | "cache" | "offline-first";
   permissionScope?: "none" | "basic" | "sensitive";

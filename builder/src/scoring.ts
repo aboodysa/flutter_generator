@@ -26,6 +26,12 @@ export interface ScoringInputs {
   hasRelationships: boolean; // §5.2-F2: any entity has a `reference`-typed field
   documentShaped: boolean; // any entity has a `List`-typed (nested) field
   fullCrudSurface: boolean; // some repository implements create+update+delete for its list entity
+  // D1 (DESIGN_OPTS §1): parsed theme attributes — informational only. They are carried on the
+  // decision's inputs so the parse site (scoring.ts's attribute maps) is a single source of truth,
+  // but they NEVER contribute to complexity or any selection below: theme is presentation data,
+  // not an architecture decision (SPIKE D1 §7 — scoring.ts untouched by the D1b/c selectors).
+  themeMode: "light" | "dark" | "system";
+  brandSeedColor?: string;
 }
 
 export interface ScoringDecision {
@@ -79,6 +85,8 @@ export function computeInputs(ir: FeatureModel): ScoringInputs {
     hasRelationships,
     documentShaped,
     fullCrudSurface,
+    themeMode: a.themeMode ?? "light",
+    brandSeedColor: a.brandSeedColor,
   };
 }
 

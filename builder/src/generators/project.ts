@@ -11,6 +11,11 @@ const PROVIDER_VERSIONS: Record<string, string> = {
   none: "",
 };
 
+// D1 (DESIGN_OPTS §1 O1.1): the app root must render the token system (theme.dart), not a raw
+// colorSchemeSeed literal. core/theme.dart is emitted unconditionally by index.ts (writeCore), so
+// the import is always safe.
+const themeImport = "import 'core/theme.dart';\n";
+
 /**
  * ProjectGenerator — structural, deterministic, 0% LLM.
  * Emits a minimal runnable Flutter app shell: pubspec.yaml + main.dart.
@@ -101,6 +106,10 @@ ${localeLine}        supportedLocales: const [${supported}],
 export function generateMain(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
   const entityNames = feature.entities.map((e) => e.name).join(", ");
   const locale = localeOf(feature);
+  // D1 (O1.3): dark mode at the app root. themeMode defaults to light (today's behavior) and is
+  // emitted as one uniform shape, so samples that never set the attribute stay byte-identical
+  // apart from the fixed wiring lines.
+  const themeMode = feature.attributes?.themeMode ?? "light";
   const titleAndLocale = titleAndLocaleBlock(locale);
   const l10nImport = locale ? `import 'package:flutter_localizations/flutter_localizations.dart';\nimport 'core/app_strings.dart';\n` : "";
 
@@ -124,7 +133,9 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
       ? `    return ProviderScope(
       child: MaterialApp.router(
         ${titleAndLocale}
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.${themeMode},
         routerConfig: appRouter,
       ),
     );`
@@ -132,7 +143,9 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
           .map((st, i) => `BlocProvider<${st}Cubit>(\n      create: (_) => sl<${st}Cubit>()..load(),\n      child: `)
           .join("")}MaterialApp.router(
         ${titleAndLocale}
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.${themeMode},
         routerConfig: appRouter,
       )${distinctStates.map(() => ")").join("")};`;
     const providerImport = sm === "riverpod"
@@ -147,7 +160,7 @@ export function generateMain(feature: FeatureModel, sm: StateManagementProvider 
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-${l10nImport}${providerImport}
+${l10nImport}${themeImport}${providerImport}
 ${generatedImport}import 'core/router.dart';
 ${diImport}
 void main() {
@@ -175,6 +188,7 @@ ${buildReturn}
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'core/theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -189,7 +203,9 @@ class ReplicaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Generated app',
-      theme: ThemeData(colorSchemeSeed: Colors.teal),
+      theme: buildTheme(),
+      darkTheme: buildThemeDark(),
+      themeMode: ThemeMode.${themeMode},
       home: Scaffold(
         appBar: AppBar(title: const Text('Generated app')),
         body: Center(child: Text('Entities: ${entityNames}')),
@@ -210,7 +226,7 @@ class ReplicaApp extends StatelessWidget {
 // with one entry per distinct state; for riverpod no extra wiring is needed at all — providers
 // self-register on first `ref.watch`, so the body is identical to generateMain's riverpod branch
 // regardless of feature or screen count.
-export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc", locale?: "en" | "ar" | "both"): string {
+export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc", locale?: "en" | "ar" | "both", themeMode: "light" | "dark" | "system" = "light"): string {
   // MF4: same split-state inclusion as generateMain above, per feature.
   const distinctStates = Array.from(new Set(features.flatMap((f) => [...(f.screens ?? []).map((s) => s.state), ...splitStateNames(f)])));
   const titleAndLocale = titleAndLocaleBlock(locale);
@@ -220,7 +236,9 @@ export function generateMultiMain(features: FeatureModel[], sm: StateManagementP
     ? `    return ProviderScope(
       child: MaterialApp.router(
         ${titleAndLocale}
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.${themeMode},
         routerConfig: appRouter,
       ),
     );`
@@ -230,7 +248,9 @@ ${distinctStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<$
       ],
       child: MaterialApp.router(
         ${titleAndLocale}
-        theme: ThemeData(colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.${themeMode},
         routerConfig: appRouter,
       ),
     );`;
@@ -245,7 +265,7 @@ ${distinctStates.map((s) => `        BlocProvider<${s}Cubit>(create: (_) => sl<$
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-${l10nImport}${providerImport}
+${l10nImport}${themeImport}${providerImport}
 ${generatedImport}import 'core/router.dart';
 ${diImport}
 void main() {

@@ -1080,7 +1080,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const barrelFile = path.join(outDir, "lib", "generated.dart");
   fs.writeFileSync(barrelFile, generateBarrel(merged, ctx));
   const mainFile = path.join(outDir, "lib", "main.dart");
-  fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement, app.attributes?.locale));
+  fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement, app.attributes?.locale, app.attributes?.themeMode));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(merged, arch));
   fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
   files.push(...writeWebScaffold(outDir, pkg));

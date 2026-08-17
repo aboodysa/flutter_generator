@@ -69,6 +69,52 @@ function archCheck(f: string, src: string): string | null {
   return null;
 }
 
+// D1 (DESIGN_OPTS §1 O1.1/O1.2/O1.3): the app root must render the token system, not a raw
+// colorSchemeSeed literal. Proves: (a) main.dart wires theme: buildTheme(), darkTheme:
+// buildThemeDark(), and a themeMode consistent with attributes.themeMode; (b) the old raw
+// ThemeData(colorSchemeSeed:...) literal never returns; (c) when attributes.brandSeedColor is
+// declared, core/theme.dart's AppColors.primary IS the declared seed (byte-for-byte) — the
+// palette is derived from the seed, never a raw primary that ignores it; (d) a malformed declared
+// seed is flagged (the generator deterministically falls back to the default brand teal).
+function themeCheck(ir: any, files: string[]): string[] {
+  const issues: string[] = [];
+  const attrs = flattenedIr(ir).attributes ?? {};
+  const mainFile = files.find((f) => f.endsWith("/lib/main.dart"));
+  const themeFile = files.find((f) => f.endsWith("/core/theme.dart"));
+  if (!mainFile) return issues; // [header]/[determinism] already report a missing app root
+
+  const main = fs.readFileSync(mainFile, "utf8");
+
+  if (!/theme:\s*buildTheme\(\),/.test(main)) {
+    issues.push("[theme] lib/main.dart does not wire theme: buildTheme() — the token system is dead code in the running app");
+  }
+  if (/ThemeData\(\s*colorSchemeSeed:/.test(main)) {
+    issues.push("[theme] lib/main.dart still emits a raw ThemeData(colorSchemeSeed:...) literal — must use buildTheme()");
+  }
+
+  const themeMode = attrs.themeMode ?? "light";
+  if (!/darkTheme:\s*buildThemeDark\(\),/.test(main)) {
+    issues.push("[theme] lib/main.dart missing darkTheme: buildThemeDark() — dark mode unreachable at the app root");
+  }
+  if (!main.includes(`themeMode: ThemeMode.${themeMode}`)) {
+    issues.push(`[theme] lib/main.dart missing themeMode: ThemeMode.${themeMode} (attributes.themeMode=${attrs.themeMode ?? "empty — defaults light"})`);
+  }
+
+  const seed = attrs.brandSeedColor;
+  if (seed) {
+    const hex = seed.replace(/^#/, "").toUpperCase();
+    if (!/^[0-9A-F]{6}$/.test(hex)) {
+      issues.push(`[theme] attributes.brandSeedColor="${seed}" is not a valid #RRGGBB hex — the generator falls back to the default brand teal; the IR should be corrected`);
+    } else if (themeFile) {
+      const src = fs.readFileSync(themeFile, "utf8");
+      if (!src.includes(`AppColors.primary = Color(0xFF${hex})`)) {
+        issues.push(`[theme] attributes.brandSeedColor="${seed}" declared but core/theme.dart AppColors.primary is not the seed Color(0xFF${hex}) — raw palette not derived from the declared seed`);
+      }
+    }
+  }
+  return issues;
+}
+
 // S2 (§6.3): the Swift analogue of archCheck above, for the [swiftarch] gate — a sibling function,
 // not a shared/parametrized one, so archCheck's Flutter behavior stays byte-for-byte untouched
 // (§2.6 Open/Closed). V1 rule (requirements §6.3): a Domain-layer file must not import
@@ -841,6 +887,7 @@ export interface ValidationResult {
   audit: number;     // count of audit issues: audited entity with no auth, or missing core/audit.dart|audit_log_screen.dart (L3)
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
+  theme: number;     // count of D1 theme-wiring issues: main.dart not on buildTheme(), raw colorSchemeSeed literal, themeMode drift, or seed/palette mismatch (D1)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
@@ -907,6 +954,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, planDeterminism: 0,
+    theme: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -1069,6 +1117,12 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...l10nIssues);
   const l10n = l10nIssues.length;
 
+  // Theme wiring (D1, DESIGN_OPTS §1): the app root must render the token system, not a raw
+  // colorSchemeSeed literal; a declared brand seed must actually derive AppColors.primary.
+  const themeIssues = themeCheck(ir, files);
+  issues.push(...themeIssues);
+  const theme = themeIssues.length;
+
   // Outbox (MF6): a declared outbox must emit core/outbox.dart and be actually referenced by at
   // least one generated repository impl.
   const outboxIssues = outboxCheck(ir, files);
@@ -1103,7 +1157,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
 
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell, search,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, outbox, platform, shell, search,
     scroll, actions,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
@@ -1153,12 +1207,13 @@ function main() {
   console.log(`[audit] ${r.audit === 0 ? "PASS" : "FAIL (" + r.audit + ")"}`);
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
+  console.log(`[theme] ${r.theme === 0 ? "PASS" : "FAIL (" + r.theme + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
   console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
   console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

@@ -193,6 +193,39 @@ ${fontLoader}
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);`;
 
+  // D1 (O1.3): dark goldens are emitted ONLY when the IR opts in via attributes.themeMode ==
+  // "dark" — existing light goldens must not churn. The dark case forces ThemeMode.dark (the test
+  // harness's own brightness is light), renders through buildThemeDark(), and writes a second
+  // golden <name>_dark.png. Absent/light/system → no dark case → byte-identical to pre-D1 goldens.
+  const dark = feature.attributes?.themeMode === "dark";
+  const darkPumpWidget = sm === "riverpod"
+    ? `    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.dark,
+        home: ${screen.name}(),
+      ),
+    ));`
+    : `    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
+      create: (_) => sl<${screen.state}Cubit>()..load(),
+      child: MaterialApp(
+        theme: buildTheme(),
+        darkTheme: buildThemeDark(),
+        themeMode: ThemeMode.dark,
+        home: ${screen.name}(),
+      ),
+    ));`;
+  const darkCase = dark ? `
+
+  testWidgets('${screen.name} renders (golden dark)', (tester) async {
+${setupDi}
+${surface}
+${darkPumpWidget}
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}_dark.png'));
+  });` : "";
+
   return `// [generated] generator=GoldenTestGenerator template=golden_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
@@ -212,6 +245,7 @@ ${pumpWidget}
     await tester.pumpAndSettle();
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });
+${darkCase}
 }
 `;
 }
