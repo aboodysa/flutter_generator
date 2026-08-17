@@ -150,9 +150,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('user-15')), findsNothing, reason: 'row 15 should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('user-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
+    // P2: same reasoning as the riverpod branch above — scrollUntilVisible tolerates a
+    // searchable screen's shorter list viewport instead of gambling on one fixed-magnitude drag.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('user-15')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('user-15')), findsOneWidget, reason: 'row 15 should be reachable after scrolling');
   });
 
   testWidgets('ExpenseClaimListScreen: scrolls when content overflows', (tester) async {
@@ -165,9 +166,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('expense-claim-15')), findsNothing, reason: 'row 15 should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('expense-claim-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
+    // P2: same reasoning as the riverpod branch above — scrollUntilVisible tolerates a
+    // searchable screen's shorter list viewport instead of gambling on one fixed-magnitude drag.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('expense-claim-15')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('expense-claim-15')), findsOneWidget, reason: 'row 15 should be reachable after scrolling');
   });
 
   testWidgets('ApprovalListScreen: scrolls when content overflows', (tester) async {
@@ -180,9 +182,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('approval-15')), findsNothing, reason: 'row 15 should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('approval-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
+    // P2: same reasoning as the riverpod branch above — scrollUntilVisible tolerates a
+    // searchable screen's shorter list viewport instead of gambling on one fixed-magnitude drag.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('approval-15')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('approval-15')), findsOneWidget, reason: 'row 15 should be reachable after scrolling');
   });
 
   testWidgets('MealBudgetListScreen: scrolls when content overflows', (tester) async {
@@ -195,8 +198,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('meal-budget-15')), findsNothing, reason: 'row 15 should be off-screen before scrolling');
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('meal-budget-15')), findsOneWidget, reason: 'row 15 should be reachable after dragging up');
+    // P2: same reasoning as the riverpod branch above — scrollUntilVisible tolerates a
+    // searchable screen's shorter list viewport instead of gambling on one fixed-magnitude drag.
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('meal-budget-15')), 300.0, scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
+    expect(find.byKey(const ValueKey('meal-budget-15')), findsOneWidget, reason: 'row 15 should be reachable after scrolling');
   });
 }

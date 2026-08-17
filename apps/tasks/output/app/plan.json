@@ -651,5 +651,19 @@
     "persistence": "none",
     "coupledPair": "bloc × get_it",
     "complexity": 8
+  },
+  "patterns": {
+    "search": {
+      "/task": {
+        "enabled": true,
+        "field": "title",
+        "mode": "contains"
+      },
+      "/follow-up": {
+        "enabled": true,
+        "field": "subject",
+        "mode": "contains"
+      }
+    }
   }
 }

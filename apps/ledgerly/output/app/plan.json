@@ -1380,6 +1380,28 @@
           "rootPath": "/meal-budget"
         }
       ]
+    },
+    "search": {
+      "/user": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      },
+      "/expense-claim": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      },
+      "/approval": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      },
+      "/meal-budget": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      }
     }
   }
 }

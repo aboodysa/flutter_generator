@@ -711,5 +711,19 @@
     "persistence": "none",
     "coupledPair": "bloc × get_it",
     "complexity": 1
+  },
+  "patterns": {
+    "search": {
+      "/leave-request": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      },
+      "/approval": {
+        "enabled": true,
+        "field": "approver",
+        "mode": "contains"
+      }
+    }
   }
 }

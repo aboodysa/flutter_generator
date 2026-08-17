@@ -65,6 +65,7 @@
           "identity": {
             "field": "id"
           },
+          "primaryDisplayField": "name",
           "fields": [
             {
               "name": "id",
@@ -148,6 +149,7 @@
           "identity": {
             "field": "id"
           },
+          "primaryDisplayField": "name",
           "fields": [
             {
               "name": "id",
@@ -468,6 +470,7 @@
           "identity": {
             "field": "id"
           },
+          "primaryDisplayField": "name",
           "fields": [
             {
               "name": "id",
@@ -570,6 +573,7 @@
           "identity": {
             "field": "id"
           },
+          "primaryDisplayField": "name",
           "fields": [
             {
               "name": "id",

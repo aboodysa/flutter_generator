@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,8 +13,22 @@ import 'package:rasheed_replica_hr_service/core/export.dart';
 import 'package:rasheed_replica_hr_service/features/hr_service/domain/entities/leave_request.dart';
 import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 
-class LeaveRequestListScreen extends StatelessWidget {
+class LeaveRequestListScreen extends StatefulWidget {
   const LeaveRequestListScreen({super.key});
+
+  @override
+  State<LeaveRequestListScreen> createState() => _LeaveRequestListScreenState();
+}
+
+class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +57,20 @@ class LeaveRequestListScreen extends StatelessWidget {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();
         if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage);
     final items = state.leaveRequests;
+            final query = _query.trim().toLowerCase();
+            final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  child: SearchBar(
+                    controller: _searchController,
+                    hintText: 'Search Leave Requests',
+                    leading: const Icon(Icons.search),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
 
                 Expanded(
                   // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
@@ -55,16 +80,18 @@ class LeaveRequestListScreen extends StatelessWidget {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: ScrollConfiguration(
+                  child: filtered.isEmpty && query.isNotEmpty
+                      ? EmptyState(message: 'No results for "$_query"')
+                      : ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        itemCount: items.length,
+                        itemCount: filtered.length,
                         itemBuilder: (_, i) {
-                          final item = items[i];
+                          final item = filtered[i];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: AppListCard(

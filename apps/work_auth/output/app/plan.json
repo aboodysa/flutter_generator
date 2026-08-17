@@ -600,5 +600,19 @@
     "persistence": "none",
     "coupledPair": "bloc × get_it",
     "complexity": 1
+  },
+  "patterns": {
+    "search": {
+      "/work-auth": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      },
+      "/visa-quota": {
+        "enabled": true,
+        "field": "name",
+        "mode": "contains"
+      }
+    }
   }
 }

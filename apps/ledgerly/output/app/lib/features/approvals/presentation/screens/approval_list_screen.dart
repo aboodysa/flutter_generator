@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,8 +10,22 @@ import 'package:rasheed_replica_ledgerly/features/approvals/domain/entities/appr
 
 
 
-class ApprovalListScreen extends StatelessWidget {
+class ApprovalListScreen extends StatefulWidget {
   const ApprovalListScreen({super.key});
+
+  @override
+  State<ApprovalListScreen> createState() => _ApprovalListScreenState();
+}
+
+class _ApprovalListScreenState extends State<ApprovalListScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +36,20 @@ class ApprovalListScreen extends StatelessWidget {
         if (state.status == ApprovalListStatus.loading) return const LoadingState();
         if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage);
     final items = state.approvals;
+            final query = _query.trim().toLowerCase();
+            final filtered = query.isEmpty ? items : items.where((item) => (item.name).toLowerCase().contains(query)).toList();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  child: SearchBar(
+                    controller: _searchController,
+                    hintText: 'Search Approvals',
+                    leading: const Icon(Icons.search),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
 
                 Expanded(
                   // RCA-006: AppScrollBehavior opts every input device (touch/mouse/trackpad/
@@ -34,16 +59,18 @@ class ApprovalListScreen extends StatelessWidget {
                   // front, not just discoverable by already dragging (the owner's "no scroller"
                   // report) — AlwaysScrollableScrollPhysics keeps the list draggable/bouncable
                   // even on the rare screen where content doesn't yet overflow.
-                  child: ScrollConfiguration(
+                  child: filtered.isEmpty && query.isNotEmpty
+                      ? EmptyState(message: 'No results for "$_query"')
+                      : ScrollConfiguration(
                     behavior: const AppScrollBehavior(),
                     child: Scrollbar(
                       thumbVisibility: true,
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        itemCount: items.length,
+                        itemCount: filtered.length,
                         itemBuilder: (_, i) {
-                          final item = items[i];
+                          final item = filtered[i];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: AppListCard(

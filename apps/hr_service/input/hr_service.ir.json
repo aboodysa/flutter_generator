@@ -52,6 +52,7 @@
         "field": "id"
       },
       "audited": true,
+      "primaryDisplayField": "name",
       "fields": [
         {
           "name": "id",
@@ -119,6 +120,7 @@
       "identity": {
         "field": "id"
       },
+      "primaryDisplayField": "approver",
       "fields": [
         {
           "name": "id",

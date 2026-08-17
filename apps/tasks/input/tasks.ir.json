@@ -27,6 +27,7 @@
       "identity": {
         "field": "id"
       },
+      "primaryDisplayField": "title",
       "fields": [
         {
           "name": "id",
@@ -75,6 +76,7 @@
       "identity": {
         "field": "id"
       },
+      "primaryDisplayField": "subject",
       "fields": [
         {
           "name": "id",
