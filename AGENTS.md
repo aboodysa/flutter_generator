@@ -351,9 +351,36 @@ manage its context so work never dies to an uncached-token wall and tokens stay 
    authoritative docs first: this AGENTS.md, `design/flutter-app-builder/HANDOFF.md`,
    `CODE_CATALOGUE.md`, and the relevant `research/*_IMPLEMENTATION_BRIEF.md` + contract — then
    the task. Commit first, so the fresh session starts from a clean tree.
-4. **Remote channels too.** Same discipline applies on tracematrix/tracematrix001 opencode
-   channels — send `/compact` or restart opencode in the tmux channel rather than letting a
-   session balloon. Remote boxes are small; never store huge context there.
+4. **Remote channels: kill and fresh, never prolong.** Remote tmux opencode channels are the
+   cheapest place to lose tokens — and they have no cost-free reset quota. Do NOT `tmux attach`
+   and keep typing into a long-lived session. Instead:
+   - Before starting a new task on tracematrix/tracematrix001, **kill the old opencode process and
+     tmux session and create a brand-new session/channel** (e.g. `tmux kill-session -t germany3`
+     then `tmux new -s germany3` and relaunch `opencode`). Same for any remote channel (`germany`,
+     `bp-claude`, `bp-watch`, `ooo`). A stale channel carries polluted context + a giant backlog;
+     a fresh one starts near-empty and cheap.
+   - Exceptions: a mid-slice task that is genuinely still running (don't kill active work); in that
+     case `/compact` first, finish, then kill and fresh for the next task.
+   - Never let a remote session sit for hours between tasks — if it's idle with an old prompt
+     backlog, kill it now rather than "saving" it.
+5. **MCP servers add context weight — disable what a task doesn't need.** MCP tool results stay in
+   context for the whole session and add up fast (e.g. claude-in-chrome alone measured ~21% of
+   usage). Per-slice rule: enable only the MCP servers the current slice actually calls
+   (browser/CDP only for UI slices; Penpot only for design; etc.). Disable the rest for the run.
+6. **Graphify-queries instead of grep slices.** When the question spans `builder/src` structure
+   ("where is X", "what calls Y", "how does Z flow"), or on onboarding, prefer
+   `graphify query/path/explain` over multiple manual `grep`/`Explore` passes (see the Code graph
+   section). One BFS traversal answer replaces dozens of greps and re-reads. Update the graph with
+   `/graphify builder/src --update` only when structure changed; never rebuild just to answer.
+7. **Watch the measured drivers.** Real usage signal from June 2026 audit: ~95% of usage came from
+   sessions >150k context; ~92% from sessions active 8+ hours. Both are symptoms of "one giant
+   session per project" — the fix is rules 1–4, not designing around the quota. If you see a
+   claude context meter in the hundreds of k on a loop channel, `/compact` immediately, then plan
+   a `/clear` at the next slice boundary.
+8. **Keep a task alive on disk, not in context.** Before `/clear`/kill/new on any channel, make
+   sure the current state is durable in the repo: commit the slice, then note in HANDOFF.md /
+   CODE_CATALOGUE.md what the next agent should re-anchor on. The disk is the memory; the session
+   should be disposable.
 
 ## References
 
