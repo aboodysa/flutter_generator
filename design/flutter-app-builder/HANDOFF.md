@@ -1,44 +1,101 @@
-# HANDOFF — current round (2026-08-14, state-mgmt + arch)
+# HANDOFF — main capability loop COMPLETE (round: 2026-08-16 → 2026-08-17)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
-## Objective
-Reach **v1** (end of Phase 3) and prove it: a generated app that runs + is tested in
-Chrome for Testing (`new_chrome_ext`, malls-app pattern). See `ROADMAP.md` + `PLAN_RUN_TEST_CFT.md`.
+## Status: main capability loop declared COMPLETE
 
-## Actors
-- **opencode (me)** — orchestrator: briefs, verify, commit. (Claude in tmux `claude-flutter-grill` is **out of quota** — paused until reset.)
-- **`opencode/deepseek-v4-pro`** — semantic-lane LLM (`MODEL` in requirements.ts / business_rule_agent.ts).
+Every item the owner asked to close this round is closed, verified, and committed. This round
+had three threads: (1) a SwiftUI target spike, deliberately parked; (2) completing the
+Ledgerly-MVP sample to full slice coverage including the final acceptance gap (LM6); (3) working
+down the `LEFTOVER_NOTES.md` queue. All three are done.
 
-## Just done (this round)
-- **P1 real screens** — list/detail render declared entity fields (title/subtitle/labeled rows), 3-row demo seed, null-safe field formatting. `e3caeaa`.
-- **Arch decision layer + state-mgmt providers** — new `arch.ts` (`decideArchitecture` = single source of truth for stateManagement/DI/routing/per-state strategy + coupled-pair matrix guard); `provider.ts` registry (none/bloc/riverpod); **riverpod** implemented as the 2nd provider (Notifier+NotifierProvider, ConsumerWidget+ref.watch, ProviderScope); bloc unchanged as enterprise default; explicit `attributes.stateManagement` override. `16d9da8`.
-- **CFT driver** — `docs/qa/expense/drive_cft.cjs` (puppeteer-core → CFT :9222; asserts boot/title/console-clean). Generated `main()` now calls `ensureSemantics()` (a11y + DOM text for tests). `2775ec8`.
+## What shipped this round
 
-## Ground truth (roadmap)
+**SwiftUI target — S1 (schema/platform knob) + S2 (module skeleton) — PARKED/DEFERRED**
+`ca0eb39`. Landed and verified (typecheck clean, byte-identical regen across 10 IRs, 20 gates
+incl. new `[platform]`/`[swiftpkg]`/`[swiftarch]`/`[swiftdeterminism]`), then explicitly parked
+per owner directive so the main capability loop could continue. Not touched further this round —
+still parked, no regressions introduced by anything below (SwiftUI-target IRs weren't in the
+backward-compat sweep because no sample currently opts into it; the Flutter path is unaffected by
+construction, since every SwiftUI addition was additive-only per S1/S2's own hard constraints).
+
+**Ledgerly-MVP extended to full slice coverage** `9f70dcb` + `1b297af`:
+L2 (8 seed policy rules across ExpenseClaim/MealBudget/Approval), MF3 (attachment/OCR stub),
+MF4 (ExpenseClaimSplit), MF6 (offline outbox), L3 (audit log + CSV export), plus the L4
+login-screen localization gap (G-L4-2). `apps/ledgerly/input/ledgerly.ir.json` now exercises
+L1-L5, MF1-MF6, C1-C2 — see `LEDGERLY_MVP.md` for the full slice map. Along the way, 5 real
+generator bugs the multi-feature combination surfaced (LM2-LM5, oracle-tag resolution /
+symbol registration / dormant Session import / multi-Waive-button test ambiguity) were found and
+fixed, each with its own regression test.
+
+**LEFTOVER_NOTES.md queue worked down**: D1, G2a, G2b, L1a, M2 (arch-linter vacuous layer
+detection + the real violation it surfaced), M3 (cross-feature symbol-table collisions) all
+closed `e6608f5`/`9d3b948`/`90cfd41`/`77e4ed1`. M4 (sealed-class state codegen: `scoring.ts` can
+select "sealed-events" but `state.ts` never implements that branch) was root-caused but
+deliberately left **OPEN** — it's a real, correctly-scoped-out generator gap, documented with its
+root cause and recommendation in `LEFTOVER_NOTES.md`, not attempted this round since it's its own
+slice.
+
+**LM6 — the final Ledgerly-MVP acceptance gap — CLOSED** `9415190` + `2b6a24f`:
+ledgerly's own `Approval` entity was read-only (`ApprovalRepository` had only `listApprovals`);
+"approve/reject workflow" was only proven via reimbursement's wizard, not ledgerly's own list.
+Fixed generally, not as an Approval-special-case:
+- Added `ApprovalRepository.updateApproval` (+ `UpdateApproval` use case) to the IR.
+- New shared `operations.ts` helper, `quickDecisionTargets(ir)` — identifies any entity whose
+  repo has `update` but not `create` (i.e. an update-only "review queue" shape) and derives its
+  quick-decision button set from the entity's own status-shaped enum values, using the existing
+  `AppChip.toneForStatus` vocabulary (danger-toned value → close icon, otherwise check icon) —
+  no hardcoded "approved"/"rejected" strings anywhere.
+- `screen.ts` consumes it to render list-row quick-decision `IconButton`s; `test.ts` consumes the
+  *same* helper to generate a matching regression test (`quick_decision_test.dart`) — one source
+  of truth for both, per this generator's established pattern.
+- **Root-caused a second, real bug this surfaced**: `entity.ts` only auto-upgraded a Cubit's
+  Equatable `props` to full-field equality for `crudFormTargets` (create+update) entities.
+  Update-only entities stayed identity-only (`props => [id]`), so Bloc's `Cubit.emit()` silently
+  no-op'd on "same id, different decision" — the button looked wired but nothing visibly
+  happened. Fixed by extending the same auto-upgrade to `quickDecisionTargets` entities.
+- Backward-compat verified byte-identical for hr_service/tasks/work_auth (stash+regen+diff both
+  ways); real `apps/ledgerly/output/app` regenerated; `validate.ts` 20/20, `flutter analyze`
+  clean (only the pre-existing unrelated `split_test.dart` info-lint), `flutter test` 83/83,
+  goldens refreshed.
+- `LEDGERLY_MVP.md` Proof-of-MVP checklist and the LM6 leftover-note entry both updated to reflect
+  reality; capture(stub)/LM7 line re-confirmed accurate as-is (by design, no UI entry point).
+
+**CDP acceptance re-run** against the regenerated app — `apps/ledgerly/output/qa/cdp-acceptance/
+LM6-approve-reject-rerun.md`: signed in as manager Khalid Aziz, navigated to `/approval`,
+approved one row and rejected another live in the browser — both flipped color/status/available-
+actions correctly, sibling row untouched. Budget-remaining and CSV export re-checked as
+non-regression controls (both still correct, unchanged from the prior run). Screenshots were
+visually confirmed in-session but couldn't be persisted as files this round — the browser
+automation's `save_to_disk` didn't yield a locally-resolvable path on this machine; the notes
+file documents exactly what was observed at each step as the substitute record.
+
+## Ground truth (roadmap), updated
+
 | Area | State |
 |---|---|
-| Phase 1 (deterministic core) | ✅ |
-| Phase 2 (pattern) | ✅ + arch layer + bloc/riverpod/none providers (gaps: pagination/caching, persistence validator) |
-| Phase 3a (BusinessRuleAgent) | ✅ `6fb6672` |
-| Phase 3b (oracle + trust core) | ✅ `eb87a58`; gaps: approval routing 2×2, two-party confidence, sealed-events template (C3) |
-| Phase 4 | partial (extract.ts, regen.ts) |
-| CFT run/test (P2) | 🚧 driver + build+serve done; `hasDataRow` assertion fails (seeded title field `merchant` is null → rows show 'Untitled', id is key not title) |
+| Ledgerly-MVP (L1-L5, MF1-MF6, C1-C2 on the ledgerly sample) | ✅ complete, all Proof-of-MVP checklist items `[x]` except the CDP line (`[~]`, only because capture(stub) has no entry point by design) |
+| LEFTOVER_NOTES queue | ✅ all closeable items closed; M4 correctly left OPEN (own slice) |
+| SwiftUI target S1+S2 | ✅ landed, PARKED/DEFERRED per owner directive |
+| M4 sealed-class codegen | OPEN — root cause documented (`state.ts` never implements the "sealed-events" branch `scoring.ts` can select), recommendation in `LEFTOVER_NOTES.md`, not attempted (own slice) |
 
 ## Verification commands
 ```bash
-npm run typecheck:builder
-npx ts-node --transpile-only builder/src/index.ts <ir> <out>   # then:
-npx ts-node --transpile-only builder/src/validate.ts <ir> <out> # VALIDATION PASSED (incl [oracle])
-# app: flutter create --platforms=web . && flutter build web; serve + drive_cft.cjs
+npx tsc -p builder/tsconfig.json --noEmit
+npx ts-node builder/src/index.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
+npx ts-node builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
+cd apps/<app>/output/app && flutter analyze && flutter test
 ```
-Samples: `builder/samples/{expense.semantic, inventory, todo, promo, rasheed, todo.riverpod}.ir.json`.
+Samples: `apps/{hr_service, ledgerly, tasks, work_auth}` (real, full `apps/<app>/{input,output}`
+convention) + `builder/samples/*.ir.json` (smaller probes).
 
-## Next steps
-1. P2 CFT: fix demo seed so the rendered list *title* field is distinct (not just the key) → `hasDataRow` passes → commit CFT green evidence.
-2. P3: approval routing 2×2 (C1), two-party confidence (C2), honor per-state `sealed-events` (C3), strategy-fidelity gate (C4).
-3. Keep HANDOFF lean; archive prior → `context_history.md`.
+## Next steps (not started, for whoever picks this up)
+1. M4 sealed-class state codegen — its own slice, see `LEFTOVER_NOTES.md` for root cause.
+2. SwiftUI target S3+ (CRUD/rules) — currently parked; resume only per owner directive.
+3. Anything from `ROADMAP.md`'s P9+ backlog (backend-gen, real auth adapters, payments) — none
+   of it was in scope this round.
 
 ## Rules
 Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;
-LLM = `opencode/deepseek-v4-pro`; agents read `AGENTS.md` + briefs in `~/temp/opencode/flutter-app-builder/`.
+backward-compat verified via stash+regen+diff before every generator change lands; agents read
+`AGENTS.md` + briefs in `~/temp/opencode/flutter-app-builder/`.
