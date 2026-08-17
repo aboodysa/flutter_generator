@@ -89,3 +89,10 @@ round is listed here: path, what it is, why it exists, status. Additive — neve
 | `research/mermaid/plan_pipeline.mmd` | Mermaid flowchart: IR → selectors → plan.json → generators → validate gates; amber = new `[plan-determinism]` gate, blue = decision-as-data, dashed = gate grouping | reusable diagram source (rule 12: sources kept in repo; PDF depends on re-rendering them) | new, uncommitted |
 | `research/mermaid/plan_sequence.mmd` | Mermaid sequence: approve → selectors write plan → validate re-derives + diffs (alt: drift → FAIL); blue/amber rects = S-CTX areas of interest | same as above | new, uncommitted |
 | `research/mermaid/puppeteer-config.json` | Pins puppeteer to CFT chrome (`chrome-mac-arm64/Google Chrome for Testing`) for `mmdc`| plain `mmdc` fails with "Could not find chrome-headless-shell" — the config makes diagram rendering reproducible on this mac | new, uncommitted |
+
+## S-CTX — plan-determinism contract + gate (2026-08-17)
+| Path | What | Why | Status |
+|---|---|---|---|
+| `research/DETERMINISM_CONTRACT.md` | Field-by-field derivation map of `GenContext` + `GenerationPlan` (scoring / patterns.shell / patterns.search / entry.*), each pure selector cited (file:line), + the transitive-purity invariant | resolves grills C1 + C15 (S-CTX): "the plan is IR-derived" becomes a written, cited contract instead of a tautology | committed this round |
+| `builder/src/validate.ts` | new `[plan-determinism]` gate (in `validateOutput`): reuses the existing `[determinism]` fresh regen, JSON-compares the regenerated `plan.json` vs the on-disk one; new `planDeterminism` field in `ValidationResult` + `main` printout | standing guard: catches hand-edits / stale plan / an LLM-or-purity leak in any plan-field helper (C15); additive, zero generator changes | committed this round |
+| `research/SCTX_DECISION.md` + `.pdf` + `research/mermaid/*` | owner decision brief (exec summary/context/why/options with priority+impact/findings/decision) + mermaid pipeline/sequence diagrams with shaded areas of interest | informed go/no-go on S-CTX before implementation; delivered to owner on Telegram as attachments | committed `5a67f5f` |

@@ -639,6 +639,7 @@ function swiftPkgCheck(iosFiles: string[]): string[] {
 
 export interface ValidationResult {
   determinism: boolean;
+  planDeterminism: number; // count of plan.json-vs-fresh-derivation diffs (S-CTX)
   headers: number;   // count of files missing the header
   secrets: number;   // count of files with secret literals
   idioms: number;    // count of files with forbidden idioms
@@ -719,7 +720,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, planDeterminism: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -749,6 +750,33 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   const diff = execSync(`diff -r ${tmp1}/lib ${outDir}/lib`, { stdio: "pipe" }).toString();
   const determinism = diff.trim() === "";
   if (!determinism) issues.push(diff.trim());
+
+  // Plan determinism (S-CTX, DETERMINISM_CONTRACT.md §4): the plan.json on disk must exactly
+  // match a fresh generate of this IR — same regen, one more file. Runs against plan.json only
+  // (the decision layer), complementing [determinism]'s lib/ diff above; `writePlan` produces a
+  // stable, key-stable JSON, so JSON.stringify compare (not byte diff) is sufficient and robust.
+  // Catches: human hand-edits, an LLM/wall-clock/purity leak in any plan-field helper (grills
+  // C1/C15), or a stale plan. Negative-control proven — see S-CTX brief.
+  let planDeterminism = 0;
+  const planDeterminismIssues: string[] = [];
+  const freshPlan = path.join(tmp1, "plan.json");
+  const diskPlan = path.join(outDir, "plan.json");
+  if (!fs.existsSync(diskPlan)) {
+    planDeterminismIssues.push(`[plan-determinism] plan.json missing in ${outDir} — cannot verify plan-vs-IR`);
+  } else if (!fs.existsSync(freshPlan)) {
+    planDeterminismIssues.push(`[plan-determinism] fresh generate of this IR produced no plan.json in ${tmp1} — the builder changed shape`);
+  } else {
+    const fresh = JSON.stringify(JSON.parse(fs.readFileSync(freshPlan, "utf8")));
+    const disk = JSON.stringify(JSON.parse(fs.readFileSync(diskPlan, "utf8")));
+    if (fresh !== disk) {
+      planDeterminismIssues.push(
+        "[plan-determinism] plan.json on disk differs from a fresh generate of this IR — the plan is not purely IR-derived (hand-edit, stale plan, or a non-deterministic/LLM source leaked into a plan-field helper). Regenerate, don't hand-edit (DETERMINISM_CONTRACT.md).",
+      );
+    }
+  }
+  issues.push(...planDeterminismIssues);
+  planDeterminism = planDeterminismIssues.length;
+
   fs.rmSync(tmp1, { recursive: true, force: true });
 
   // Static checks.
@@ -876,6 +904,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell, search,
+    planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
     swiftpkg: 0, swiftarch: 0, swiftdeterminism: 0,
@@ -904,6 +933,7 @@ function main() {
 
   console.log(`[platform] ${r.platform === 0 ? "PASS" : "FAIL (" + r.platform + ")"}`);
   console.log(`[determinism] ${r.determinism ? "PASS (byte-identical)" : "FAIL"}`);
+  console.log(`[plan-determinism] ${r.planDeterminism === 0 ? "PASS" : "FAIL (" + r.planDeterminism + ")"}`);
   console.log(`[headers] ${r.headers === 0 ? "PASS" : "FAIL (" + r.headers + ")"} across ${r.files} files`);
   console.log(`[secrets] ${r.secrets === 0 ? "PASS" : "FAIL (" + r.secrets + ")"}`);
   console.log(`[forbidden-idioms] ${r.idioms === 0 ? "PASS" : "FAIL (" + r.idioms + ")"}`);

@@ -1,11 +1,33 @@
-# HANDOFF — SPIKE M4 CLOSED (M4a applied), next: P2 → S-CTX (round: 2026-08-17)
+# HANDOFF — S-CTX COMPLETE, next: P3 scroll (round: 2026-08-17)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-**P2 (per-list search) — CLOSED.** **SPIKE M4 — FULLY CLOSED: decision MODIFY acted on via M4a now
-applied.** `SPIKE_PLAN.md`'s M4a acceptance checklist is all `[x]`; `[strategy-fidelity]` now PASSes
+**S-CTX — COMPLETE** (contract + `[plan-determinism]` gate). **P2 — CLOSED.** **SPIKE M4 — FULLY
+CLOSED (M4a applied).** Next per the frozen order (`SPIKE_PLAN.md`): **P3** scroll behavior.
+
+## S-CTX — plan-determinism contract + gate, COMPLETE
+
+Resolves grills C1 ("'ctx' undefined / determinism tautology") + C15 ("LLM-authored plan recurses
+nondeterminism") — the roadmap's standing guard before P3/P4/P5-D2 (each cites plan.json in its
+acceptance).
+
+- **`research/DETERMINISM_CONTRACT.md`** — field-by-field derivation map of `GenContext` +
+  `GenerationPlan` (`scoring`, `patterns.shell`, `patterns.search`, `entry.*`) with each pure
+  selector cited (file:line), + the **transitivity invariant** (every helper in the closure must be
+  pure — no wall clock/FS-content/network/env/randomness/mutable state/LLM).
+- **`[plan-determinism]` gate in `validate.ts`** — reuses the existing `[determinism]` regeneration
+  (one fresh generate), diffs the regenerated `plan.json` against the on-disk one
+  (JSON.stringify compare — stable, key-stable output). Catches hand-edits, stale plans, and any
+  purity leak in a plan-field helper. Additive (new field in `ValidationResult` + printout), zero
+  generator changes, zero IR/schema changes.
+- **Negative controls proven**: hand-edit `patterns.shell` → `[plan-determinism] FAIL (1)`;
+  delete `plan.json` → `FAIL (1)` (not vacuous).
+- **Verification**: typecheck clean; `[plan-determinism] PASS` on all 4 apps + all 5 samples
+  (9 IRs), `[determinism]`/`[strategy-fidelity]`/`[verdict]` all still PASS.
+- **Decision brief delivered** to owner first (MD + PDF with mermaid pipeline/sequence diagrams,
+  shaded areas of interest — `research/SCTX_DECISION.{md,pdf}`, committed `5a67f5f`).
 everywhere including the rasheed probe (was FAIL). Next per the frozen order: S-CTX → P3 → P4 →
 P5/D2.
 
@@ -96,9 +118,11 @@ implement-behind-current-metric) in `SPIKE_M4_REPORT.md` §13-§15. `SPIKE_PLAN.
 | Area | State |
 |---|---|
 | P1 (global shell) | ✅ shipped, committed `4e91e50` |
-| P2 (per-list search) | ✅ **CLOSED** this round — `99da57b`/`dafe4b1`/`f48e5a6` |
-| SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), **M4a selector fix applied this round** (`scoring.ts`, no threshold); **M4b (sealed template family) deferred** until a real event-rich IR declares `stateMachines` |
-| S-CTX, P3, P4, P5/D2, S-HERMETIC, S-DEEPLINK | Not started — see `SPIKE_PLAN.md` for scope/sequencing |
+| P2 (per-list search) | ✅ **CLOSED** — `99da57b`/`dafe4b1`/`f48e5a6` |
+| SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), **M4a applied** (`scoring.ts`, no threshold); **M4b deferred** until a real event-rich IR |
+| **S-CTX** (plan determinism) | ✅ **COMPLETE this round** — `DETERMINISM_CONTRACT.md` + `[plan-determinism]` gate; decision brief `SCTX_DECISION.{md,pdf}` committed `5a67f5f` |
+| P3 scroll, P4 actions, P5/D2 placement | **Next** — sequential, per `SPIKE_PLAN.md` §1 |
+| S-HERMETIC, S-DEEPLINK | Backlog / owner call, see `SPIKE_PLAN.md` |
 | Ledgerly-MVP, LEFTOVER_NOTES queue (pre-P1/P2 items) | ✅ complete (prior round, see `context_history.md`) |
 | SwiftUI target S1+S2 | PARKED/DEFERRED (prior round) |
 
@@ -115,13 +139,12 @@ probe).
 
 ## Next steps (not started, for whoever picks this up)
 
-1. **S-CTX** — composition/plan determinism contract + `[plan-determinism]` validate gate (small,
-   do before P3 per `SPIKE_PLAN.md`'s sequencing rule).
-2. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1.
-3. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
-4. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
+1. **P3 → P4 → P5/D2** — sequential interface-pattern chain, per `SPIKE_PLAN.md` §1 (P3 scroll
+   first: contract rule `scroll.enabled = screen.kind ∈ {list, detail}`).
+2. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
+3. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
    genuine `stateMachines` transition vocabulary (new sample or owner request).
-5. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
+4. SwiftUI target S3+ (CRUD/rules) — parked; resume only per owner directive.
 
 ## Rules
 Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;

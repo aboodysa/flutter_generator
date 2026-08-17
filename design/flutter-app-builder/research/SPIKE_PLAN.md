@@ -116,10 +116,10 @@ invariant plus a check that fails if it ever stops being true.
 **Owner modules:** `validate.ts` (new gate only), docs.
 
 **Acceptance:**
-- [ ] New gate added, additive, passes on all 4 apps + `builder/samples/*`.
-- [ ] A negative-control test (hand-edit `plan.json`'s `patterns.shell` after generation) makes the
+- [x] New gate added, additive, passes on all 4 apps + `builder/samples/*`.
+- [x] A negative-control test (hand-edit `plan.json`'s `patterns.shell` after generation) makes the
       gate fail — proves it isn't vacuous (same discipline as the `[symbols]`/`M2` precedent).
-- [ ] Doc section merged into the contract, cited by section number from here on.
+- [x] Doc section merged into the contract, cited by section number from here on.
 
 **Estimate:** S (1 slice).
 
