@@ -30,22 +30,29 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
 4. **Correctness needs an independent oracle.** A business rule with no
    (or zero-case) `<rule>.oracle.json` fails validation (blocking gate in
    `builder/src/validate.ts`). Never bypass it.
-5. **Trust boundary**: LLM agent output is stamped `origin=llm-inferred,
+5. **Spikes are research, not implementation.** A spike investigates a hypothesis and must end
+   in a decision (`ADOPT`/`MODIFY`/`REJECT`/`DEFER`/`SPLIT`/`ESCALATE`) with recorded evidence —
+   it must never assume the proposed solution is correct. The full operating protocol is in
+   `design/flutter-app-builder/research/SPIKE_PROTOCOL.md` (binding: read it before starting any
+   spike; read-only-by-default, no commits during research, investigate → prove → decide →
+   implement-last). Every spike produces its required report (§17) under
+   `apps/<app>/output/qa/` or `design/flutter-app-builder/research/`.
+6. **Trust boundary**: LLM agent output is stamped `origin=llm-inferred,
    requiresApproval=true` and generation refuses until `builder/src/approve.ts`
    attests `actor=human:attested`. Don't weaken this.
-6. **Generated code is owned by the compiler.** Header comment
+7. **Generated code is owned by the compiler.** Header comment
    `// [generated] generator=… ownership=generated`. User regions are preserved
    by content-hash (`regions.json`) — never silent-overwrite.
-7. **SOLID applies to all new code** (see the briefs pattern): one module =
+8. **SOLID applies to all new code** (see the briefs pattern): one module =
    one concern; generators emit strings (no I/O); the oracle module only reads
    the corpus; the composition root (`index.ts`) wires; depend on types, not I/O.
-8. **Lean handoff every round.** At the end of each round (or when the user asks),
+9. **Lean handoff every round.** At the end of each round (or when the user asks),
    overwrite `design/flutter-app-builder/HANDOFF.md` with a lean, current-state
    summary (objective, actors, repo map, ground truth table, commits, in-flight
    work, verification commands, next steps, rules). **Move the previous HANDOFF
    content to `design/flutter-app-builder/context_history.md`** (append, dated
    header) so HANDOFF stays lean and history is preserved.
-9. **Send goldens + progress to Telegram each run.** After generating/updating
+10. **Send goldens + progress to Telegram each run.** After generating/updating
    screens, capture iPhone-size goldens (golden tests already set `390×844`) via
    `flutter test --update-goldens`, then send the `.png`s + a one-line progress
    note to the owner over Telegram (mac_companion bot). Send photos with:
@@ -59,20 +66,20 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
    (`curl -F "document=@<file>" .../sendDocument`), not as text chunks** —
    attachments are the preferred form for files; chunked text is for progress
    notes only.
-10. **Always inform the owner on Telegram.** Every status change, each commit,
+11. **Always inform the owner on Telegram.** Every status change, each commit,
     each golden/photo, each bug/RCA, each slice start/finish goes to Telegram.
     If you're about to act, the owner should already know. When in doubt, send
     the message.
-11. **All code you write is saved under the project folder.** No throwaway work
+12. **All code you write is saved under the project folder.** No throwaway work
     in `/tmp` or the working tree without a copy in the repo. Anything worth
     writing is worth keeping. This includes temp harnesses, RCA docs, scratch
     generators, analysis scripts. Save them under the relevant `apps/<app>/`,
     `docs/qa/`, or `design/flutter-app-builder/` (additive — never delete).
-12. **Maintain a code catalogue.** `design/flutter-app-builder/CODE_CATALOGUE.md`
+13. **Maintain a code catalogue.** `design/flutter-app-builder/CODE_CATALOGUE.md`
     lists every artifact written this session/round: path, what it is, why it
     exists, status. Update it whenever you add or change code. It's the "what
     and why" index the owner asked for.
-13. **Expose apps over Tailscale + send iPhone URL to Telegram.** When the owner
+14. **Expose apps over Tailscale + send iPhone URL to Telegram.** When the owner
     asks to expose a generated app (or after any app milestone), serve it on the
     tailnet ONLY (never Funnel/public) and Telegram the iPhone URL. Recipe (full
     guide: `/Users/username/Documents/cto/mall_directory/docs/TAILSCALE_EXPOSE.md`):
@@ -93,7 +100,7 @@ over tool-only guesses; when in doubt, prefer the explicit rules here.
     - Telegram: send the iPhone URL exactly as
       `IPHONE_URL=https://macbook-air-m4-1.taild16060.ts.net/<app>/` (+ tailscale
       IP + how-to-open), and re-send it on every subsequent expose of that app.
-14. **Developing a CDP driver fast (mall-session pattern).** When the owner says
+15. **Developing a CDP driver fast (mall-session pattern).** When the owner says
     "drive/test the app", reuse the existing infra instead of writing a browser
     from scratch:
     - Infra: CFT headless on `:9222` (`/Users/username/temp/opencode/cft/chrome-*
@@ -241,6 +248,12 @@ ask before deciding which.
 
 ## LLM agent work (semantic lane)
 
+- **Spike protocol binds all agents.** Before any spike (in this repo or on remote hosts), read
+  `design/flutter-app-builder/research/SPIKE_PROTOCOL.md` — it is the non-negotiable execution
+  rules: spikes are research producing an `ADOPT`/`MODIFY`/`REJECT`/`DEFER`/`SPLIT`/`ESCALATE`
+  decision; read-only-by-default, no commits during research, investigate → prove → decide →
+  implement-last. Spike reports (§17 of the protocol) land under `apps/<app>/output/qa/` or
+  `design/flutter-app-builder/research/`.
 - Default model for agent LLM calls is **`opencode/deepseek-v4-pro`** (see
   `MODEL` in `builder/src/requirements.ts` and `builder/src/business_rule_agent.ts`).
 - `builder/src/requirements.ts` — RequirementAgent: NL → structural IR.
