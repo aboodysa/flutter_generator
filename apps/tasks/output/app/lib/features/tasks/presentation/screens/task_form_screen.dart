@@ -186,7 +186,7 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).
               await widget.onSubmit(item);
-              if (context.mounted) context.go('/task/${item.id}');
+              if (context.mounted) context.pushReplacement('/task/${item.id}');
             },
           ),
         ],

@@ -103,7 +103,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).
               await widget.onSubmit(item);
-              if (context.mounted) context.go('/follow-up/${item.id}');
+              if (context.mounted) context.pushReplacement('/follow-up/${item.id}');
             },
           ),
         ],

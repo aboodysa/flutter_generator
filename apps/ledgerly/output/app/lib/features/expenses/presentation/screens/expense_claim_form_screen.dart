@@ -262,7 +262,7 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
                   ));
                 }
               }
-              if (context.mounted) context.go('/expense-claim/${item.id}');
+              if (context.mounted) context.pushReplacement('/expense-claim/${item.id}');
             },
           ),
         ],

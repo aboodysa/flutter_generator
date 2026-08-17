@@ -436,6 +436,15 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   const hasDetail = (ctx?.ir?.screens ?? []).some((s: any) => s.entity === target.entity && s.type === "detail");
   const listPath = `/${kebab(target.entity)}`;
   const postSubmitPath = hasDetail ? `${listPath}/\${item.${identityField}}` : listPath;
+  // Post-submit navigation. `context.go()` REPLACES the entire go_router stack, so a detail-path
+  // target would leave the detail screen with no parent entry — the AppBar auto back button never
+  // renders and the only way home is the browser back (invisible on the iPhone, dead end for a
+  // deep link). The form itself is always `push`ed from the list (screen.ts), so `pushReplacement`
+  // to the detail keeps the list beneath it and the back button just works. `go()` is still right
+  // when the destination is the list itself (home has no parent to pop to).
+  const postSubmitNav = hasDetail
+    ? `if (context.mounted) context.pushReplacement('${postSubmitPath}');`
+    : `if (context.mounted) context.go('${postSubmitPath}');`;
 
   const bodyClass = `_${screenName}Body`;
 
@@ -547,7 +556,7 @@ ${policy.panelCall}${split.panelCall}          const SizedBox(height: AppSpacing
               // Await the mutation before navigating — otherwise the detail/list screen we're
               // about to navigate to can render one frame ahead of the state update (race).
               await widget.onSubmit(item);
-${split.submitHook}              if (context.mounted) context.go('${postSubmitPath}');
+${split.submitHook}              ${postSubmitNav}
             },
           ),
         ],
