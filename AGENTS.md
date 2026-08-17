@@ -246,6 +246,24 @@ ask before deciding which.
   - Cite `source_location`/file:line from graph output the same way you'd cite a `grep` hit —
     it's an index into the real code, not a replacement for reading the code it points to.
 
+## Model tier — implementer separation (owner directive 2026-08-17)
+
+A "**zen**" model (cheap/fast — e.g. `opencode/deepseek-v4-flash` and any similarly cheap local
+tier) is an ORCHESTRATOR ONLY. It never writes code into the tree:
+
+- **A zen model does not implement.** It plans, scopes, verifies (read-only commands), reviews
+  diffs, writes decision/spike/research docs, and drives remote agents — but it does not edit
+  `builder/src/**`, generated apps, or any implementation file.
+- **Implementation is delegated to remote opencode agents** on the owner's VPS hosts (tracematrix
+  / tracematrix001, see below) via tmux: write a brief, send it to the remote channel, let the
+  remote agent edit + commit, then the zen model reviews the returned diff and verifies.
+- **Use a "pro" / non-zen model for anything that must write code locally** (e.g.
+  `opencode/deepseek-v4-pro`), OR hand the edit to a remote opclick agent — never let the zen model
+  do both orchestration and implementation.
+- This keeps cheap-model loops token-light and correct: the zen model's high-value work is
+  cross-checking, not keystrokes. If the current session's model is zen and a task needs a code
+  edit, the default move is: capture a brief → send to a remote opencode channel → review + verify.
+
 ## LLM agent work (semantic lane)
 
 - **Spike protocol binds all agents.** Before any spike (in this repo or on remote hosts), read
@@ -332,6 +350,10 @@ tmux capture-pane -t germany3 -p | tail -30   # read output
 
 ### Rules for remote agent work
 
+- **Zen-model delegation is the default (see "Model tier — implementer separation" above):** this
+  local session's model is usually zen, so implementation is captured into a brief and handed to a
+  remote opencode channel (tmux), then reviewed + verified here. The remote agent is the
+  implementer; the local zen session is the orchestrator.
 - Same discipline as local: read that host's `AGENTS.md`/`CLAUDE.md` first if present; small
   commits; never delete; report to the owner on Telegram.
 - Remote VPS boxes are small (1vcpu/1gb on tracematrix) — avoid heavy builds (Flutter/web)
