@@ -925,7 +925,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   const mainFile = path.join(outDir, "lib", "main.dart");
   fs.writeFileSync(mainFile, generateMain(ir, arch.stateManagement));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(ir, arch));
-  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
+  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion, outDir), null, 2));
   files.push(...writeWebScaffold(outDir, pkg));
   const testDir = path.join(outDir, "test");
   const testsResult = writeTests(ir, arch, outDir, testDir, oracleDir, pkg, ir, ctx);
@@ -1103,7 +1103,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const mainFile = path.join(outDir, "lib", "main.dart");
   fs.writeFileSync(mainFile, generateMultiMain(app.features, arch.stateManagement, app.attributes?.locale, app.attributes?.themeMode));
   fs.writeFileSync(path.join(outDir, "pubspec.yaml"), generatePubspec(merged, arch));
-  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion), null, 2));
+  fs.writeFileSync(path.join(outDir, "builder.lock.json"), JSON.stringify(buildLockfile(irVersion, outDir), null, 2));
   files.push(...writeWebScaffold(outDir, pkg));
   const testDir = path.join(outDir, "test");
   // flow/crud-flow tests are scoped to the first feature only (same "feature[0] is the app's

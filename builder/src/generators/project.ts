@@ -4,6 +4,7 @@ import { ArchitectureDecision } from "../arch";
 import { providerFor } from "../provider";
 import { persistenceFor } from "../persistence";
 import { hasMoneyFields, hasSplitGroups, splitStateNames, hasAuth, hasAttachments, resolveBudget, hasAudit, hasExport, hasLocale, localeOf, hasOutbox } from "../operations";
+import { DART_SDK_FLOOR } from "../toolchain";
 
 const PROVIDER_VERSIONS: Record<string, string> = {
   bloc: "^8.1.6",
@@ -48,7 +49,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.0.0
+  sdk: '${DART_SDK_FLOOR}'
 
 dependencies:
   flutter:
