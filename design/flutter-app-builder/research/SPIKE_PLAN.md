@@ -405,12 +405,19 @@ still produce differently-behaving **built** apps.
 regression-only check), CI/docs.
 
 **Acceptance:**
-- [ ] Two builds of the same app a week apart (or two `flutter pub get` runs against a pinned
-      lockfile) produce identical `pub.lock` contents.
-- [ ] Timestamp-absence regression check added and passes on all 4 apps.
-- [ ] Decision (exact-pin vs lockfile-commit) recorded in the contract or this doc, not left silent.
+- [x] Two builds of the same app a week apart (or two `flutter pub get` runs against a pinned
+      lockfile) produce identical `pub.lock` contents. (Decision (b): keep caret ranges + commit
+      the lock — the lock IS the reproducibility artifact; `[lockfile]` gates its presence/floor.)
+- [x] Timestamp-absence regression check added and passes on all 4 apps.
+- [x] Decision (exact-pin vs lockfile-commit) recorded in the contract or this doc, not left silent.
+      **ADOPTED (b)** — see `SPIKE_S_HERMETIC_REPORT.md` §13 D1, `FLUTTER_TOOLCHAIN.md`.
 
 **Estimate:** S (1 slice — it's a policy decision + a small doc/check, not new codegen).
+
+**CLOSED** — implemented per `S_HERMETIC_IMPL_BRIEF_CLAUDE.md`: `[lockfile]` + `[timestamp]` gates
+(`validate.ts`), SDK floor `>=3.11.0 <4.0.0` (`builder/src/toolchain.ts`, `project.ts:51`), intl
+version resolved from the committed lock (`context.ts`), `FLUTTER_TOOLCHAIN.md` (new doc). See the
+C12 decision-log row below for the closure statement.
 
 ---
 
@@ -464,7 +471,7 @@ never forks it (the concrete resolution rule for co-owned generators, C3).
 | **P5/D2** | owns minimal `statePlacementFor` | owns `patterns.states` (optional) | **owns Loading/Error/Empty triad + CTA block** (formalizes existing `:665-666`/`:613`) | — | — | — | owns `[states]` | — | reuses `crudFormTargets` (no new predicate) |
 | **M4a** (active) | — | strategy field already exists; `scoring.ts` owns the fix (not in this table's columns — see `scoring.ts`/`arch.ts`) | — | — | — | — | `[strategy-fidelity]` already shipped (pre-dates the spike; no new gate work) | — | — |
 | **M4b** (deferred) | — | — | consumer branch update (deferred) | — | — | consumer branch update (deferred) | — | — | — |
-| **S-HERMETIC** | — | — | — | — | — | — | owns timestamp-absence check | — | — |
+| **S-HERMETIC** (done) | — | — | — | — | — | — | owns `[lockfile]` + `[timestamp]` checks | — | — |
 | **S-DEEPLINK** | reuses `ShellDestination`, no edit | — | — | owns branch-index mapping | extends (restoration wiring) | — | extends `[shell]` | — | — |
 
 **Additional module touched only by M4b/P5-D2, not in the table above:** `generators/state.ts`
@@ -494,7 +501,7 @@ passing unmodified after the extension.
 | C9 | Capability→action static 1:1, no enablement/confirm/params | **P4** spike defines the `ActionSpec` schema (enablement, confirm, params, overflow grouping ≥2), reusing the `quickDecisionTargets` (LM6) precedent for row-level enablement | P4 |
 | C10 | Build-time capability vs runtime authorization conflated | **P4** spike explicitly scopes itself to build-time capability only; runtime per-user authorization is named as a future, separate, auth-roadmap-dependent spike (not scheduled here) — documented so "action rendered" is never mistaken for "action permitted" | P4 |
 | C11 | P5-into-D2 has two placement owners; runtime error source unspecified | **P5/D2** spike is the single placement owner (formalizes the existing ad hoc `screen.ts:665-666`/`:613` insertion points into a named, gated slot); runtime error copy is sourced from the existing deterministic Failure taxonomy, never from IR | P5/D2 |
-| C12 | Byte-identical broken by toolchain hermeticity | Generator-output determinism already proven (not the actual gap); real gap is pubspec caret-range/lockfile drift — **S-HERMETIC** spike pins or lockfiles it, plus adds a timestamp-absence regression check (confirmed already-true today) | S-HERMETIC |
+| C12 | Byte-identical broken by toolchain hermeticity | **CLOSED.** Generator-output determinism already proven (not the actual gap); real gap was pubspec SDK-floor/lockfile governance — **S-HERMETIC** ADOPTED (b) caret ranges + committed per-app `pubspec.lock`, REJECTED (a) exact pins; commit-lockfile-per-app is ratified policy; SDK floor ratified at `>=3.11.0 <4.0.0` (dart) / `>=3.38.4` (flutter), tightened in generated `pubspec.yaml` + enforced by the new `[lockfile]` gate; toolchain record ratified at `SWIFTUI_GROUND_TRUTH.md` §1.5, now homed in `FLUTTER_TOOLCHAIN.md`; timestamp-absence confirmed already-true and pinned by the new `[timestamp]` gate | S-HERMETIC |
 | C13 | Icon collisions/missing glyphs unconstrained | Glyph-absence already impossible by construction (finite hand-picked stem map, `KNOWN_SHELL_ICONS`); collision explicitly **allowed by design** (shared icons across features/actions, no dedupe error) — **P4** extends the same finite-map pattern to action icons and states this policy explicitly | P1 (icon-absence, shipped) + P4 (extends to actions, states collision policy) |
 | C14 | Deep links + per-tab restoration implied but undelivered | Addressing primitive (`featureId`) already exists; **S-DEEPLINK** spike scopes the actual gap (URL→branch resolution, process-death restoration) as backlog pending real demand, not built speculatively | S-DEEPLINK (backlog) |
 | C15 | LLM-authored plan recurses nondeterminism | Same resolution as C1 — the plan is not LLM-authored today; **S-CTX**'s `[plan-determinism]` gate is the standing guard against this ever becoming true silently | S-CTX |

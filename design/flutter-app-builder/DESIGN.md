@@ -660,6 +660,7 @@ Deterministic async conventions in every generator: request tokens + cancellatio
 
 - **Env matrix**: ConfigGenerator emits dev/staging/prod + feature flags.
 - **Lockfile** pins `{irVersion, plugin+template versions, generatorVersion, sdkConstraint, localeData, fonts}` — the exact `GenerationContext` tuple, so regeneration is reproducible and merge bases are byte-reproducible.
+- **Toolchain floor + per-app `pubspec.lock` governance** (S-HERMETIC, closes C12): see `research/FLUTTER_TOOLCHAIN.md` for the declared SDK floor, the L1/L2 determinism-vs-build-reproducibility contract, and the lock-refresh ceremony.
 - **Upgrade path**: a major bump triggers an explicit re-run/regen path, never silent breakage.
 
 ---

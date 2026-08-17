@@ -95,4 +95,7 @@ deferred — see `SPIKE_PLAN.md` S-CTX option E).
 - Not a static purity scanner (option E, deferred).
 - Does not change how the plan is built — only proves + guards it (S-CTX scope).
 - `typography`: the *generated app code* determinism is separately guaranteed by `[determinism]`
+- **L1 vs L2**: this contract bounds L1 (generator determinism — same IR + same generator →
+  identical bytes). It does not cover L2 (build reproducibility — same source + same SDK/dependency
+  lock → equivalent build output); see `FLUTTER_TOOLCHAIN.md` for that layer (S-HERMETIC).
   (lib/ byte-diff); this contract covers the decision layer (`plan.json`) specifically.
