@@ -252,17 +252,27 @@ A "**zen**" model (cheap/fast — e.g. `opencode/deepseek-v4-flash` and any simi
 tier) is an ORCHESTRATOR ONLY. It never writes code into the tree:
 
 - **A zen model does not implement.** It plans, scopes, verifies (read-only commands), reviews
-  diffs, writes decision/spike/research docs, and drives remote agents — but it does not edit
+  diffs, writes decision/spike/research docs, and drives the implementer — but it does not edit
   `builder/src/**`, generated apps, or any implementation file.
-- **Implementation is delegated to remote opencode agents** on the owner's VPS hosts (tracematrix
-  / tracematrix001, see below) via tmux: write a brief, send it to the remote channel, let the
-  remote agent edit + commit, then the zen model reviews the returned diff and verifies.
+- **Implementation is done by Claude first, remote service as fallback.** The implementer for a
+  code edit is **Claude (Claude Code)** — the preferred executor. If/only when Claude hits quota
+  (rate/reset wall), fall back to the **remote opencode agents** on the owner's VPS hosts
+  (tracematrix / tracematrix001, see below) via tmux. Workflow either way: write a brief, send it
+  to the implementer, let it edit + commit, then the zen model reviews the returned diff and
+  verifies. Capture which implementer ran + that it committed (report to the owner on Telegram).
 - **Use a "pro" / non-zen model for anything that must write code locally** (e.g.
-  `opencode/deepseek-v4-pro`), OR hand the edit to a remote opclick agent — never let the zen model
-  do both orchestration and implementation.
+  `opencode/deepseek-v4-pro`) only as a last resort — never let the zen model do both orchestration
+  and implementation.
+- **Spikes also run on remote opencode agents.** Read-only spike research (SPIKE_PROTOCOL: read →
+  ground → hypothesize → investigate → prove → decide → report) is the remote opencode channels'
+  job on the owner's VPS hosts (tracematrix/tracematrix001) — a zen model drives them, but does not
+  itself do the spike investigation/implementation. The zen model reviews the returned
+  spike report + decision. (Exception: trivial / already-in-context checks a zen model answers from
+  source already read this session.)
 - This keeps cheap-model loops token-light and correct: the zen model's high-value work is
   cross-checking, not keystrokes. If the current session's model is zen and a task needs a code
-  edit, the default move is: capture a brief → send to a remote opencode channel → review + verify.
+  edit, the default move is: capture a brief → Claude first → if Claude hits quota, send to a
+  remote opencode channel → review + verify.
 
 ## LLM agent work (semantic lane)
 
@@ -351,9 +361,10 @@ tmux capture-pane -t germany3 -p | tail -30   # read output
 ### Rules for remote agent work
 
 - **Zen-model delegation is the default (see "Model tier — implementer separation" above):** this
-  local session's model is usually zen, so implementation is captured into a brief and handed to a
-  remote opencode channel (tmux), then reviewed + verified here. The remote agent is the
-  implementer; the local zen session is the orchestrator.
+  local session's model is usually zen, so implementation (Claude first; remote opencode channel as
+  fallback on quota) and spike research (remote opencode channel) are captured into briefs and
+  handed to the implementer, then reviewed + verified here. The remote agent is the implementer;
+  the local zen session is the orchestrator.
 - Same discipline as local: read that host's `AGENTS.md`/`CLAUDE.md` first if present; small
   commits; never delete; report to the owner on Telegram.
 - Remote VPS boxes are small (1vcpu/1gb on tracematrix) — avoid heavy builds (Flutter/web)
