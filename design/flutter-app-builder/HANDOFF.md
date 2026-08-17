@@ -4,9 +4,21 @@
 
 ## Status
 
-**P3 (scroll behavior) — COMPLETE** (commit `f0254f9`). **S-CTX — COMPLETE.** **P2 — CLOSED.**
-**SPIKE M4 — FULLY CLOSED (M4a applied).** Next per the frozen order (`SPIKE_PLAN.md`): **P4**
-(ActionSpec v1 — `presentation: inline|overflow|primary`, ChatGPT round-2 edit #3).
+**P3 (scroll behavior) — COMPLETE** (commit `f0254f9`). **Post-submit back-button fix —
+COMPLETE** (commit `ac3939d`, RCA-007). **S-CTX — COMPLETE.** **P2 — CLOSED.** **SPIKE M4 —
+FULLY CLOSED (M4a applied).** Next per the frozen order (`SPIKE_PLAN.md`): **P4** (ActionSpec v1 —
+`presentation: inline|overflow|primary`, ChatGPT round-2 edit #3).
+
+## Post-submit back button fix (RCA-007, 2026-08-17)
+
+Owner-reported: *"after create task, there is no return to home back button"* (browser back only,
+absent on iPhone). Root cause: `crud_form.ts` emitted `context.go(postSubmitPath)` after submit;
+`go()` replaces the whole go_router stack, so the detail screen became the sole entry
+(`canPop=false` → AppBar auto-back never rendered). Fix: `postSubmitNav` — detail path →
+`context.pushReplacement('/entity/:id')` (replaces the form, keeps the list beneath it → Back
+button works), list path → `go()` (home has no parent). RCA-007 + CDP evidence
+(`apps/tasks/output/qa/nav-back/`) committed `ac3939d`. 13/13 IRs validate, typecheck clean, no new
+analyzer issues.
 
 ## P3 — per-screen on-scroll AppBar tint, COMPLETE
 
@@ -64,6 +76,7 @@ rule** (ChatGPT round-2 edit #2): `scroll.enabled = screen.kind ∈ { list, deta
 | SPIKE M4 (sealed-state codegen) | ✅ **FULLY CLOSED** — decision MODIFY (`b5eb50c`), M4a applied; M4b deferred |
 | S-CTX (plan determinism) | ✅ **COMPLETE** — `DETERMINISM_CONTRACT.md` + `[plan-determinism]` gate (`5a67f5f`) |
 | **P3 (scroll)** | ✅ **COMPLETE this round** — commit `f0254f9`; declared rule, `[scroll]` gate, SM-agnostic, CDP-verified |
+| **Back-button fix** | ✅ **COMPLETE** — commit `ac3939d` (RCA-007): `pushReplacement` after submit, in-app Back restored |
 | P4 actions, P5/D2 placement | **Next** — sequential, per `SPIKE_PLAN.md` §1 |
 | S-HERMETIC, S-DEEPLINK | Backlog / owner call, see `SPIKE_PLAN.md` |
 | Ledgerly-MVP, LEFTOVER_NOTES queue | ✅ complete (prior rounds) |
@@ -86,7 +99,9 @@ Samples: `apps/{hr_service, ledgerly, tasks, work_auth}` (real) + `builder/sampl
    `presentation: inline|overflow|primary` (ChatGPT round-2 edit #3 — `params` dropped), same
    composition-selector + plan.json + validate-gate loop as P2/P3. P5/D2 = state-model-conditional
    triad (edit #4).
-2. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
+2. **`[nav]` validate gate** (from RCA-007 prevention) — assert form submit handlers use
+   `pushReplacement`/`pop`, never bare `go` to a detail path; matches [scroll]/[search] posture.
+3. **S-HERMETIC**, **S-DEEPLINK** — independent/backlog, see `SPIKE_PLAN.md`.
 3. **P1 harness bug** (`temp_all_flows_test.dart` GetIt re-registration) — pre-existing, not P3;
    candidate: make `setupDependencies()` idempotent or `GetIt.reset()` per test.
 4. **M4b (sealed template family)** — deferred by design; reopen only when a real IR declares a
