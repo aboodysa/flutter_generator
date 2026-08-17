@@ -22,6 +22,8 @@ import { generateForm } from "./generators/form";
 import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
+import { generateAppShell } from "./generators/app_shell";
+import { shellFor, ShellPattern } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -110,10 +112,10 @@ function bundleFonts(outDir: string): void {
 
 // Core (non-feature-scoped) files: DI, router, component registry, localization, theme, config,
 // secrets, observability, validator.
-function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision, coreDir: string, outDir: string): { files: string[]; planEntries: PlanEntry[] } {
+function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision, coreDir: string, outDir: string, shell?: ShellPattern | null): { files: string[]; planEntries: PlanEntry[] } {
   const core: [string, string][] = [
     ["di.dart", generateDi(ir, ctx, arch)],
-    ["router.dart", generateRoutes(ir, ctx, arch)],
+    ["router.dart", generateRoutes(ir, ctx, arch, shell)],
     ["components.dart", generateComponents(ir)],
     ["app_strings.dart", generateLocalization(ir)],
     ["theme.dart", generateTheme(ir)],
@@ -169,6 +171,11 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
   if (hasOutbox(ir)) {
     core.push(["outbox.dart", generateOutboxCore()]);
   }
+  // P1: gated on the composition layer having decided a shell exists (`shell` non-null) — never
+  // re-derived here, same defensive posture as every other conditional core file above.
+  if (shell) {
+    core.push(["app_shell.dart", generateAppShell(shell)]);
+  }
   const coreGenerator: Record<string, string> = {
     "di.dart": "DIGenerator",
     "router.dart": "RouteGenerator",
@@ -191,6 +198,7 @@ function writeCore(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDecision
     "session.dart": "SessionGenerator",
     "auth_login_screen.dart": "AuthLoginScreenGenerator",
     "outbox.dart": "OutboxCoreGenerator",
+    "app_shell.dart": "AppShellGenerator",
   };
   const files: string[] = [];
   const planEntries: PlanEntry[] = [];
@@ -709,13 +717,17 @@ function writeFeatureArtifacts(
 }
 
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
-function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>): void {
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null): void {
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
     scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
+    // P1 (contract §2.2/§2.6): record the composition layer's shell decision as data. Omitted
+    // entirely (not `{ shell: undefined }`/`null`) when no caller passed one — single-feature apps'
+    // plan.json stays byte-identical to pre-P1 output.
+    ...(shell ? { patterns: { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } } : {}),
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -943,6 +955,14 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const arch = decideArchitecture(merged);
   const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement };
 
+  // P1 (INTERFACE_PATTERN_CONTRACT.md §3): decide the global-shell pattern ONCE, here — the only
+  // owner of this decision (contract §1 master principle). `null` for a single-feature AppModel;
+  // throws a plain generation error for >5 features (contract §3.2 — a target-capability limit,
+  // not an IR/schema failure) BEFORE any output is cleaned/written below, so a rejected IR never
+  // clobbers a previously-valid outDir. writeCore (→ route.ts/app_shell.ts) and writePlan only
+  // ever consume this decided payload, never re-derive it.
+  const shell = shellFor(app.features, merged.screens ?? []);
+
   const scoring: string[] = [];
   for (const s of merged.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
   scoring.push(`app → ${arch.stateManagement} (${arch.coupledPair})`);
@@ -993,7 +1013,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
 
   // lib/core/ once, shared across all features — di.ts/route.ts see the merged repos/usecases/
   // states/screens, the rest (theme/components/localization/...) ignore feature content entirely.
-  const coreResult = writeCore(merged, ctx, arch, coreDir, outDir);
+  const coreResult = writeCore(merged, ctx, arch, coreDir, outDir, shell);
   files.push(...coreResult.files);
   planEntries.push(...coreResult.planEntries);
 
@@ -1033,7 +1053,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes);
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell);
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

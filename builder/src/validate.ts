@@ -5,6 +5,7 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI } from "./operations";
 import { fileName } from "./dart";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS } from "./composition";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -224,6 +225,93 @@ function symbolCollisionCheck(ir: any): string[] {
           owner.set(item.name, f.name);
         }
       }
+    }
+  }
+  return issues;
+}
+
+// P1 (INTERFACE_PATTERN_CONTRACT.md §3, §9): global bottom-nav shell. Multi-feature-guarded the
+// same way symbolCollisionCheck above is (`!Array.isArray(ir.features)` -> vacuous pass for a
+// single-feature IR) and additive (a multi-feature app composition.ts decided NO shell for, i.e.
+// exactly 1 feature under an AppModel, is unaffected too). Reads plan.json's `patterns.shell` —
+// the composition layer's own recorded decision (contract §2.6) — rather than re-deriving
+// order/title/icon from source, mirroring [fidelity]'s "prove the plan's decision matches the
+// emitted artifact" posture; the `// feature: <id>` markers embedded in app_shell.dart's own
+// NavigationDestination entries are the cross-check that what plan.json claims is actually what
+// got emitted, not just what was decided. `StatefulShellRoute.indexedStack` lives in router.dart
+// (RouteGenerator); `NavigationBar`/the destination markers live in app_shell.dart (AppShellGenerator)
+// — two different generated files, checked against each one they actually appear in.
+function shellCheck(ir: any, outDir: string, files: string[]): string[] {
+  if (!Array.isArray(ir.features)) return [];
+  const issues: string[] = [];
+  const routerFile = files.find((f) => f.endsWith("/core/router.dart"));
+  const shellFile = files.find((f) => f.endsWith("/core/app_shell.dart"));
+  const featureCount = ir.features.length;
+
+  // <=1 feature: composition.ts's shellFor returns null — no shell should exist at all.
+  if (featureCount <= 1) {
+    const routerSrc = routerFile ? fs.readFileSync(routerFile, "utf8") : "";
+    if (shellFile || routerSrc.includes("StatefulShellRoute.indexedStack")) {
+      issues.push(`[shell] app declares ${featureCount} feature(s) but a shell was emitted (core/app_shell.dart and/or StatefulShellRoute.indexedStack) — a shell must only exist when features.length > 1`);
+    }
+    return issues;
+  }
+
+  // Contract §3.2: the >5 case should already have thrown a generation error before any output
+  // existed (composition.ts's shellFor) — this re-assertion is a safety net on the artifact, not
+  // the primary enforcement point, so it fires only if something upstream regressed.
+  if (featureCount > MAX_SHELL_DESTINATIONS) {
+    issues.push(`[shell] ${featureCount} features exceeds the V1 shell's ${MAX_SHELL_DESTINATIONS}-destination capability — generation should have rejected this IR before producing output`);
+    return issues;
+  }
+
+  if (!routerFile) {
+    issues.push(`[shell] multi-feature app (${featureCount} features) has no lib/core/router.dart to check`);
+    return issues;
+  }
+  const routerSrc = fs.readFileSync(routerFile, "utf8");
+  if (!routerSrc.includes("StatefulShellRoute.indexedStack")) {
+    issues.push(`[shell] multi-feature app (${featureCount} features) missing StatefulShellRoute.indexedStack in router.dart`);
+  }
+  if (!shellFile) {
+    issues.push(`[shell] multi-feature app expects a shell but generated output has no core/app_shell.dart (AppShell)`);
+    return issues;
+  }
+  const shellSrc = fs.readFileSync(shellFile, "utf8");
+  if (!shellSrc.includes("NavigationBar(")) {
+    issues.push(`[shell] core/app_shell.dart exists but has no NavigationBar`);
+  }
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[shell] plan.json missing in ${outDir} — cannot verify shell destination order`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const destinations = plan.patterns?.shell?.destinations;
+  if (!Array.isArray(destinations)) {
+    issues.push(`[shell] plan.json missing patterns.shell.destinations for a multi-feature app`);
+    return issues;
+  }
+
+  // features[] order ⇒ shell destination order (contract §3.1) — byte-order compare against the IR.
+  const expectedIds = ir.features.map((f: any) => f.name);
+  const actualIds = destinations.map((d: any) => d.featureId);
+  if (JSON.stringify(expectedIds) !== JSON.stringify(actualIds)) {
+    issues.push(`[shell] destination order [${actualIds.join(", ")}] does not match features[] order [${expectedIds.join(", ")}]`);
+  }
+  if (destinations.length > MAX_SHELL_DESTINATIONS) {
+    issues.push(`[shell] plan.json declares ${destinations.length} destinations, exceeding the V1 shell's ${MAX_SHELL_DESTINATIONS}-destination capability`);
+  }
+  for (const d of destinations) {
+    if (!d.title || !String(d.title).trim()) {
+      issues.push(`[shell] destination '${d.featureId}' has no title`);
+    }
+    if (!d.icon || !KNOWN_SHELL_ICONS.has(d.icon)) {
+      issues.push(`[shell] destination '${d.featureId}' has an unrecognized icon '${d.icon}' — not in the fixed stem map`);
+    }
+    if (!shellSrc.includes(`// feature: ${d.featureId}`)) {
+      issues.push(`[shell] destination '${d.featureId}' declared in plan.json but not found in app_shell.dart's emitted NavigationDestination markers`);
     }
   }
   return issues;
@@ -496,6 +584,7 @@ export interface ValidationResult {
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
+  shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -555,7 +644,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -697,9 +786,15 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...outboxIssues);
   const outbox = outboxIssues.length;
 
+  // Global-nav shell (P1): a multi-feature app must emit exactly the shell composition.ts decided
+  // — right existence, right destination order, right title/icon per destination.
+  const shellIssues = shellCheck(ir, outDir, files);
+  issues.push(...shellIssues);
+  const shell = shellIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
     swiftpkg: 0, swiftarch: 0, swiftdeterminism: 0,
@@ -747,7 +842,8 @@ function main() {
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform > 0;
+  console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

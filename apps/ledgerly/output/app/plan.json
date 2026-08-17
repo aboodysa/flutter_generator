@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 109,
+  "artifactCount": 110,
   "entries": [
     {
       "artifact": "feature:auth:enum:UserRole",
@@ -1029,6 +1029,17 @@
       "class": "structural"
     },
     {
+      "artifact": "core:app_shell",
+      "generator": "AppShellGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/app_shell.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:widget",
       "generator": "WidgetTestGenerator",
       "schema": "test",
@@ -1340,5 +1351,35 @@
     "persistence": "none",
     "coupledPair": "bloc × get_it",
     "complexity": 1
+  },
+  "patterns": {
+    "shell": {
+      "destinations": [
+        {
+          "featureId": "auth",
+          "title": "Users",
+          "icon": "Icons.person",
+          "rootPath": "/user"
+        },
+        {
+          "featureId": "expenses",
+          "title": "Expense Claims",
+          "icon": "Icons.receipt_long",
+          "rootPath": "/expense-claim"
+        },
+        {
+          "featureId": "approvals",
+          "title": "Approvals",
+          "icon": "Icons.approval",
+          "rootPath": "/approval"
+        },
+        {
+          "featureId": "budgets",
+          "title": "Meal Budgets",
+          "icon": "Icons.account_balance_wallet",
+          "rootPath": "/meal-budget"
+        }
+      ]
+    }
   }
 }

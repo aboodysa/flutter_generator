@@ -1,8 +1,9 @@
-import { FeatureModel } from "../types";
+import { FeatureModel, ScreenModel } from "../types";
 import { PkgContext, kebab } from "../dart";
 import { ArchitectureDecision } from "../arch";
 import { screenPath } from "../routing";
 import { crudFormTargets, crudFormScreenName, hasAuth, authOf, authRoles, hasAudit } from "../operations";
+import { ShellPattern } from "../composition";
 
 /**
  * RouteGenerator — structural, deterministic, 0% LLM.
@@ -24,8 +25,36 @@ import { crudFormTargets, crudFormScreenName, hasAuth, authOf, authRoles, hasAud
  *   - a path → navigate there instead (redirect to /login when unauthenticated, to the role's
  *     own home when the target is outside its home/allow area, home when an authed user lands
  *     on /login).
+ *
+ * P1 (INTERFACE_PATTERN_CONTRACT.md §3): when the caller hands in a decided `shell` (composition.ts's
+ * shellFor — this generator never decides shell existence/order itself, contract §1), every route
+ * this file would otherwise emit flat gets regrouped into one `StatefulShellBranch` per destination
+ * instead — still built by the exact same `branchRoutes()` logic (below) that the non-shell path
+ * uses, so route paths never change, shell or not. `shell` absent/null -> byte-identical to pre-P1
+ * output (single-feature apps, and any multi-feature app composition.ts didn't decide a shell for).
  */
-export function generateRoutes(feature: FeatureModel, ctx?: PkgContext, decision?: ArchitectureDecision): string {
+// Form routes first: `/task/new` (static) must be registered before `/task/:id` (detail,
+// dynamic) so go_router matches the literal segment rather than capturing "new" as an :id.
+// Shared by the flat (non-shell) path and each shell StatefulShellBranch below — a branch's own
+// routes are computed by calling this with that ONE feature and the FULL app-wide `allScreens`
+// (screenPath()'s disambiguation must see every screen, shell or not, so paths never drift).
+function branchRoutes(f: FeatureModel, allScreens: ScreenModel[]): string[] {
+  // Create/edit form routes (§5.2-F1) — one entity may get up to two: /<entity>/new (create) and
+  // /<entity>/:id/edit (edit). Both point at the same synthesized `${Entity}FormScreen` (see
+  // crud_form.ts), which branches on the presence of the `id` path param.
+  const formRoutes = [...crudFormTargets(f).values()].map((t) => {
+    const base = `/${kebab(t.entity)}`;
+    const name = crudFormScreenName(t.entity);
+    return [
+      `      GoRoute(path: '${base}/new', builder: (_, __) => const ${name}()),`,
+      `      GoRoute(path: '${base}/:id/edit', builder: (_, __) => const ${name}()),`,
+    ].join("\n");
+  });
+  const screenRoutes = (f.screens ?? []).map((s) => `      GoRoute(path: '${screenPath(allScreens, s)}', builder: (_, __) => const ${s.name}()),`);
+  return [...formRoutes, ...screenRoutes];
+}
+
+export function generateRoutes(feature: FeatureModel, ctx?: PkgContext, decision?: ArchitectureDecision, shell?: ShellPattern | null): string {
   if (decision?.routing === "none") {
     return `// [generated] generator=RouteGenerator template=route_none.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
@@ -34,38 +63,56 @@ export function generateRoutes(feature: FeatureModel, ctx?: PkgContext, decision
   }
 
   const screens = feature.screens ?? [];
+  const formTargets = [...crudFormTargets(feature).values()]; // still needed below for `names`/imports
 
-  const screenRoutes = screens.map((s) => `      GoRoute(path: '${screenPath(screens, s)}', builder: (_, __) => const ${s.name}()),`);
-
-  // Create/edit form routes (§5.2-F1) — one entity may get up to two: /<entity>/new (create) and
-  // /<entity>/:id/edit (edit). Both point at the same synthesized `${Entity}FormScreen` (see
-  // crud_form.ts), which branches on the presence of the `id` path param.
-  const formTargets = [...crudFormTargets(feature).values()];
-  const formRoutes = formTargets.map((t) => {
-    const base = `/${kebab(t.entity)}`;
-    const name = crudFormScreenName(t.entity);
-    return [
-      `      GoRoute(path: '${base}/new', builder: (_, __) => const ${name}()),`,
-      `      GoRoute(path: '${base}/:id/edit', builder: (_, __) => const ${name}()),`,
-    ].join("\n");
-  });
-
-  // L3: the audit log is app-level (not tied to any entity's own screen), so it's a bespoke static
-  // route the same way `/login` is below — no collision risk (fully static, no dynamic segment).
+  // L3: the audit log is app-level (not tied to any single feature's own screen, so it's never
+  // part of a shell branch either), so it's a bespoke static route the same way `/login` is below
+  // — no collision risk (fully static, no dynamic segment).
   const auditRoute = hasAudit(feature) ? [`      GoRoute(path: '/audit-log', builder: (_, __) => const AuditLogScreen()),`] : [];
 
-  // Form routes first: `/task/new` (static) must be registered before `/task/:id` (detail,
-  // dynamic) so go_router matches the literal segment rather than capturing "new" as an :id.
-  const routes = [...formRoutes, ...screenRoutes, ...auditRoute].join("\n");
+  // P1: with a decided shell, every feature's own routes (branchRoutes, same helper as the flat
+  // path below) move into that feature's own StatefulShellBranch instead of one flat sibling list
+  // — this IS the only behavior difference this generator has for a shell vs no shell (contract §1:
+  // the decision itself already happened in composition.ts; this only changes HOW the already-
+  // decided per-feature route sets are grouped in the emitted routes: [ ... ] array).
+  // P1: `initialLocation` is required per-branch — without it, StatefulShellBranch defaults to
+  // its FIRST registered route, and branchRoutes() deliberately lists form routes (`/x/new`)
+  // before screen routes (see its own comment: static-before-dynamic match precedence, still
+  // required here) — so an unset default would land a freshly-tapped tab on a blank create form
+  // instead of its list screen. `b.rootPath` is composition.ts's own already-decided root screen
+  // path (contract §3.1), so this is still consuming the payload, not deriving a new decision.
+  const routes = shell
+    ? [
+        `      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
+        branches: [
+${shell.branches
+  .map((b) => `          StatefulShellBranch(
+            initialLocation: '${b.rootPath}',
+            routes: [
+${branchRoutes(b.feature, screens).map((r) => `  ${r}`).join("\n")}
+            ],
+          ),`)
+  .join("\n")}
+        ],
+      ),`,
+        ...auditRoute,
+      ].join("\n")
+    : [...branchRoutes(feature, screens), ...auditRoute].join("\n");
 
   const names = [...screens.map((s) => s.name), ...formTargets.map((t) => crudFormScreenName(t.entity)), ...(hasAuth(feature) ? ["AuthLoginScreen"] : []), ...(hasAudit(feature) ? ["AuditLogScreen"] : [])];
   const imports = names
     .map((n) => (ctx?.symbols.get(n) ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(n)}';` : `import '${n.toLowerCase()}.dart';`))
     .join("\n");
+  // P1: AppShell lives in lib/core/ alongside router.dart itself — imported fully-qualified, same
+  // convention route.ts already uses for core/session.dart above, not a symbols.ts registration
+  // (AppShell is never cross-referenced from outside core/ the way entities/screens/repos are).
+  const shellImport = shell ? `import 'package:${ctx!.pkg}/core/app_shell.dart';\n` : "";
 
   // The app's home route — main.dart mounts MaterialApp.router with no other start-screen
   // signal, so this must resolve. Convention: the first declared screen (matches generateMain
-  // / generateGoldenTest, which both take feature.screens[0] as "the" screen).
+  // / generateGoldenTest, which both take feature.screens[0] as "the" screen). Unaffected by a
+  // shell: GoRouter matches a path regardless of whether it's nested inside a branch.
   const firstScreen = screens[0];
   const initialLocation = firstScreen ? screenPath(screens, firstScreen) : "/";
 
@@ -89,7 +136,7 @@ export function generateRoutes(feature: FeatureModel, ctx?: PkgContext, decision
 // Do not hand-edit this file; regenerate from IR.
 import 'package:go_router/go_router.dart';
 import 'package:${ctx!.pkg}/core/session.dart';
-${imports}
+${shellImport}${imports}
 
 final kHomeRoutes = <String, String>{
 ${homeRoutes}
@@ -124,7 +171,7 @@ ${routes}
   return `// [generated] generator=RouteGenerator template=route_go_router.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:go_router/go_router.dart';
-${imports}
+${shellImport}${imports}
 
 final appRouter = GoRouter(
   initialLocation: '${initialLocation}',

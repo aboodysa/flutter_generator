@@ -1,4 +1,5 @@
 import { FeatureModel } from "./types";
+import { ShellDestination } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -28,6 +29,11 @@ export interface GenerationPlan {
   artifactCount: number;
   entries: PlanEntry[];
   scoring?: unknown; // §5.2 app-level pattern-selection decision
+  // P1 (INTERFACE_PATTERN_CONTRACT.md §2.6): the composition layer's own pattern-selection
+  // decisions, recorded as data — same "decision as data" posture `scoring` already uses, and the
+  // artifact validate.ts's [shell] gate reads instead of re-deriving the decision from output.
+  // Absent entirely for a single-feature app (no shell applies) — never `{ shell: { destinations: [] } }` noise.
+  patterns?: { shell: { destinations: ShellDestination[] } };
 }
 
 /** Map an IR collection key to its artifact-id tag (e.g. "entities" → "entity"). */

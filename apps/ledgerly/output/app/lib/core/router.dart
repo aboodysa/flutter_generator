@@ -2,6 +2,7 @@
 // Do not hand-edit this file; regenerate from IR.
 import 'package:go_router/go_router.dart';
 import 'package:rasheed_replica_ledgerly/core/session.dart';
+import 'package:rasheed_replica_ledgerly/core/app_shell.dart';
 import 'package:rasheed_replica_ledgerly/features/auth/presentation/screens/user_list_screen.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/presentation/screens/expense_claim_list_screen.dart';
 import 'package:rasheed_replica_ledgerly/features/expenses/presentation/screens/expense_claim_detail_screen.dart';
@@ -45,16 +46,41 @@ final appRouter = GoRouter(
   redirect: (context, state) => guardPath(state.uri.path),
   routes: [
       GoRoute(path: '/login', builder: (_, __) => const AuthLoginScreen()),
-      GoRoute(path: '/expense-claim/new', builder: (_, __) => const ExpenseClaimFormScreen()),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            initialLocation: '/user',
+            routes: [
+        GoRoute(path: '/user', builder: (_, __) => const UserListScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            initialLocation: '/expense-claim',
+            routes: [
+        GoRoute(path: '/expense-claim/new', builder: (_, __) => const ExpenseClaimFormScreen()),
       GoRoute(path: '/expense-claim/:id/edit', builder: (_, __) => const ExpenseClaimFormScreen()),
-      GoRoute(path: '/meal-budget/new', builder: (_, __) => const MealBudgetFormScreen()),
+        GoRoute(path: '/expense-claim', builder: (_, __) => const ExpenseClaimListScreen()),
+        GoRoute(path: '/expense-claim/:id', builder: (_, __) => const ExpenseClaimDetailScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            initialLocation: '/approval',
+            routes: [
+        GoRoute(path: '/approval', builder: (_, __) => const ApprovalListScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            initialLocation: '/meal-budget',
+            routes: [
+        GoRoute(path: '/meal-budget/new', builder: (_, __) => const MealBudgetFormScreen()),
       GoRoute(path: '/meal-budget/:id/edit', builder: (_, __) => const MealBudgetFormScreen()),
-      GoRoute(path: '/user', builder: (_, __) => const UserListScreen()),
-      GoRoute(path: '/expense-claim', builder: (_, __) => const ExpenseClaimListScreen()),
-      GoRoute(path: '/expense-claim/:id', builder: (_, __) => const ExpenseClaimDetailScreen()),
-      GoRoute(path: '/approval', builder: (_, __) => const ApprovalListScreen()),
-      GoRoute(path: '/meal-budget', builder: (_, __) => const MealBudgetListScreen()),
-      GoRoute(path: '/meal-budget/:id', builder: (_, __) => const MealBudgetDetailScreen()),
+        GoRoute(path: '/meal-budget', builder: (_, __) => const MealBudgetListScreen()),
+        GoRoute(path: '/meal-budget/:id', builder: (_, __) => const MealBudgetDetailScreen()),
+            ],
+          ),
+        ],
+      ),
       GoRoute(path: '/audit-log', builder: (_, __) => const AuditLogScreen()),
   ],
 );
