@@ -613,6 +613,17 @@
         "field": "name",
         "mode": "contains"
       }
+    },
+    "scroll": {
+      "/work-auth": {
+        "enabled": true
+      },
+      "/visa-quota": {
+        "enabled": true
+      },
+      "/visa-quota/:id": {
+        "enabled": true
+      }
     }
   }
 }

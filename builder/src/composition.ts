@@ -180,3 +180,45 @@ export function searchTargets(ir: FeatureModel): Map<string, SearchSpec> {
   }
   return out;
 }
+
+/**
+ * P3 (INTERFACE_PATTERN_CONTRACT.md §5) — per-screen on-scroll AppBar color-fill. Same
+ * centralized-decision posture as P1's shellFor/P2's searchFor: this is the ONE place that decides
+ * whether a screen gets the Material-Expressive scroll tint; screen.ts only renders the `ScrollSpec`
+ * it's handed, never re-derives the decision (contract §1 master principle).
+ *
+ * The trigger is a DECLARED contract rule (ChatGPT round-2 edit #2, SPIKE_PLAN §4), not a silent
+ * selector default:
+ *
+ *   > scroll.enabled = screen.kind ∈ { list, detail }
+ *
+ * — a screen scrolls (and thus tints on scroll) iff it is a list or detail archetype. Versioned
+ * here so a future predicate change is a deliberate contract edit, not an invisible drift in this
+ * module. Wizards/forms deliberately return `null` — their content is inherently step-sized, and
+ * the `[scroll]` gate proves those screens stay template-unchanged.
+ *
+ * The rule is state-management AGNOSTIC on purpose: unlike P2's search (bloc-only this iteration,
+ * a documented gap), the tint is pure presentation and cheap to emit in every widget template —
+ * so the riverpod sample gets the same listener, and the gate needs no SM carve-out (no latent
+ * [scroll] FAIL waiting for a riverpod list/detail IR, the way [search]'s bloc-only gap sits
+ * unexercised until such a sample appears).
+ */
+export interface ScrollSpec {
+  enabled: true; // only ever constructed true — a screen without scroll simply has no map entry
+}
+
+export function scrollFor(screen: ScreenModel): ScrollSpec | null {
+  if (screen.type === "list" || screen.type === "detail") return { enabled: true };
+  return null;
+}
+
+// Same name-keyed shape as searchTargets (screen.ts looks itself up by `s.name`); index.ts
+// re-keys by screenPath() when serializing into plan.json `patterns.scroll` (contract §5).
+export function scrollTargets(ir: FeatureModel): Map<string, ScrollSpec> {
+  const out = new Map<string, ScrollSpec>();
+  for (const screen of ir.screens ?? []) {
+    const spec = scrollFor(screen);
+    if (spec) out.set(screen.name, spec);
+  }
+  return out;
+}

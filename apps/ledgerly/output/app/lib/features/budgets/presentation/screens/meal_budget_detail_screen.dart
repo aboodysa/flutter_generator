@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_detail_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_detail_bloc_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,19 +11,33 @@ import 'package:rasheed_replica_ledgerly/features/budgets/presentation/state/mea
 import 'package:rasheed_replica_ledgerly/core/budget.dart';
 import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
-class MealBudgetDetailScreen extends StatelessWidget {
+class MealBudgetDetailScreen extends StatefulWidget {
   const MealBudgetDetailScreen({super.key});
 
+  @override
+  State<MealBudgetDetailScreen> createState() => _MealBudgetDetailScreenState();
+}
+
+class _MealBudgetDetailScreenState extends State<MealBudgetDetailScreen> {
+  bool _scrolled = false;
   @override
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Meal Budget details'),
+      appBar: AppBar(title: const Text('Meal Budget details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/meal-budget/${id}/edit')),
         IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<MealBudgetListCubit>().delete(id!); if (context.mounted) context.go('/meal-budget'); }),
       ]),
-      body: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
         builder: (context, state) {
         if (state.status == MealBudgetListStatus.loading) return const LoadingState();
         if (state.status == MealBudgetListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -68,6 +82,7 @@ class MealBudgetDetailScreen extends StatelessWidget {
               ],
             );
         },
+        ),
       ),
     );
   }

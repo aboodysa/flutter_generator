@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,7 +19,7 @@ class UserListScreen extends StatefulWidget {
 class _UserListScreenState extends State<UserListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-
+  bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
@@ -29,8 +29,16 @@ class _UserListScreenState extends State<UserListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Users')),
-      body: BlocBuilder<UserListCubit, UserListState>(
+      appBar: AppBar(title: const Text('Users'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<UserListCubit, UserListState>(
         builder: (context, state) {
         if (state.status == UserListStatus.loading) return const LoadingState();
         if (state.status == UserListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -90,6 +98,7 @@ class _UserListScreenState extends State<UserListScreen> {
               ],
             );
         },
+        ),
       ),
     );
   }

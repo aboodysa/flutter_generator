@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_detail_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_detail_bloc_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,19 +11,33 @@ import 'package:rasheed_replica_ledgerly/features/expenses/presentation/state/ex
 
 import 'package:rasheed_replica_ledgerly/core/app_strings.dart';
 
-class ExpenseClaimDetailScreen extends StatelessWidget {
+class ExpenseClaimDetailScreen extends StatefulWidget {
   const ExpenseClaimDetailScreen({super.key});
 
+  @override
+  State<ExpenseClaimDetailScreen> createState() => _ExpenseClaimDetailScreenState();
+}
+
+class _ExpenseClaimDetailScreenState extends State<ExpenseClaimDetailScreen> {
+  bool _scrolled = false;
   @override
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Expense Claim details'),
+      appBar: AppBar(title: const Text('Expense Claim details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/expense-claim/${id}/edit')),
         IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<ExpenseClaimListCubit>().delete(id!); if (context.mounted) context.go('/expense-claim'); }),
       ]),
-      body: BlocBuilder<ExpenseClaimListCubit, ExpenseClaimListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<ExpenseClaimListCubit, ExpenseClaimListState>(
         builder: (context, state) {
         if (state.status == ExpenseClaimListStatus.loading) return const LoadingState();
         if (state.status == ExpenseClaimListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -74,6 +88,7 @@ class ExpenseClaimDetailScreen extends StatelessWidget {
               ],
             );
         },
+        ),
       ),
     );
   }

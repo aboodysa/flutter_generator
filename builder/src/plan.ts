@@ -1,5 +1,5 @@
 import { FeatureModel } from "./types";
-import { ShellDestination, SearchSpec } from "./composition";
+import { ShellDestination, SearchSpec, ScrollSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -36,7 +36,14 @@ export interface GenerationPlan {
   // P2 (contract §4): `search` is additive alongside `shell` — keyed by screenPath() (the brief's
   // exact instruction), one entry per list screen the selector turned on; omitted when no list
   // screen in this app qualifies.
-  patterns?: { shell?: { destinations: ShellDestination[] }; search?: Record<string, SearchSpec> };
+  // P3 (contract §5): `scroll` is additive alongside both — keyed by screenPath() like `search`,
+  // one entry per list/detail screen (the declared contract rule scroll.enabled = screen.kind ∈
+  // {list, detail}); omitted when the app has no list/detail screen.
+  patterns?: {
+    shell?: { destinations: ShellDestination[] };
+    search?: Record<string, SearchSpec>;
+    scroll?: Record<string, ScrollSpec>;
+  };
 }
 
 /** Map an IR collection key to its artifact-id tag (e.g. "entities" → "entity"). */

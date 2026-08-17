@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -21,7 +21,7 @@ class MealBudgetListScreen extends StatefulWidget {
 class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-
+  bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
@@ -31,8 +31,16 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Meal Budgets')),
-      body: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
+      appBar: AppBar(title: const Text('Meal Budgets'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<MealBudgetListCubit, MealBudgetListState>(
         builder: (context, state) {
         if (state.status == MealBudgetListStatus.loading) return const LoadingState();
         if (state.status == MealBudgetListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -93,6 +101,7 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
               ],
             );
         },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: '${AppStrings.of(context).newLabel} MealBudget',

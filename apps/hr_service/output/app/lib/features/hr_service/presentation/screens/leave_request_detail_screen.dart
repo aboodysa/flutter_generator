@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_detail_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_detail_bloc_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -11,19 +11,33 @@ import 'package:rasheed_replica_hr_service/features/hr_service/presentation/stat
 
 import 'package:rasheed_replica_hr_service/core/app_strings.dart';
 
-class LeaveRequestDetailScreen extends StatelessWidget {
+class LeaveRequestDetailScreen extends StatefulWidget {
   const LeaveRequestDetailScreen({super.key});
 
+  @override
+  State<LeaveRequestDetailScreen> createState() => _LeaveRequestDetailScreenState();
+}
+
+class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
+  bool _scrolled = false;
   @override
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Leave Request details'),
+      appBar: AppBar(title: const Text('Leave Request details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/leave-request/${id}/edit')),
         IconButton(tooltip: AppStrings.of(context).delete, icon: const Icon(Icons.delete), onPressed: () async { await context.read<LeaveRequestListCubit>().delete(id!); if (context.mounted) context.go('/leave-request'); }),
       ]),
-      body: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
         builder: (context, state) {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();
         if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -81,6 +95,7 @@ class LeaveRequestDetailScreen extends StatelessWidget {
               ],
             );
         },
+        ),
       ),
     );
   }

@@ -5,7 +5,7 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets } from "./composition";
 import { screenPath } from "./routing";
 
 /**
@@ -391,6 +391,75 @@ function searchCheck(ir: any, outDir: string, files: string[]): string[] {
   return issues;
 }
 
+// P3 (INTERFACE_PATTERN_CONTRACT.md §5): per-screen on-scroll AppBar tint. Same centralized-
+// decision posture as [search]: re-asserts the selector by calling the SAME `scrollTargets`
+// composition.ts itself uses (not a re-implementation), then cross-checks plan.json's recorded
+// patterns.scroll against the generated screen files — but, unlike [search], checks EVERY screen
+// (not just list screens): the declared contract rule (scroll.enabled = screen.kind ∈ {list,
+// detail}) means a list/detail screen must render the scroll listener AND every other screen
+// (wizard/form) must NOT — the byte-identical proof for the null-selector case.
+export function scrollCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // Re-derive fresh from the raw IR — the authoritative "what SHOULD scroll" answer.
+  const expected = scrollTargets(flat as any); // Map<screenName, ScrollSpec>
+  const expectedByPath = new Set<string>();
+  for (const [screenName] of expected) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) expectedByPath.add(screenPath(screens, screen));
+  }
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[scroll] plan.json missing in ${outDir} — cannot verify scroll decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.scroll ?? {};
+
+  // plan.json's recorded decision must match the freshly re-derived one exactly (same paths) —
+  // a mismatch means the plan drifted from what the selector would decide today.
+  const recordedPaths = new Set(Object.keys(recorded));
+  for (const p of expectedByPath) {
+    if (!recordedPaths.has(p)) {
+      issues.push(`[scroll] '${p}' should scroll (declared contract rule: screen.kind ∈ {list, detail}) but plan.json's patterns.scroll has no entry for it`);
+      continue;
+    }
+    const rec = recorded[p];
+    if (rec.enabled !== true) {
+      issues.push(`[scroll] '${p}' plan.json entry {enabled:${rec.enabled}} does not match the re-derived decision {enabled:true}`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedByPath.has(p)) {
+      issues.push(`[scroll] plan.json declares scroll for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // Cross-check the generated output: list/detail screens (the rule's positive set) must render
+  // the scroll listener; every other screen (wizard/form — the rule's null set) must NOT.
+  const hasListener = (src: string) => src.includes("NotificationListener<ScrollNotification>");
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const shouldScroll = expectedByPath.has(p);
+    const hasIt = hasListener(src);
+    if (shouldScroll && !hasIt) {
+      issues.push(`[scroll] '${p}' (${screen.name}) is in patterns.scroll but its generated screen has no NotificationListener<ScrollNotification>`);
+    }
+    if (!shouldScroll && hasIt) {
+      issues.push(`[scroll] '${p}' (${screen.name}) has no scroll entry in plan.json but its generated screen renders a NotificationListener anyway`);
+    }
+  }
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -661,6 +730,7 @@ export interface ValidationResult {
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
   search: number;    // count of per-list-search issues: plan/output drift, missing/unexpected SearchBar (P2)
+  scroll: number;    // count of per-screen-scroll issues: plan/output drift, missing/unexpected scroll listener (P3)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -720,7 +790,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, planDeterminism: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, planDeterminism: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -901,9 +971,17 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...searchIssues);
   const search = searchIssues.length;
 
+  // Per-screen scroll (P3): plan.json's recorded scroll decisions must match a fresh
+  // re-derivation, list/detail screens must render the scroll listener, and wizard/form screens
+  // must not.
+  const scrollIssues = scrollCheck(ir, outDir, files);
+  issues.push(...scrollIssues);
+  const scroll = scrollIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, outbox, platform, shell, search,
+    scroll,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -955,7 +1033,8 @@ function main() {
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search > 0;
+  console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.outbox + r.platform + r.shell + r.search + r.scroll > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

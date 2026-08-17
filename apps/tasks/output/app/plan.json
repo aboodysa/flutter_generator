@@ -664,6 +664,20 @@
         "field": "subject",
         "mode": "contains"
       }
+    },
+    "scroll": {
+      "/task": {
+        "enabled": true
+      },
+      "/task/:id": {
+        "enabled": true
+      },
+      "/follow-up": {
+        "enabled": true
+      },
+      "/follow-up/:id": {
+        "enabled": true
+      }
     }
   }
 }

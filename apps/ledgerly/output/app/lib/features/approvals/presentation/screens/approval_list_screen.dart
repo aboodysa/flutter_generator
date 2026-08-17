@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,7 +20,7 @@ class ApprovalListScreen extends StatefulWidget {
 class _ApprovalListScreenState extends State<ApprovalListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-
+  bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
@@ -30,8 +30,16 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Approvals')),
-      body: BlocBuilder<ApprovalListCubit, ApprovalListState>(
+      appBar: AppBar(title: const Text('Approvals'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<ApprovalListCubit, ApprovalListState>(
         builder: (context, state) {
         if (state.status == ApprovalListStatus.loading) return const LoadingState();
         if (state.status == ApprovalListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -98,6 +106,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
               ],
             );
         },
+        ),
       ),
     );
   }

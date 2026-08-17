@@ -724,6 +724,17 @@
         "field": "approver",
         "mode": "contains"
       }
+    },
+    "scroll": {
+      "/leave-request": {
+        "enabled": true
+      },
+      "/leave-request/:id": {
+        "enabled": true
+      },
+      "/approval": {
+        "enabled": true
+      }
     }
   }
 }

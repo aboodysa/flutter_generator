@@ -1402,6 +1402,26 @@
         "field": "name",
         "mode": "contains"
       }
+    },
+    "scroll": {
+      "/user": {
+        "enabled": true
+      },
+      "/expense-claim": {
+        "enabled": true
+      },
+      "/expense-claim/:id": {
+        "enabled": true
+      },
+      "/approval": {
+        "enabled": true
+      },
+      "/meal-budget": {
+        "enabled": true
+      },
+      "/meal-budget/:id": {
+        "enabled": true
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_detail_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_detail_bloc_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -10,19 +10,33 @@ import 'package:rasheed_replica_work_auth/features/work_auth/presentation/state/
 
 import 'package:rasheed_replica_work_auth/core/budget.dart';
 
-class VisaQuotaDetailScreen extends StatelessWidget {
+class VisaQuotaDetailScreen extends StatefulWidget {
   const VisaQuotaDetailScreen({super.key});
 
+  @override
+  State<VisaQuotaDetailScreen> createState() => _VisaQuotaDetailScreenState();
+}
+
+class _VisaQuotaDetailScreenState extends State<VisaQuotaDetailScreen> {
+  bool _scrolled = false;
   @override
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Visa Quota details'),
+      appBar: AppBar(title: const Text('Visa Quota details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/visa-quota/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<VisaQuotaListCubit>().delete(id!); if (context.mounted) context.go('/visa-quota'); }),
       ]),
-      body: BlocBuilder<VisaQuotaListCubit, VisaQuotaListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<VisaQuotaListCubit, VisaQuotaListState>(
         builder: (context, state) {
         if (state.status == VisaQuotaListStatus.loading) return const LoadingState();
         if (state.status == VisaQuotaListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -67,6 +81,7 @@ class VisaQuotaDetailScreen extends StatelessWidget {
               ],
             );
         },
+        ),
       ),
     );
   }

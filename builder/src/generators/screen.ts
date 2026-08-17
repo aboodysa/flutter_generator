@@ -204,6 +204,12 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const searchEnabled = !!searchSpec && sm !== "riverpod";
   const searchField = searchEnabled ? entity!.fields.find((f) => f.name === searchSpec!.field) : undefined;
 
+  // P3 (contract §5): the decided ScrollSpec for THIS screen (composition.ts's scrollTargets,
+  // computed once per generateApp run) — consumed by name only, never re-derived here. State-
+  // management AGNOSTIC on purpose (unlike search, the tint is pure presentation), so riverpod
+  // list/detail screens get the listener too — no latent [scroll] gate gap.
+  const scrollEnabled = !!ctx?.scroll?.get(s.name);
+
   // MF5: this screen's entity IS the resolved budget entity — both the list and detail branches
   // below construct a local `BudgetLine` from `item`'s limit/committed/actual fields when true.
   // No-op (resolvedBudget undefined, or entity name mismatch) for every screen this capability
@@ -749,8 +755,54 @@ ${searchBarBlock}${heroBlock}
     ? "\n" + (ctx?.symbols.get("AppStrings") ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get("AppStrings")}';` : "import '../../core/app_strings.dart';")
     : "";
 
+  // P3 (contract §5): M3 Expressive on-scroll AppBar color-fill. `_scrolled` is LOCAL widget UI
+  // state only — precisely the "IR state ≠ scroll/UI state" carve-out the contract demands (P2's
+  // `_query` already established this). backgroundColor stays `null` (= theme default, so at-rest
+  // pixels/goldens are byte-identical to pre-P3) and flips to `ColorScheme.surfaceContainerHighest`
+  // (a stock Material 3 token — passes the [architecture] raw-color gate) once the viewport
+  // scrolls past the top. State-management AGNOSTIC by design (unlike search): riverpod screens
+  // become a ConsumerStatefulWidget (`ref` is a getter on ConsumerState) and bloc list/detail
+  // screens a plain StatefulWidget, so the riverpod sample renders the same listener — no latent
+  // [scroll] gate gap.
+  const needsLocalState = scrollEnabled || searchEnabled;
+  const scrollAppBarSuffix = scrollEnabled
+    ? `, backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null`
+    : "";
+
   const widgetBody = sm === "riverpod"
-    ? `class ${s.name} extends ConsumerWidget {
+    ? scrollEnabled
+      ? `class ${s.name} extends ConsumerStatefulWidget {
+  const ${s.name}({super.key});
+
+  @override
+  ConsumerState<${s.name}> createState() => _${s.name}State();
+}
+
+class _${s.name}State extends ConsumerState<${s.name}> {
+  bool _scrolled = false;
+
+  @override
+  Widget build(BuildContext context) {
+${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('${appBarTitle}')${scrollAppBarSuffix}${appBarActions}),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: Builder(builder: (_) {
+${checks}
+${body}
+        }),
+      )${fab},
+    );
+  }
+}`
+      : `class ${s.name} extends ConsumerWidget {
   const ${s.name}({super.key});
 
   @override
@@ -765,11 +817,12 @@ ${body}
     );
   }
 }`
-    : searchEnabled
-      // P2: search needs local widget state (the query string) that lives OUTSIDE the Cubit/
-      // business state (contract §3/P3's "IR state ≠ scroll/UI state" principle, same reasoning
-      // applied to search) — the only reason this screen becomes a StatefulWidget instead of the
-      // usual StatelessWidget. Everything else (Scaffold/AppBar/BlocBuilder/fab) is unchanged.
+    : needsLocalState
+      // P2/P3: search needs local widget state (the query string) that lives OUTSIDE the Cubit/
+      // business state, and P3's scroll needs a local `_scrolled` flag (contract §3/P5's "IR
+      // state ≠ scroll/UI state" principle — the only reason these screens become a
+      // StatefulWidget instead of the usual StatelessWidget). Everything else (Scaffold/AppBar/
+      // BlocBuilder/fab) is unchanged.
       ? `class ${s.name} extends StatefulWidget {
   const ${s.name}({super.key});
 
@@ -778,25 +831,32 @@ ${body}
 }
 
 class _${s.name}State extends State<${s.name}> {
-  final _searchController = TextEditingController();
+${searchEnabled ? `  final _searchController = TextEditingController();
   String _query = '';
-
-  @override
+` : ""}${scrollEnabled ? `  bool _scrolled = false;
+` : ""}${searchEnabled ? `  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  @override
+` : ""}  @override
   Widget build(BuildContext context) {
 ${preBuild}    return Scaffold(
-      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
-      body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
+      appBar: AppBar(title: const Text('${appBarTitle}')${scrollAppBarSuffix}${appBarActions}),
+      body: ${scrollEnabled ? `NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: ` : ""}BlocBuilder<${s.state}Cubit, ${stateClass}>(
         builder: (context, state) {
 ${checks}
 ${body}
-        },
-      )${fab},
+        }${scrollEnabled ? `,\n        ),\n      )` : `,\n      )`}${fab},
     );
   }
 }`
@@ -823,7 +883,7 @@ ${body}
   // never references the router either (dead-route guard).
   const routerImport = comp.layout !== "wizard" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
 
-  return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}${searchEnabled ? "_search" : ""}.v1 class=structural ownership=generated
+  return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}${searchEnabled ? "_search" : ""}${scrollEnabled ? "_scroll" : ""}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 ${routerImport}${stateLibImport}

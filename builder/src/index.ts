@@ -24,7 +24,7 @@ import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
-import { shellFor, ShellPattern, searchTargets, SearchSpec } from "./composition";
+import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -730,19 +730,34 @@ function searchByPath(ir: FeatureModel, search: Map<string, SearchSpec>): Record
   return out;
 }
 
+// P3 (contract §5): the scroll-analogue of searchByPath above — same pure re-keying of
+// scrollTargets() (by screen NAME, screen.ts's lookup) into plan.json's patterns.scroll (by
+// screenPath(), the persisted/route-stable key), never a second decision.
+function scrollByPath(ir: FeatureModel, scroll: Map<string, ScrollSpec>): Record<string, ScrollSpec> {
+  const screens = ir.screens ?? [];
+  const out: Record<string, ScrollSpec> = {};
+  for (const [screenName, spec] of scroll) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) out[screenPath(screens, screen)] = spec;
+  }
+  return out;
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
-function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>): void {
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>, scroll?: Record<string, ScrollSpec>): void {
   const hasSearch = !!search && Object.keys(search).length > 0;
+  const hasScroll = !!scroll && Object.keys(scroll).length > 0;
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
     scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
-    // P1/P2 (contract §2.2/§2.6): record the composition layer's shell/search decisions as data.
-    // Omitted entirely (not `{ shell: undefined }`/`null`) when neither applies — an app with no
-    // shell and no searchable list stays byte-identical plan.json to pre-P1/P2 output.
-    ...(shell || hasSearch ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}) } } : {}),
+    // P1/P2/P3 (contract §2.2/§2.6): record the composition layer's shell/search/scroll decisions
+    // as data. Omitted entirely (not `{ shell: undefined }`/`null`) when none apply — an app with
+    // no shell, no searchable list, and no list/detail screen stays byte-identical plan.json to
+    // pre-P1/P2/P3 output.
+    ...(shell || hasSearch || hasScroll ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}), ...(hasScroll ? { scroll } : {}) } } : {}),
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -819,7 +834,10 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   // P2 (contract §4): decide per-list search ONCE, here — composition.ts's searchTargets is the
   // only owner of this decision (contract §1); screen.ts only ever consumes ctx.search by name.
   const search = searchTargets(ir);
-  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search };
+  // P3 (contract §5): decide per-screen scroll ONCE, here — composition.ts's scrollTargets is the
+  // only owner of this decision; screen.ts only ever consumes ctx.scroll by name.
+  const scroll = scrollTargets(ir);
+  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search, scroll };
 
   const scoring: string[] = [];
   for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
@@ -883,7 +901,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search), scrollByPath(ir, scroll));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }
@@ -974,7 +992,10 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   // P2 (contract §4): same single decision point as the single-feature path above, over the
   // merged screens/entities/repositories (searchTargets needs no per-feature grouping).
   const search = searchTargets(merged);
-  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search };
+  // P3 (contract §5): same single decision point, over the merged screens (scrollTargets reads
+  // only screen types — no per-feature grouping needed).
+  const scroll = scrollTargets(merged);
+  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search, scroll };
 
   // P1 (INTERFACE_PATTERN_CONTRACT.md §3): decide the global-shell pattern ONCE, here — the only
   // owner of this decision (contract §1 master principle). `null` for a single-feature AppModel;
@@ -1074,7 +1095,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search), scrollByPath(merged, scroll));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

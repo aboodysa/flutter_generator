@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +23,7 @@ class LeaveRequestListScreen extends StatefulWidget {
 class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-
+  bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
@@ -33,7 +33,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Leave Requests'),
+      appBar: AppBar(title: const Text('Leave Requests'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(
           tooltip: 'Export CSV',
@@ -52,7 +52,15 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
           },
         ),
       ]),
-      body: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<LeaveRequestListCubit, LeaveRequestListState>(
         builder: (context, state) {
         if (state.status == LeaveRequestListStatus.loading) return const LoadingState();
         if (state.status == LeaveRequestListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -112,6 +120,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
               ],
             );
         },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: '${AppStrings.of(context).newLabel} LeaveRequest',

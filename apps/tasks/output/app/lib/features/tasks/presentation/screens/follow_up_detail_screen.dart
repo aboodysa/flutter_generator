@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_detail_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_detail_bloc_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -10,19 +10,33 @@ import 'package:rasheed_replica_tasks/features/tasks/presentation/state/follow_u
 
 
 
-class FollowUpDetailScreen extends StatelessWidget {
+class FollowUpDetailScreen extends StatefulWidget {
   const FollowUpDetailScreen({super.key});
 
+  @override
+  State<FollowUpDetailScreen> createState() => _FollowUpDetailScreenState();
+}
+
+class _FollowUpDetailScreenState extends State<FollowUpDetailScreen> {
+  bool _scrolled = false;
   @override
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Follow Up details'),
+      appBar: AppBar(title: const Text('Follow Up details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: () => context.push('/follow-up/${id}/edit')),
         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: () async { await context.read<FollowUpListCubit>().delete(id!); if (context.mounted) context.go('/follow-up'); }),
       ]),
-      body: BlocBuilder<FollowUpListCubit, FollowUpListState>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<FollowUpListCubit, FollowUpListState>(
         builder: (context, state) {
         if (state.status == FollowUpListStatus.loading) return const LoadingState();
         if (state.status == FollowUpListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -46,6 +60,7 @@ class FollowUpDetailScreen extends StatelessWidget {
               ],
             );
         },
+        ),
       ),
     );
   }

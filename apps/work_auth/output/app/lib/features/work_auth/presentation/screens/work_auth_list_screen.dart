@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_list_bloc_search.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_list_bloc_search_scroll.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -20,7 +20,7 @@ class WorkAuthListScreen extends StatefulWidget {
 class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-
+  bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
@@ -30,8 +30,16 @@ class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Work Auths')),
-      body: BlocBuilder<WorkAuthListCubit, WorkAuthListState>(
+      appBar: AppBar(title: const Text('Work Auths'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n is ScrollUpdateNotification) {
+            final beingScrolled = n.metrics.extentBefore > 0;
+            if (beingScrolled != _scrolled) setState(() => _scrolled = beingScrolled);
+          }
+          return false;
+        },
+        child: BlocBuilder<WorkAuthListCubit, WorkAuthListState>(
         builder: (context, state) {
         if (state.status == WorkAuthListStatus.loading) return const LoadingState();
         if (state.status == WorkAuthListStatus.failure) return ErrorState(message: state.errorMessage);
@@ -91,6 +99,7 @@ class _WorkAuthListScreenState extends State<WorkAuthListScreen> {
               ],
             );
         },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'New WorkAuth',
