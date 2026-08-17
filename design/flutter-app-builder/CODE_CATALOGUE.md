@@ -116,3 +116,20 @@ round is listed here: path, what it is, why it exists, status. Additive — neve
 | `apps/tasks/output/rca/RCA-007-post-submit-back-button.md` | Full RCA (symptom/investigation/root cause/fix+rejected alternatives/rationale/verification/prevention) | root-cause analysis per AGENTS "fix the generator, never the app" | committed `ac3939d` |
 | `apps/tasks/output/qa/nav-back/*.png` | CDP evidence: form (Back), post-create detail (Back now present), post-edit detail (Back), back → list with new item | UI-slice CDP gate evidence (AGENTS rule 15) | committed `ac3939d` |
 | `LEFTOVER_NOTES.md` (proposed) | optional `[nav]` validate gate asserting form submits use `pushReplacement`/`pop` (never bare `go` to a detail path) | harden the same [scroll]/[search] re-derive-and-diff posture for navigation | not done this slice — tracked |
+
+## P4 — capability-driven actions (2026-08-17)
+| Path | What | Why | Status |
+|---|---|---|---|
+| `builder/src/composition.ts` | `ActionSpec`/`ActionKind`/`ActionPresentation` + `ACTION_ICONS`/`KNOWN_ACTION_ICONS` + `actionsFor(screen,entity,repo,ir)` (single action decision; edit/export/delete/audit/save; >2 detail → non-edit overflow) + `actionsTargets(ir)` | owner-accepted S-P4 MODIFY; contract §6 | committed `a8629f6` |
+| `builder/src/generators/screen.ts` | consumes `ctx.actions` by name; Delete confirm dialog (`showDialog`, Cancel=no-mutation); Audit `/audit-log`; overflow `PopupMenuButton` dispatch-by-kind; export via exportButtons; save semantic-only | renders the decided payload, never re-derives/counts (S-P4 invariants 1/3) | committed `a8629f6` |
+| `builder/src/generators/infra.ts` | locale vocab += `cancel`, `audit` (both maps + getters) | P4 chrome labels localizeable (L4 fixed-vocab) | committed `a8629f6` |
+| `builder/src/generators/test.ts` | crud flow test taps confirm dialog; opens overflow menu when actionsFor overflowed Delete (uses actionsTargets) | regression test matches new UI | committed `a8629f6` |
+| `builder/src/validate.ts` | `export function actionsCheck` + `[actions]` gate (re-derive via same actionsTargets, diff plan, scan screens, delete-confirm + no-save-FAB + closed vocab checks) | neg-controls proven: stale plan / delete-strip / save-FAB all caught | committed `a8629f6` |
+| `builder/src/{plan.ts, gen_context.ts, index.ts}` | `patterns.actions`, `ctx.actions`, `actionsByPath`, writePlan 10th param | decision-as-data wiring | committed `a8629f6` |
+| `apps/hr_service/output/qa/p4-audit-nav_test.dart` + `p4-actions/*.png` | widget test (audit nav via Flutter test framework) + CDP screenshots (overflow menu, delete-confirm, audit) | deterministic UI-slice verification (CDP popup-menu geometry is stale in web) | committed `d289f59` |
+| `apps/{tasks,ledgerly,work_auth}/output/...` screen+plan+crud_flow_test | regenerated app outputs with P4 action UI + updated flow tests | per-app evidence | committed `a8629f6` |
+
+## Model-tier implementer separation (AGENTS.md, 2026-08-17)
+| Path | What | Why | Status |
+|---|---|---|---|
+| `AGENTS.md` | New "Model tier — implementer separation" section: zen model = orchestrator only, never edits impl files; delegates code to remote opencode agents (tracematrix/tracematrix001) via tmux; cross-ref'd from remote-rules | owner directive: don't implement with zen models, manage only | committed `a2b3c14` |
