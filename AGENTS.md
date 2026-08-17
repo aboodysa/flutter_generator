@@ -263,12 +263,13 @@ tier) is an ORCHESTRATOR ONLY. It never writes code into the tree:
 - **Use a "pro" / non-zen model for anything that must write code locally** (e.g.
   `opencode/deepseek-v4-pro`) only as a last resort — never let the zen model do both orchestration
   and implementation.
-- **Spikes also run on remote opencode agents.** Read-only spike research (SPIKE_PROTOCOL: read →
-  ground → hypothesize → investigate → prove → decide → report) is the remote opencode channels'
-  job on the owner's VPS hosts (tracematrix/tracematrix001) — a zen model drives them, but does not
-  itself do the spike investigation/implementation. The zen model reviews the returned
-  spike report + decision. (Exception: trivial / already-in-context checks a zen model answers from
-  source already read this session.)
+- **Spikes run on remote opencode agents, NOT Claude.** Read-only spike research
+  (SPIKE_PROTOCOL: read → ground → hypothesize → investigate → prove → decide → report) is the
+  remote opencode channels' job on the owner's VPS hosts (tracematrix/tracematrix001) — Claude Code
+  is NOT used for spikes. A zen model drives the remote channels, but does not itself do the spike
+  investigation/implementation. The zen model reviews the returned spike report + decision.
+  (Exception: trivial / already-in-context checks a zen model answers from source already read this
+  session.)
 - This keeps cheap-model loops token-light and correct: the zen model's high-value work is
   cross-checking, not keystrokes. If the current session's model is zen and a task needs a code
   edit, the default move is: capture a brief → Claude first → if Claude hits quota, send to a
