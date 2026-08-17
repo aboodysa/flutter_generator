@@ -668,8 +668,19 @@ ${searchBarBlock}${heroBlock}
   const componentsImport = ctx ? `import 'package:${ctx.pkg}/core/components.dart';` : "import '../../core/components.dart';";
   const themeImport = ctx ? `import 'package:${ctx.pkg}/core/theme.dart';` : "import '../../core/theme.dart';";
 
-  const checks = `        if (state.status == ${statusEnum}.loading) return const LoadingState();
-        if (state.status == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);`;
+  // P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §14.1/§14.2): the decided StatePlacementSpec for THIS
+  // screen (composition.ts's statePlacementTargets, computed once per generateApp run) — consumed
+  // by loading/error only, never re-derived here (contract §1: composition.ts is the single
+  // owner). No entry (wizard: the flow-status field is `wizardStatus`, not `status`) emits neither
+  // branch — this is the wizard compile-bug fix (§3.3): the old unconditional literals compared
+  // against a `status` getter the wizard state never declares.
+  const placement = ctx?.states?.get(s.name);
+  const checks = placement
+    ? [
+        placement.loading ? `        if (state.${placement.flowField} == ${statusEnum}.loading) return const LoadingState();` : null,
+        placement.error ? `        if (state.${placement.flowField} == ${statusEnum}.failure) return ErrorState(message: state.errorMessage);` : null,
+      ].filter(Boolean).join("\n")
+    : "";
 
   // Subscription differs by provider (arch layer): bloc = BlocBuilder, riverpod = ConsumerWidget + ref.watch.
   const stateLibImport = sm === "riverpod"
