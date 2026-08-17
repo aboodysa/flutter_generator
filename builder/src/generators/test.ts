@@ -3,7 +3,7 @@ import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassFiel
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
-import { actionsTargets } from "../composition";
+import { actionsTargets, statePlacementFor } from "../composition";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
 import { GenContext } from "../gen_context";
@@ -226,11 +226,40 @@ ${darkPumpWidget}
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}_dark.png'));
   });` : "";
 
+  // P5/D2 Slice 3 (SPIKE_P5_D2_REPORT.md brief §DoD 5): one empty-with-CTA golden case, gated on
+  // the SAME statePlacementFor selector screen.ts's own render consumes (recomputed here — the
+  // same posture actionsTargets(feature) above already takes for this file, since test.ts's
+  // generated artifacts are independent of screen.ts's single render pass). No seeding/mocking
+  // needed: the Cubit's own default constructor (`const ${screen.state}State()`, state.ts) IS the
+  // empty-collection/non-loading/non-error case — just skip load(). Bloc-only this iteration, same
+  // documented gap this file's search/export goldens already carry (no current sample pairs
+  // riverpod with a create-capable list).
+  const emptyPlacement = statePlacementFor(screen, feature);
+  const emptyCtaCase = emptyPlacement?.emptyCta && sm !== "riverpod" ? `
+
+  testWidgets('${screen.name} renders empty with CTA (golden)', (tester) async {
+${setupDi}
+${surface}
+    await tester.pumpWidget(BlocProvider<${screen.state}Cubit>(
+      create: (_) => sl<${screen.state}Cubit>(),
+      child: MaterialApp(theme: buildTheme(), home: ${screen.name}()),
+    ));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}_empty.png'));
+  });` : "";
+
+  // Each case independently calls setupDependencies() (get_it's global singleton) — with more
+  // than one case in this file, the second call throws "already registered" unless the container
+  // is torn down between tests (same fix generateFocusTest/generateScrollTest already carry).
+  const multiCase = sm === "bloc" && (!!darkCase || !!emptyCtaCase);
+  const getItReset = multiCase ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = multiCase ? `import 'package:get_it/get_it.dart';\n` : "";
+
   return `// [generated] generator=GoldenTestGenerator template=golden_${sm}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
-${libImport}
+${getItImport}${libImport}
 ${diImport}import 'package:${pkg}/generated.dart';
 import 'package:${pkg}/core/theme.dart';
 import 'package:flutter/material.dart';
@@ -238,14 +267,14 @@ import 'package:flutter/material.dart';
 void main() {
 ${fontLoader}
 
-  testWidgets('${screen.name} renders (golden)', (tester) async {
+${getItReset}  testWidgets('${screen.name} renders (golden)', (tester) async {
 ${setupDi}
 ${surface}
 ${pumpWidget}
     await tester.pumpAndSettle();
     await expectLater(find.byType(${screen.name}), matchesGoldenFile('goldens/${goldenName}.png'));
   });
-${darkCase}
+${darkCase}${emptyCtaCase}
 }
 `;
 }
