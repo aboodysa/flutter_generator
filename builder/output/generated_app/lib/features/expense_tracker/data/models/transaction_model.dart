@@ -1,6 +1,7 @@
 // [generated] generator=ModelGenerator template=model.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/data/models/category_model.dart';
+import 'package:rasheed_replica_expense_tracker/core/money.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/payment_method.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/transaction.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/data/models/transaction_attachment_model.dart';
@@ -20,7 +21,7 @@ class TransactionModel {
   });
 
   final String id;
-  final double amount;
+  final Money amount;
   final DateTime date;
   final String? merchant;
   final CategoryModel? category;
@@ -31,7 +32,7 @@ class TransactionModel {
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) => TransactionModel(
       id: json['id'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: Money.fromJson(json['amount'] as Map<String, dynamic>),
       date: DateTime.parse(json['date'] as String),
       merchant: json['merchant'] as String?,
       category: (json['category']) != null ? CategoryModel.fromJson(json['category'] as Map<String, dynamic>) : null,
@@ -43,7 +44,7 @@ class TransactionModel {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
       'id': id,
-      'amount': amount,
+      'amount': amount.toJson(),
       'date': date.toIso8601String(),
       'merchant': merchant,
       'category': category?.toJson(),

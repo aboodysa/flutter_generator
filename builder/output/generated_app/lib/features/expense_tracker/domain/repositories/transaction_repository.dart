@@ -10,4 +10,7 @@ abstract interface class TransactionRepository {
   Future<Transaction> getTransactionDetail(String id);
   Stream<TransactionsPage> watchTransactions(TransactionFilter filter);
   Future<TransactionFeedback> submitFeedback({required String reaction, required String comment});
+  Future<Transaction> createTransaction(Transaction transaction);
+  Future<void> updateTransaction(Transaction transaction);
+  Future<void> deleteTransaction(String id);
 }

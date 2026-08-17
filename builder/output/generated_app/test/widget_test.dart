@@ -3,9 +3,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:rasheed_replica_expense_tracker/main.dart';
+import 'package:rasheed_replica_expense_tracker/core/di.dart';
 
 void main() {
   testWidgets('generated app renders', (tester) async {
+    setupDependencies();
     await tester.pumpWidget(const ReplicaApp());
     expect(find.byType(Scaffold), findsWidgets);
   });

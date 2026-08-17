@@ -2,6 +2,7 @@
 // Do not hand-edit this file; regenerate from IR.
 import 'package:equatable/equatable.dart';
 
+import 'package:rasheed_replica_expense_tracker/core/money.dart';
 
 class TransactionItem extends Equatable {
   const TransactionItem({
@@ -14,7 +15,7 @@ class TransactionItem extends Equatable {
   final String id;
   final String name;
   final double quantity;
-  final double unitPrice;
+  final Money unitPrice;
 
   @override
   List<Object?> get props => [id];

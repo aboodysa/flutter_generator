@@ -3,6 +3,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/category.dart';
+import 'package:rasheed_replica_expense_tracker/core/money.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/payment_method.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/transaction_attachment.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/transaction_item.dart';
@@ -21,7 +22,7 @@ class Transaction extends Equatable {
   });
 
   final String id;
-  final double amount;
+  final Money amount;
   final DateTime date;
   final String? merchant;
   final Category? category;
@@ -31,5 +32,5 @@ class Transaction extends Equatable {
   final List<TransactionAttachment> attachments;
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, amount, date, merchant, category, paymentMethod, note, items, attachments];
 }

@@ -7,16 +7,19 @@ void main() {
   test('TransactionModel fromJson/toJson round-trips without throwing', () {
     final json = <String, dynamic>{
         'id': 'x',
-        'amount': 0.0,
+        'amount': {'minorUnits': 0, 'currency': 'SAR'},
         'date': '2024-01-01T00:00:00.000Z',
         'paymentMethod': 'cash',
+        'merchant': null,
+        'category': null,
+        'note': null,
     };
     final m = TransactionModel.fromJson(json);
     expect(m.toJson(), isNotEmpty);
   });
 
   test('Transaction equality by identity', () {
-    final a = Transaction(id: 'x', amount: 0.0, date: DateTime(2024), paymentMethod: PaymentMethod.values.first);
+    final a = Transaction(id: 'x', amount: Money(minorUnits: 0, currency: 'SAR'), date: DateTime(2024), paymentMethod: PaymentMethod.values.first);
     expect(a, equals(a));
   });
 }

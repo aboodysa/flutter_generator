@@ -17,7 +17,12 @@ export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/data/models/category_model.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/repositories/transaction_repository.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/usecases/list_transactions.dart';
+export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/usecases/create_transaction.dart';
+export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/usecases/update_transaction.dart';
+export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/usecases/delete_transaction.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/data/datasources/transaction_remote_data_source.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/data/repositories/transaction_repository_impl.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/presentation/state/transaction_list.dart';
 export 'package:rasheed_replica_expense_tracker/features/expense_tracker/presentation/screens/transaction_list_screen.dart';
+export 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/rules/is_large_expense.dart';
+export 'package:rasheed_replica_expense_tracker/core/money.dart';

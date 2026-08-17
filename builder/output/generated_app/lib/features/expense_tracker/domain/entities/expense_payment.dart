@@ -2,6 +2,7 @@
 // Do not hand-edit this file; regenerate from IR.
 import 'package:equatable/equatable.dart';
 
+import 'package:rasheed_replica_expense_tracker/core/money.dart';
 
 class ExpensePayment extends Equatable {
   const ExpensePayment({
@@ -10,7 +11,7 @@ class ExpensePayment extends Equatable {
   });
 
   final String paymentType;
-  final double paidAmount;
+  final Money paidAmount;
 
   @override
   List<Object?> get props => [paymentType, paidAmount];

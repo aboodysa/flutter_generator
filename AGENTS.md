@@ -283,8 +283,82 @@ regenerate. When a slice ends with an investigated-but-unfixed item, it stays op
    in the generated outDir (goldens: `flutter test --update-goldens` first).
 4. Report exact command output; the orchestrator reviews and commits.
 
+## Remote opencode hosts (owner's infrastructure — tracematrix / tracematrix001)
+
+Drive opencode over SSH on the owner's VPS hosts; use a tmux channel per host so work survives
+disconnect and the owner can watch. Never run heavy agent loops in the foreground of an ad-hoc
+SSH command — always attach a tmux session first.
+
+### Hosts (SSH keys in `~/.ssh/`, root login)
+
+| Host short | SSH target | Box | opencode | Current tmux channels |
+|---|---|---|---|---|
+| **tracematrix** | `ssh root@tracematrix.businessanalystcrew.org` | n8n1671onubuntu2204lts (nyc1, 1vcpu/1gb) | `/usr/local/bin/opencode` (v1.17.15) | `germany` (bash, `/visa_search`), `germany3` (opencode, `/flutter_generator`) |
+| **tracematrix001** | `ssh root@tracematrix001.businessanalystcrew.org` | ubuntu-4gb-fsn1-3 (fsn1) | `/root/.opencode/bin/opencode` | `bp-claude`, `bp-watch`, `ooo` (browserpilot workflow) |
+
+### How to work on a remote host (opencode pattern)
+
+```bash
+# 1. Connect + attach the channel (or create one for a new topic)
+ssh root@tracematrix.businessanalystcrew.org
+tmux attach -t germany3            # existing opencode channel on /flutter_generator
+# or start fresh:
+tmux new -s <topic>                 # then cd <workdir> && opencode
+
+# 2. Reattach from the orchestrator side without full TUI (non-interactive control)
+tmux send-keys -t germany3 'your opencode prompt' Enter
+tmux capture-pane -t germany3 -p | tail -30   # read output
+```
+
+- **Persist across disconnect:** tmux keeps the opencode process alive; reopen with
+  `ssh root@…` then `tmux attach -t <topic>`.
+- The `germany3` channel currently runs opencode with cwd `/flutter_generator` on tracematrix —
+  match or reuse it for flutter-generator-adjacent work on that host.
+- `tracematrix001` `bp-claude` is a browserpilot/overseer notify channel; use `bp-watch`/`ooo`
+  for watcher-style work; confirm the session's active topic before sending anything.
+
+### Rules for remote agent work
+
+- Same discipline as local: read that host's `AGENTS.md`/`CLAUDE.md` first if present; small
+  commits; never delete; report to the owner on Telegram.
+- Remote VPS boxes are small (1vcpu/1gb on tracematrix) — avoid heavy builds (Flutter/web)
+  there; reserve those for the Mac. Prefer the remote for lightweight opencode/agent runs,
+  file/analysis tasks, and scripts.
+- Always confirm a remote tmux channel is idle (prompt `❯` visible, no spinner) before typing
+  into it — never paste over a running turn.
+- If a remote session shows the plan/quota dialog, treat it like the local one: pick the
+  non-paying option ("stop and wait") and park the prompt until reset; never upgrade.
+
+## Context / token discipline (owner directive 2026-08-17 — keep loops cheap)
+
+Every long-running agent loop (local claude/opencode channels AND remote tmux channels) must
+manage its context so work never dies to an uncached-token wall and tokens stay cheap.
+
+1. **Compact when the conversation grows.** Claude Code: send `\`/compact`` (or type `/compact`)
+   when tokens climb (e.g. claude shows `~NNNk uncached · /clear to start fresh`, or a turn is
+   deep into a many-command investigation). `/compact` condenses history, preserves the task, and
+   the channel keeps working. Prefer it over waiting for the quota/reset screen.
+2. **Start a fresh session when history has no value.** When a slice/topic is done and the next
+   task is independent (e.g. a finished P1 → P2), do NOT keep wallowing in the old context:
+   - Claude Code: `/clear` (or `/clean`) then re-issue the task with a pointer to the brief +
+     contract; prior state lives on disk (commits, HANDOFF.md, CODE_CATALOGUE.md, briefs under
+     `research/`) so nothing is lost.
+   - opencode: exit (`Ctrl+C`) then relaunch `opencode` in the same tmux channel for a new session;
+     or `/new` if available.
+   - Rule of thumb: **/clear or new session when history no longer helps the next slice; /compact
+     when you're mid-slice and just need headroom.** Never pay to re-read full history.
+3. **Re-anchor after losing context.** After `/clear`/new session, point the agent at the
+   authoritative docs first: this AGENTS.md, `design/flutter-app-builder/HANDOFF.md`,
+   `CODE_CATALOGUE.md`, and the relevant `research/*_IMPLEMENTATION_BRIEF.md` + contract — then
+   the task. Commit first, so the fresh session starts from a clean tree.
+4. **Remote channels too.** Same discipline applies on tracematrix/tracematrix001 opencode
+   channels — send `/compact` or restart opencode in the tmux channel rather than letting a
+   session balloon. Remote boxes are small; never store huge context there.
+
 ## References
 
 - Architecture/design: `design/flutter-app-builder/DESIGN.md`
 - Grilling (scope/planning): `design/flutter-app-builder/GRILLING.md`
 - Roadmap phases: `DESIGN.md §25` — v1 = end of Phase 3 (semantic lane + trust boundary).
+- Remote garden pattern (source of the host/tmux convention): owner request 2026-08-17 — drive
+  opencode in tracematrix + tracematrix001 via `ssh root@…` + tmux channel.

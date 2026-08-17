@@ -1,5 +1,6 @@
 // [generated] generator=ModelGenerator template=model.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
+import 'package:rasheed_replica_expense_tracker/core/money.dart';
 import 'package:rasheed_replica_expense_tracker/features/expense_tracker/domain/entities/transaction_item.dart';
 
 class TransactionItemModel {
@@ -13,20 +14,20 @@ class TransactionItemModel {
   final String id;
   final String name;
   final double quantity;
-  final double unitPrice;
+  final Money unitPrice;
 
   factory TransactionItemModel.fromJson(Map<String, dynamic> json) => TransactionItemModel(
       id: json['id'] as String,
       name: json['name'] as String,
       quantity: (json['quantity'] as num).toDouble(),
-      unitPrice: (json['unitPrice'] as num).toDouble(),
+      unitPrice: Money.fromJson(json['unitPrice'] as Map<String, dynamic>),
   );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
       'id': id,
       'name': name,
       'quantity': quantity,
-      'unitPrice': unitPrice,
+      'unitPrice': unitPrice.toJson(),
   };
 
   TransactionItem toEntity() => TransactionItem(

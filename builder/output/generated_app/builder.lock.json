@@ -1,13 +1,34 @@
 {
   "irVersion": "1",
-  "generator": "1.0.0",
-  "template": "v1",
-  "sdk": ">=3.0.0",
+  "generatorVersion": "1.0.0",
+  "templateVersion": "v1",
+  "sdkConstraint": ">=3.0.0",
   "plugins": {
-    "stateManagement": "bloc",
-    "di": "get_it",
-    "routing": "go_router",
-    "http": "dio",
-    "secureStorage": "flutter_secure_storage"
-  }
+    "stateManagement": {
+      "strategy": "bloc",
+      "version": "^8.1.6"
+    },
+    "di": {
+      "strategy": "get_it",
+      "version": "^8.0.1"
+    },
+    "routing": {
+      "strategy": "go_router",
+      "version": "^17.1.0"
+    },
+    "http": {
+      "strategy": "dio",
+      "version": "^5.8.0+1"
+    },
+    "serialization": {
+      "strategy": "manual",
+      "version": "none"
+    },
+    "secureStorage": {
+      "strategy": "flutter_secure_storage",
+      "version": "^9.2.4"
+    }
+  },
+  "localeDataVersion": "intl-0.19.0",
+  "fontVersion": "tajawal-1"
 }
