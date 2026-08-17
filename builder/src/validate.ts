@@ -5,7 +5,7 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor } from "./composition";
 import { screenPath } from "./routing";
 
 /**
@@ -621,6 +621,103 @@ export function actionsCheck(ir: any, outDir: string, files: string[]): string[]
   return issues;
 }
 
+// P5/D2 Slice 4 (SPIKE_P5_D2_REPORT.md §13.6/§14.3, the FINAL P5/D2 slice) — the `[states]` gate.
+// Same centralized-decision posture as [search]/[scroll]/[actions]: re-asserts the selector by
+// calling the SAME `statePlacementFor` composition.ts itself uses (never a parallel
+// re-implementation — §15's REJECTED "blind all-three validator trap" is exactly a validator that
+// second-guesses the triad independently instead of re-deriving the one true selector), for EVERY
+// screen, then:
+//   (a) cross-checks plan.json's recorded patterns.states against a fresh re-derivation — INCLUDING
+//       the null case: a screen whose re-derived spec is null (today: wizard, whose flow-status
+//       field is `wizardStatus` not `status`) must have NO plan entry either;
+//   (b) scans EVERY generated screen for output/decision agreement, per the APPLICABLE contract for
+//       that screen (§9's failure-mode table) — not "does every member of the triad render":
+//         loading/error/empty/emptyCta/refresh — applicable ⇔ the corresponding spec field, exactly
+//           as composition.ts decided (empty/emptyCta/refresh are already screen.type === "list"
+//           -scoped at the composition.ts level, via the `empty` field's own definition);
+//         retry — applicable ⇔ spec.retry AND screen.type === "list". composition.ts's `retry`
+//           field mirrors `error` at the STATE-MODEL level on purpose (statePlacementFor's own doc
+//           comment: retry/refresh trace to error/empty because load() is unconditional) — so a
+//           detail screen sharing a list's cubit re-derives retry:true too. But Slice 3's screen.ts
+//           deliberately withholds the RENDERED retry button there (SPIKE_P5_D2_REPORT.md §16: "the
+//           owner's decision scopes the rendered button to lists only, detail-screen retry is a
+//           follow-up, not this slice") — the gate must match the REAL, intended render contract,
+//           not the raw spec alone, or it would FAIL every detail screen sharing a list's cubit
+//           (which is the normal, correct case, not a bug).
+function statesCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[states] plan.json missing in ${outDir} — cannot verify state placement decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.states ?? {};
+  const recordedPaths = new Set(Object.keys(recorded));
+  const expectedPaths = new Set<string>();
+
+  const specEqual = (a: any, b: any) =>
+    !!a && !!b && a.flowField === b.flowField && a.loading === b.loading && a.error === b.error &&
+    a.empty === b.empty && a.emptyCta === b.emptyCta && a.retry === b.retry && a.refresh === b.refresh;
+
+  // (a) plan.json vs fresh re-derivation — same "stale plan entry" posture as [search]/[scroll].
+  for (const screen of screens) {
+    const spec = statePlacementFor(screen, flat);
+    const p = screenPath(screens, screen);
+    if (spec) {
+      expectedPaths.add(p);
+      if (!recordedPaths.has(p)) {
+        issues.push(`[states] '${p}' should declare state placement (state model has an applicable triad member) but plan.json's patterns.states has no entry for it`);
+      } else if (!specEqual(spec, recorded[p])) {
+        issues.push(`[states] '${p}' plan.json entry ${JSON.stringify(recorded[p])} does not match the re-derived decision ${JSON.stringify(spec)}`);
+      }
+    } else if (recordedPaths.has(p)) {
+      issues.push(`[states] '${p}' has a plan.json patterns.states entry but re-deriving statePlacementFor against the current IR returns null (e.g. a wizard) — stale plan entry`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedPaths.has(p)) {
+      issues.push(`[states] plan.json declares state placement for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // (b) generated-output markers vs the APPLICABLE contract (doc comment above) — each member
+  // independently, both directions (decided-but-absent AND rendered-but-not-decided). A fixed
+  // tuple list (not a Record keyed by member name) so TS's noUncheckedIndexedAccess can't turn a
+  // lookup into a possibly-undefined marker function.
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const spec = statePlacementFor(screen, flat);
+    const members: Array<[string, boolean, boolean]> = [
+      ["loading", !!spec?.loading, src.includes("LoadingState()")],
+      ["error", !!spec?.error, src.includes("ErrorState(message:")],
+      // §16 "lists only" — see doc comment above: retry's applicability additionally requires
+      // screen.type === "list", unlike the raw spec field (which mirrors `error` state-model-wide).
+      ["retry", !!spec?.retry && screen.type === "list", src.includes("onRetry:")],
+      ["empty", !!spec?.empty, src.includes("items.isEmpty")],
+      ["emptyCta", !!spec?.emptyCta, src.includes("action: OutlinedButton(")],
+      ["refresh", !!spec?.refresh, src.includes("RefreshIndicator(")],
+    ];
+    for (const [member, should, has] of members) {
+      if (should && !has) {
+        issues.push(`[states] '${p}' (${screen.name}) decided ${member} but the generated screen has no ${member} marker`);
+      }
+      if (!should && has) {
+        issues.push(`[states] '${p}' (${screen.name}) has no ${member} entry in the decided placement but the generated screen renders one anyway`);
+      }
+    }
+  }
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -697,6 +794,12 @@ function flattenedIr(ir: any): any {
     businessRules: Array.isArray(ir.businessRules) ? ir.businessRules : (ir.features ?? []).flatMap((f: any) => f.businessRules ?? []),
     repositories: Array.isArray(ir.repositories) ? ir.repositories : (ir.features ?? []).flatMap((f: any) => f.repositories ?? []),
     repositoryImpls: Array.isArray(ir.repositoryImpls) ? ir.repositoryImpls : (ir.features ?? []).flatMap((f: any) => f.repositoryImpls ?? []),
+    // P5/D2 Slice 4: same vacuous-no-op gap the fields above were added for — statePlacementFor
+    // reads ir.states directly (composition.ts), and index.ts's own multi-feature path merges the
+    // exact same way (`states: app.features.flatMap((f) => f.states ?? [])`) before calling it, so
+    // [states] needs the identical flattening or every multi-feature app's re-derivation would
+    // silently find zero states and report every screen as a stale/missing plan entry.
+    states: Array.isArray(ir.states) ? ir.states : (ir.features ?? []).flatMap((f: any) => f.states ?? []),
   };
 }
 
@@ -894,6 +997,7 @@ export interface ValidationResult {
   search: number;    // count of per-list-search issues: plan/output drift, missing/unexpected SearchBar (P2)
   scroll: number;    // count of per-screen-scroll issues: plan/output drift, missing/unexpected scroll listener (P3)
   actions: number;   // count of per-screen-action issues: plan/output drift, missing/unexpected action, unconfirmed delete, save FAB (P4)
+  states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
   swiftpkg: number;  // count of Package.swift issues: missing file or missing .iOS(.v17) declaration (S2)
   swiftarch: number; // count of Swift Domain-layer files importing SwiftUI/UIKit (S2, §6.3)
@@ -953,7 +1057,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, planDeterminism: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, planDeterminism: 0,
     theme: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
@@ -1155,10 +1259,18 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...actionsIssues);
   const actions = actionsIssues.length;
 
+  // Per-screen state placement (P5/D2, the FINAL slice): plan.json's recorded loading/error/
+  // empty/emptyCta/retry/refresh decisions must match a fresh re-derivation (same
+  // statePlacementFor), and every screen's output must agree with the APPLICABLE contract (not a
+  // blind "render all three" check — §15 REJECTED that).
+  const statesIssues = statesCheck(ir, outDir, files);
+  issues.push(...statesIssues);
+  const states = statesIssues.length;
+
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, outbox, platform, shell, search,
-    scroll, actions,
+    scroll, actions, states,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1213,7 +1325,8 @@ function main() {
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
   console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
   console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions > 0;
+  console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
