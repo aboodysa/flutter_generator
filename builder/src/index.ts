@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import Ajv from "ajv";
-import { FeatureModel, AppModel } from "./types";
+import { FeatureModel, AppModel, StatePlacementSpec } from "./types";
 import { fileName, GenContext } from "./dart";
 import { screenPath } from "./routing";
 import { pkgName, buildSymbols, addAuthSymbols } from "./symbols";
@@ -24,7 +24,7 @@ import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
-import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec } from "./composition";
+import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -755,22 +755,37 @@ function actionsByPath(ir: FeatureModel, actions: Map<string, ActionSpec[]>): Re
   return out;
 }
 
+// P5/D2 Slice 2: the states-analogue of searchByPath/scrollByPath/actionsByPath above — same pure
+// re-keying of statePlacementTargets() (by screen NAME) into plan.json's patterns.states (by
+// screenPath()).
+function statesByPath(ir: FeatureModel, states: Map<string, StatePlacementSpec>): Record<string, StatePlacementSpec> {
+  const screens = ir.screens ?? [];
+  const out: Record<string, StatePlacementSpec> = {};
+  for (const [screenName, spec] of states) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) out[screenPath(screens, screen)] = spec;
+  }
+  return out;
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
-function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>, scroll?: Record<string, ScrollSpec>, actions?: Record<string, ActionSpec[]>): void {
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>, scroll?: Record<string, ScrollSpec>, actions?: Record<string, ActionSpec[]>, states?: Record<string, StatePlacementSpec>): void {
   const hasSearch = !!search && Object.keys(search).length > 0;
   const hasScroll = !!scroll && Object.keys(scroll).length > 0;
   const hasActions = !!actions && Object.keys(actions).length > 0;
+  const hasStates = !!states && Object.keys(states).length > 0;
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
     scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
-    // P1/P2/P3/P4 (contract §2.2/§2.6): record the composition layer's shell/search/scroll/actions
-    // decisions as data. Omitted entirely (not `{ shell: undefined }`/`null`) when none apply — an
-    // app with no shell, no searchable list, no list/detail screen, and no capability-driven action
-    // stays byte-identical plan.json to pre-P1/P2/P3/P4 output.
-    ...(shell || hasSearch || hasScroll || hasActions ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}), ...(hasScroll ? { scroll } : {}), ...(hasActions ? { actions } : {}) } } : {}),
+    // P1/P2/P3/P4/D2 (contract §2.2/§2.6): record the composition layer's shell/search/scroll/
+    // actions/states decisions as data. Omitted entirely (not `{ shell: undefined }`/`null`) when
+    // none apply — an app with no shell, no searchable list, no list/detail screen, no capability-
+    // driven action, and no applicable state-placement member stays byte-identical plan.json to
+    // pre-P1/P2/P3/P4/D2 output.
+    ...(shell || hasSearch || hasScroll || hasActions || hasStates ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}), ...(hasScroll ? { scroll } : {}), ...(hasActions ? { actions } : {}), ...(hasStates ? { states } : {}) } } : {}),
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -853,7 +868,11 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   // P4 (contract §6): decide per-screen actions ONCE, here — composition.ts's actionsTargets is
   // the only owner of this decision; screen.ts only ever consumes ctx.actions by name.
   const actions = actionsTargets(ir);
-  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search, scroll, actions };
+  // P5/D2 Slice 2: decide per-screen state placement (loading/error) ONCE, here — composition.ts's
+  // statePlacementTargets is the only owner of this decision; screen.ts only ever consumes
+  // ctx.states by name.
+  const states = statePlacementTargets(ir);
+  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search, scroll, actions, states };
 
   const scoring: string[] = [];
   for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
@@ -917,7 +936,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search), scrollByPath(ir, scroll), actionsByPath(ir, actions));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search), scrollByPath(ir, scroll), actionsByPath(ir, actions), statesByPath(ir, states));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }
@@ -1013,7 +1032,9 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const scroll = scrollTargets(merged);
   // P4 (contract §6): same single decision point, over the merged screens/entities/repositories.
   const actions = actionsTargets(merged);
-  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search, scroll, actions };
+  // P5/D2 Slice 2: same single decision point, over the merged screens/entities/repositories.
+  const states = statePlacementTargets(merged);
+  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search, scroll, actions, states };
 
   // P1 (INTERFACE_PATTERN_CONTRACT.md §3): decide the global-shell pattern ONCE, here — the only
   // owner of this decision (contract §1 master principle). `null` for a single-feature AppModel;
@@ -1113,7 +1134,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search), scrollByPath(merged, scroll), actionsByPath(merged, actions));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search), scrollByPath(merged, scroll), actionsByPath(merged, actions), statesByPath(merged, states));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

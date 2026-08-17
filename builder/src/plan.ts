@@ -1,4 +1,4 @@
-import { FeatureModel } from "./types";
+import { FeatureModel, StatePlacementSpec } from "./types";
 import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec } from "./composition";
 
 /**
@@ -43,11 +43,17 @@ export interface GenerationPlan {
   // search/scroll, one entry per screen whose decided action set is non-empty (composition.ts's
   // actionsFor). Recorded as data so [actions] re-derives-and-diffs; omitted entirely when no
   // screen in this app has any applicable capability (never `{ actions: {} }` noise).
+  // P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §14.2): `states` is additive alongside the above — keyed
+  // by screenPath() like search/scroll/actions, one entry per screen whose state model declares
+  // at least one triad member (composition.ts's statePlacementFor). Omitted entirely when no
+  // screen qualifies; a wizard screen never gets an entry (its flow-status field is
+  // `wizardStatus`, not `status` — see statePlacementFor's doc comment).
   patterns?: {
     shell?: { destinations: ShellDestination[] };
     search?: Record<string, SearchSpec>;
     scroll?: Record<string, ScrollSpec>;
     actions?: Record<string, ActionSpec[]>;
+    states?: Record<string, StatePlacementSpec>;
   };
 }
 

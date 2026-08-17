@@ -7,7 +7,7 @@
 // state-management provider need the wider GenContext. Generator signatures should declare the
 // narrowest capability they actually use — TS structural typing lets index.ts keep constructing
 // and passing one full GenContext everywhere without any caller-side change.
-import { StateManagementProvider } from "./types";
+import { StateManagementProvider, StatePlacementSpec } from "./types";
 import { SearchSpec, ScrollSpec, ActionSpec } from "./composition";
 
 export interface PkgContext {
@@ -28,4 +28,9 @@ export interface GenContext extends PkgContext {
   // screen.ts looks itself up by `s.name` to render its decided ActionSpec[] (or nothing). The
   // ONLY action decision — screen.ts never re-derives from crudTarget/audit/export.
   actions?: Map<string, ActionSpec[]>;
+  // P5/D2 Slice 2: composition.ts's statePlacementTargets(ir), computed once per generateApp run —
+  // screen.ts looks itself up by `s.name` to render its decided StatePlacementSpec's loading/error
+  // branches (or nothing, for a wizard screen). The ONLY placement decision — screen.ts never
+  // re-derives it from `state.status`.
+  states?: Map<string, StatePlacementSpec>;
 }

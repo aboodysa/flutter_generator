@@ -383,4 +383,20 @@ export interface StateModel {
   extraFields?: StateField[]; // additional state fields beyond status/transactions/errorMessage
 }
 
+// P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §14.1): the state-model-conditional Loading/Error/Empty
+// placement decision for one screen — composition.ts's `statePlacementFor` is the single owner
+// (mirrors P4's ActionSpec posture); screen.ts only ever renders the payload it's handed, never
+// re-derives it. `null` (no map entry) means the screen's state model declares none of the triad
+// (today: the wizard archetype, whose flow-status field is `wizardStatus`, not `status`) — the
+// screen renders no loading/failure branch at all, fixing the wizard compile bug (§3.3).
+export interface StatePlacementSpec {
+  flowField: string; // the state model's flow-status field name driving loading/error (e.g. "status")
+  loading: boolean;  // flowField's enum declares a "loading" member
+  error: boolean;    // flowField's enum declares "failure" AND the state declares errorMessage
+  empty: boolean;    // the state has a backing collection (list archetype) — Slice 3 renders this
+  emptyCta: boolean; // empty AND crudFormTargets(ir).get(entity) has create — Slice 3 renders this
+  retry: boolean;    // error AND the state's Cubit/Notifier has load() — Slice 3 renders this
+  refresh: boolean;  // empty AND the state's Cubit/Notifier has load() — Slice 3 renders this
+}
+
 export type DartTypeMap = Record<PrimitiveType, string>;

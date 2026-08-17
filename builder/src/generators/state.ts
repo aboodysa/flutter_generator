@@ -2,7 +2,9 @@ import { StateModel, StateField, EntityModel, ScreenModel, WizardStep } from "..
 import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, newIdExpr, GenContext } from "../dart";
 import { crudOperations, findRepoForEntity, findWizardScreen, stepFields, isMoneyField } from "../operations";
 
-const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
+// P5/D2 Slice 2: exported so composition.ts's statePlacementFor derives loading/error against the
+// SAME default statuses this file falls back to — a single source, never a second literal copy.
+export const DEFAULT_STATUSES = ["initial", "loading", "success", "failure"];
 
 // The three built-in fields every list state has. The collection field is named from the
 // entity (Transaction -> transactions, Task -> tasks, Product -> products) via `collectionField`

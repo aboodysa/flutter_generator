@@ -4,10 +4,11 @@
  * and surface treatment. Adding a new archetype = one entry here (data), no dispatch rewrite.
  * The screen generator consults this registry; unknown archetypes fall back to `list`.
  */
-import { FeatureModel, ScreenModel, EntityModel, RepositoryModel } from "./types";
+import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
-import { findRepoForEntity, crudFormTargets, isAudited, resolveExport } from "./operations";
+import { findRepoForEntity, crudFormTargets, isAudited, resolveExport, findWizardScreen } from "./operations";
+import { DEFAULT_STATUSES } from "./generators/state";
 
 export interface CompositionSpec {
   archetype: string;
@@ -325,6 +326,54 @@ export function actionsTargets(ir: FeatureModel): Map<string, ActionSpec[]> {
     const repo = findRepoForEntity(ir.repositories, screen.entity);
     const actions = actionsFor(screen, entity, repo, ir);
     if (actions.length) out.set(screen.name, actions);
+  }
+  return out;
+}
+
+/**
+ * P5/D2 Slice 2 (SPIKE_P5_D2_REPORT.md §13 Decision, §14.1/§14.2) — state-model-conditional
+ * Loading/Error/Empty placement. Same single-owner posture as P4's actionsFor: this is the ONE
+ * place that decides which triad members a screen's own state model actually declares;
+ * screen.ts's `checks` block only ever renders the decided `StatePlacementSpec`, never re-derives
+ * it from `state.status` (contract §1 master principle).
+ *
+ * Contract (§14.1):
+ *   loading   = the state model's flow-status field's enum declares "loading"
+ *   error     = flow-status enum declares "failure" AND the state declares errorMessage
+ *   empty     = the state has a backing collection (list archetype) — Slice 3 renders the widget
+ *   emptyCta  = empty AND crudFormTargets(ir).get(entity) has create — Slice 3 renders the CTA
+ *   retry     = error AND the state's Cubit/Notifier has load() — Slice 3 renders the button
+ *   refresh   = empty AND the state's Cubit/Notifier has load() — Slice 3 wraps RefreshIndicator
+ *   null      = none of loading/error/empty apply (today: the wizard archetype — its flow-status
+ *               field is `wizardStatus`, namespaced by state.ts's B1 fix so it never collides with
+ *               an entity's own `status` field, and its transitions are step progress, not a load
+ *               phase — findWizardScreen is the SAME classifier state.ts itself uses to decide
+ *               whether a state is wizard-shaped, so this never drifts from what state.ts emits)
+ *
+ * `load()` is unconditionally emitted on every non-wizard Cubit/Notifier (generators/state.ts,
+ * demo-data fallback when no repository backs the entity) — so retry/refresh trace directly to
+ * error/empty rather than a second capability check that could only ever read `true`.
+ */
+export function statePlacementFor(screen: ScreenModel, ir: FeatureModel): StatePlacementSpec | null {
+  if (findWizardScreen(ir, screen.state)) return null;
+  const stateModel = (ir.states ?? []).find((st) => st.name === screen.state);
+  if (!stateModel) return null;
+  const statuses = stateModel.statuses ?? DEFAULT_STATUSES;
+  const loading = statuses.includes("loading");
+  const error = statuses.includes("failure"); // errorMessage is a builtin field on every non-wizard state (state.ts)
+  const empty = screen.type === "list";
+  if (!loading && !error && !empty) return null;
+  const emptyCta = empty && !!crudFormTargets(ir).get(screen.entity)?.create;
+  return { flowField: "status", loading, error, empty, emptyCta, retry: error, refresh: empty };
+}
+
+// Runs statePlacementFor across every screen in one IR (single- or already-merged multi-feature).
+// Keyed by screen NAME (screen.ts's lookup); index.ts re-keys by screenPath() for plan.json.
+export function statePlacementTargets(ir: FeatureModel): Map<string, StatePlacementSpec> {
+  const out = new Map<string, StatePlacementSpec>();
+  for (const screen of ir.screens ?? []) {
+    const spec = statePlacementFor(screen, ir);
+    if (spec) out.set(screen.name, spec);
   }
   return out;
 }
