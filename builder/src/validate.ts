@@ -1142,7 +1142,17 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   // the cost — ~30-60s saved per validate across the 11-sample sweep. TIMING_LOG.md.)
   const tmp1 = `${outDir}.v1`;
   execSync(`npx ts-node --transpile-only builder/src/index.ts ${irPath} ${tmp1}`, { stdio: "pipe" });
-  const diff = execSync(`diff -r ${tmp1}/lib ${outDir}/lib`, { stdio: "pipe" }).toString();
+  // `diff` exits non-zero the moment it finds a difference — exactly the case this gate exists to
+  // report via `issues.push` below, not an unexpected failure to crash the whole validate run on
+  // (found while exercising S-HERMETIC's [timestamp] negative control: a hand-edited header is
+  // real drift and must reach `issues`/[timestamp], not throw before either ever runs). Mirrors
+  // the try/catch [swiftdeterminism] already uses a few dozen lines below, for the same reason.
+  let diff = "";
+  try {
+    diff = execSync(`diff -r ${tmp1}/lib ${outDir}/lib`, { stdio: "pipe" }).toString();
+  } catch (e: any) {
+    diff = e.stdout ? e.stdout.toString() : String(e.message ?? e);
+  }
   const determinism = diff.trim() === "";
   if (!determinism) issues.push(diff.trim());
 
