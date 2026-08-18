@@ -14,11 +14,30 @@
   .caption { font-size: 14px; color: #555; margin: 6px 0 0; }
   .visualstyle { font-size: 13px; color: #7a5c00; background: #fff7e0; border: 1px solid #f0e0ae; border-radius: 8px; display: inline-block; padding: 6px 12px; margin: 10px 0 0; }
   code { font-family: Menlo, monospace; font-size: 12px; }
+  .review { background: #f0f4ff; border: 1px solid #c6d8f5; border-radius: 12px; padding: 18px 22px; margin: 24px 0 36px; }
+  .review h3 { margin: 0 0 10px; font-size: 16px; }
+  .review ul { margin: 0; padding-left: 20px; }
+  .review li { font-size: 13.5px; margin: 6px 0; line-height: 1.5; }
+  .review .verdict { font-weight: 700; }
+  .check { color: #0a7d33; font-weight: 700; }
+  .x { color: #c62828; font-weight: 700; }
 </style>
 </head>
 <body>
   <h1>S1 — VisualIntent Proof Screens</h1>
   <h2>390&times;844 iPhone goldens &middot; deterministic scoring compositions</h2>
+
+  <div class="review">
+    <h3>&#128269; Review instructions — check each screen against these</h3>
+    <ul>
+      <li><b>1 &middot; Visual difference (PASS/FAIL):</b> the 3 screens must look <i>obviously different</i> in density / corner radius / hierarchy — each matching its caption. Same app boilerplate is expected; the <i>visual tone</i> must differ.</li>
+      <li><b>2 &middot; Caption fidelity (PASS/FAIL):</b> tasks=friendly/rounded &rarr; soft, rounded cards; hr_service=professional/sharp/strong &rarr; sharp corners, strong hero; ledgerly=premium/soft &rarr; refined, soft surfaces.</li>
+      <li><b>3 &middot; No hardcoded style (PASS/FAIL):</b> every visual value flows from <code>visualStyle</code> &rarr; scoring &rarr; existing tokens. If a screen shows colors/spacing/radius that feel arbitrary (not from the design tokens), flag it.</li>
+      <li><b>4 &middot; Trust boundary (PASS/FAIL):</b> an unattested <code>visualStyle</code> value must BLOCK generation — no silent visual decisions without human approval (verified in CI, not visible in these images).</li>
+      <li><b>5 &middot; Determinism (PASS/FAIL):</b> re-running generation on the same IR must produce byte-identical output (verified in CI, not visible in these images).</li>
+      <li><b>Verdict:</b> approve &rarr; S1 ships; request changes &rarr; list the failing item(s) above and what should change.</li>
+    </ul>
+  </div>
 
   <div class="screen">
     <img src="file:///Users/username/Documents/cto/flutter_generator/apps/tasks/output/goldens/TaskListScreen_all.png" alt="tasks TaskListScreen">
