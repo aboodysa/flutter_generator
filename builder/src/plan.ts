@@ -1,5 +1,5 @@
 import { FeatureModel, StatePlacementSpec } from "./types";
-import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec } from "./composition";
+import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec, VisualSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -48,12 +48,18 @@ export interface GenerationPlan {
   // at least one triad member (composition.ts's statePlacementFor). Omitted entirely when no
   // screen qualifies; a wizard screen never gets an entry (its flow-status field is
   // `wizardStatus`, not `status` — see statePlacementFor's doc comment).
+  // S1 (SPIKE_S1_REPORT.md §14.3): `visual` is additive alongside the above — keyed by
+  // screenPath() like search/scroll/actions/states, one entry per screen with at least one
+  // visualStyle sub-field set (composition.ts's visualFor). Omitted entirely when no screen in
+  // this app declares a visualStyle. The `[visualIntent]` gate re-derives-and-diffs this the same
+  // way `[states]` does for `patterns.states`.
   patterns?: {
     shell?: { destinations: ShellDestination[] };
     search?: Record<string, SearchSpec>;
     scroll?: Record<string, ScrollSpec>;
     actions?: Record<string, ActionSpec[]>;
     states?: Record<string, StatePlacementSpec>;
+    visual?: Record<string, VisualSpec>;
   };
 }
 
