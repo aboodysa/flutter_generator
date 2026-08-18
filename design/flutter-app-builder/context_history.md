@@ -705,3 +705,9 @@ Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in det
 backward-compat verified via stash+regen+diff before every generator change lands; agents read
 `AGENTS.md` + `research/SPIKE_PROTOCOL.md` (spike discipline) + the relevant
 `research/*_IMPLEMENTATION_BRIEF.md`/`SPIKE_PLAN.md` section before starting work.
+
+---
+
+## 2026-08-18 — P4 round + P5/D2 complete + S-HERMETIC complete (archive of HANDOFF before v1-milestone rewrite)
+
+Content of HANDOFF.md as of 2026-08-18 (pre v1-milestone): P4 COMPLETE (a8629f6/d289f59), P3 COMPLETE, RCA-007, S-CTX, P2, M4 all closed. P5/D2 placement = next. Model-tier zen/orchestrator separation (a2b3c14). TOOL-1 opencode compression = roadmap-only.
