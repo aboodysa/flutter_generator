@@ -9,9 +9,34 @@ S1–S7** (`VISUAL_GENERATION_REVIEW.md`) with two implement lanes: Claude Code 
 for implementation, remote opencode (tracematrix `germany3`, DeepSeek Flash Free) for read-only
 spikes. Zen session orchestrates/verifies only.
 
-## This round: S1 done+approved, S6 done, S2 in flight
+## This round: S1 done+approved+token-rigor, S6 done, S2 done, S3 in flight
 
-### S1 — VisualIntent fragment, **APPROVED for shipment**
+### S1 — VisualIntent fragment, **APPROVED + token-rigor hardening**
+
+- Owner's ChatGPT review of the showcase (`S1_SHOWCASE_REVIEW.md`) found the token system
+  under-specified. Fixes ADOPTED via `S1_TOKEN_RIGOR_BRIEF_CLAUDE.md` (Claude, 5 commits
+  `1b0fc86`→`7997a46`):
+  - `VisualSpec.radiusScale` grows component-role `{control,surface,container,search,fab}` — search
+    field + FAB now follow the cornerRadius rules (FIX-1, never reuse `control`).
+  - `spacing` is a full matrix `{screen,section,itemGap,cardInset,fabInset}` all `AppSpacing.*`
+    (FIX-3); `titleWeight` (AppType.*, keyed on hierarchy) makes `heroScale:2` observable as a
+    title-weight change, heroScale=1 byte-identical (FIX-2/4).
+  - `[visualIntent]` gate extended to flag enum-branching in generated components (FIX-6); contact
+    sheet rebuilt with corrected caption labels (FIX-5).
+  - Proof: search/FAB radius in B, pill search in C visible in goldens; A-vs-B and A-vs-C
+    pixel-diffs quantified.
+- Original S1 (approved): evidence v3 `8c13198`, tests `061cf7e`/`d31f73c`/`16b00bd`/`19332d6`,
+  `test/s1_visual_intent.test.ts` 20/20.
+
+### S2 — sections archetype, **IMPLEMENTED** (Claude, 5 commits `d69c5d4`→`b561269`, defaults A1/B1)
+
+- Vocabulary (`SectionType` closed enum, `ScreenModel.sections?`, schema `additionalProperties:false`
+  + `"sections"` type), `sectionsFor`/`sectionsTargets` selector, fourth `comp.layout==="sections"`
+  renderer branch, `AppHeroBanner`/`AppProductCard` (+`AppTokens.gridExtent/cardWidth`), `[sections]`
+  gate, keemart grocery-home proof app (7 sections: header/search/hero/horizontalCards/section/
+  divider/floatingCart). Determinism + negative controls (columns→abort, list-with-sections→FAIL).
+- **Pending owner ratify:** contract decisions doc `S2_CONTRACT_DECISIONS.md` (emphasis drop A1 /
+  archetype `"sections"` B1) — shipped with defaults, override possible.
 
 - Spike `bb68a9e` → impl (7 commits `c848640`→`f030dd4`) → goldens/QA `a6f7a51` → evidence v3
   `8c13198` → regression tests `061cf7e`,`d31f73c`,`16b00bd`,`19332d6` → **owner Verdict: APPROVED**
@@ -57,10 +82,11 @@ spikes. Zen session orchestrates/verifies only.
 | Area | State |
 |---|---|
 | Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) | ✅ v1 COMPLETE |
-| S1 VisualIntent (P0) | ✅ **APPROVED for shipment** |
-| S6 no-vision-judge (P0) | ✅ spike closed; D2 slices 1,2,4 done; slice 3 deferred to S3 |
-| S2 section-layout IR (P0) | ✅ spike **CLOSED (MODIFY)**: D1 MODIFY, D2 ADOPT, D3 MODIFY, D4 ADOPT (+`[sections]` gate), D5 ADOPT; net MODIFY. Impl brief written (`S2_SECTION_IMPL_BRIEF_CLAUDE.md`), **dispatched to Claude (s-hermetic) — in flight** |
-| S3 asset ladder / S4 asset manifest (P1) | Next after S2/S6 |
+| S1 VisualIntent (P0) | ✅ **APPROVED + token-rigor hardening** |
+| S6 no-vision-judge (P0) | ✅ spike closed; D2 slices 1,2,4,5 done; slice 3 deferred to S3 |
+| S2 section-layout IR (P0) | ✅ **IMPLEMENTED** (keemart proof app); contract ratification pending |
+| S3 asset ladder (P1) | ⏳ **spike in flight** on germany3 (fresh session) |
+| S4 asset manifest (P1) | After S3 |
 | S5 banner-composition (P2) | After S3 |
 | S7 AI asset gen | Post-v1 / Phase 4 (trust boundary) |
 | S-DEEPLINK | Backlog / owner call |
@@ -86,16 +112,17 @@ cd apps/<app>/output/app && flutter pub get && flutter analyze && flutter test
 
 ## Next steps (in order)
 
-1. **S2 spike → close**: poll germany3 (content-change detection, not `❯`), scp
-   `SPIKE_S2_REPORT.md`, review D1-D5 against the brief, commit `S2_SPIKE_REPORT.md` + push →
-   Telegram summary → S2 impl brief for Claude.
-2. **S6 slice 5** (A11yTestGenerator) as a FRESH Claude objective (per context policy — do not reuse
-   the bloated s-hermetic session; `/clear` it first).
-3. **S3 asset ladder spike** (dispatch to server when a slot frees / quota available) → then S6 slice
-   3 `[asset-ref]`/`[aspect-ratio]` gates flip ON.
-4. Finish the same-screen showcase contact sheet (magick + pinned font) and deliver the PDF.
-5. Keep looping S2→S3→S4→S5 (+ S7 later). Each spike closes decisions with ONE verb
-   (SPIKE_PROTOCOL), implementation goes to Claude first (remote as fallback), zen verifies.
+1. **S3 spike → close**: poll germany3 (fresh S3 session, dispatch sent), scp `SPIKE_S3_REPORT.md`
+   when present, review decisions, commit + push → Telegram → S3 impl brief for Claude (incl. S6
+   slice-3 `[asset-ref]`/`[aspect-ratio]` gates flipping ON).
+2. **Owner ratify S2 contract decisions** (`S2_CONTRACT_DECISIONS.md`): emphasis drop + archetype
+   name — shipped with defaults; document override if any.
+3. **S2 verification pass**: keemart flutter analyze/test + CDP probe at 320/390/1400 (per AGENTS
+   rule 15) once the S3 lane frees; send goldens to owner.
+4. **S4 asset manifest** (spike → impl), then **S5 banner-composition**.
+5. Keep looping S3→S4→S5 (+ S7 later). Each spike closes decisions with ONE verb (SPIKE_PROTOCOL),
+   implementation goes to Claude first (remote as fallback), zen verifies. CONTEXT_POLICY every
+   lane: fresh session per objective (germany3 now fresh for S3; s-hermetic cleared post-S1/S2).
 
 ## Rules
 
