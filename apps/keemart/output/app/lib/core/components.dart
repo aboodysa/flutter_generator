@@ -257,10 +257,16 @@ class AppHeroBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            headline,
-            style: (compact ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.headlineSmall)
-                ?.copyWith(color: Colors.white),
+          // S2.1 GAP-4 (S2_HARDENING_BRIEF_CLAUDE.md): a real heading role, independent of
+          // heroScale — a screen reader's reading order must find this section's focal point
+          // regardless of whether hierarchy biased its font size/weight.
+          Semantics(
+            header: true,
+            child: Text(
+              headline,
+              style: (compact ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.headlineSmall)
+                  ?.copyWith(color: Colors.white),
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: AppSpacing.xs),

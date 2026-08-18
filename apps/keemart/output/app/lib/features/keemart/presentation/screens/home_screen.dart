@@ -23,11 +23,12 @@ class HomeScreen extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-              Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search Products', leading: const Icon(Icons.search))),
+              Padding(key: ValueKey('section-search'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search Products', leading: const Icon(Icons.search), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))))),
               const SizedBox(height: AppSpacing.md),
-              Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md), child: AppHeroBanner(headline: 'Ready For School', compact: false, radius: AppRadius.roundedSurface)),
+              Padding(key: ValueKey('section-primaryHero'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md), child: AppHeroBanner(headline: 'Ready For School', compact: false, radius: AppRadius.roundedSurface)),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
+                key: ValueKey('section-discover'),
                 height: AppTokens.cardHeight,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
@@ -46,11 +47,14 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs), child: Text('Weekly offers', style: Theme.of(context).textTheme.titleMedium)),
+              Column(key: ValueKey('section-offers'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Padding(key: ValueKey('section-offersHeader'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs), child: Text('Weekly offers', style: Theme.of(context).textTheme.titleMedium)),
                 Padding(
+                  key: ValueKey('section-offersGrid'),
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: GridView.builder(
+                  child: state.products.isEmpty
+                      ? EmptyState(message: 'No Products yet')
+                      : GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -75,7 +79,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: AppSpacing.md),
-              const Padding(padding: EdgeInsets.symmetric(vertical: AppSpacing.xs), child: Divider()),
+              Padding(key: ValueKey('section-offersDivider'), padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs), child: const Divider()),
               ],
             );
         },
