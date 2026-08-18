@@ -1,5 +1,6 @@
 import { FeatureModel } from "../types";
 import { hasLocale } from "../operations";
+import { visualTargets } from "../composition";
 
 /**
  * Component registry (§8) — Tokens → Foundations → Atoms → Molecules → Organisms → Templates → Pages.
@@ -174,6 +175,21 @@ export function generateComponents(f: FeatureModel): string {
   // new visible text there is a UI change beyond this slice's "swap strings" scope).
   const locale = hasLocale(f);
   const errorFallback = locale ? "AppStrings.of(context).error" : "'Something went wrong'";
+  // S1 (SPIKE_S1_REPORT.md §16 open question, "AppListCard(radius:) param" option): AppListCard
+  // gains an optional radius override ONLY when this app has at least one screen with a
+  // visualStyle.cornerRadius set — an app with no visualStyle screens at all gets the exact
+  // pre-S1 AppListCard text (byte-identical components.dart). Same conditional-template posture
+  // `locale`/`l10nImport` already use in this function.
+  const hasVisual = [...visualTargets(f).values()].some((v) => v.radiusScale.control !== "");
+  const radiusParam = hasVisual ? "\n    this.radius," : "";
+  const radiusField = hasVisual ? "\n  final double? radius;" : "";
+  const cardBuild = hasVisual
+    ? `    if (!card) return tile;
+    return Card(
+      shape: radius != null ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius!)) : null,
+      child: tile,
+    );`
+    : `    return card ? Card(child: tile) : tile;`;
   // Leading "\n" folded into the value itself (not a separate always-present template line) so a
   // non-locale app's import block gains zero extra blank lines — same byte-identical-when-unused
   // guarantee every other conditional-import hook (MF5's budgetImport, L3's exportImport) keeps.
@@ -285,14 +301,14 @@ class AppListCard extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.trailing,
-    this.onTap,
+    this.onTap,${radiusParam}
   });
   final bool card;
   final Widget title;
   final Widget? subtitle;
   final Widget? leading;
   final Widget? trailing;
-  final VoidCallback? onTap;
+  final VoidCallback? onTap;${radiusField}
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +319,7 @@ class AppListCard extends StatelessWidget {
       trailing: trailing,
       onTap: onTap,
     );
-    return card ? Card(child: tile) : tile;
+${cardBuild}
   }
 }
 

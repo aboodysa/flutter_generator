@@ -1,5 +1,6 @@
 import { FeatureModel } from "../types";
 import { hasLocale } from "../operations";
+import { visualTargets } from "../composition";
 
 /**
  * Infra generators — structural, deterministic, 0% LLM.
@@ -199,6 +200,32 @@ export function normalizeBrandSeed(value: string | undefined): string {
 }
 
 export function generateTheme(f: FeatureModel): string {
+  // S1 (SPIKE_S1_REPORT.md §14.6 acceptance: "a no-visualStyle IR stays byte-identical"): the
+  // sharp/soft/rounded/pill radius scale groups only exist in the emitted theme.dart when at
+  // least one screen actually declares a visualStyle sub-field — an app with none gets the exact
+  // pre-S1 AppRadius (byte-identical). Same conditional-template posture components.ts's AppListCard
+  // radius param uses.
+  const hasVisual = visualTargets(f).size > 0;
+  const radiusScaleGroups = hasVisual
+    ? `
+
+  // S1 (SPIKE_S1_REPORT.md §14.2): per-screen cornerRadius scale groups — composition.ts's
+  // visualFor() selects one of these by name (never a raw number at the call site); the flat
+  // control/surface/container above stay the app-wide default and are also what "rounded"
+  // aliases, so a screen with cornerRadius: "rounded" renders the same numbers as no visualStyle.
+  static const sharpControl = 4.0;
+  static const sharpSurface = 8.0;
+  static const sharpContainer = 16.0;
+  static const softControl = 8.0;
+  static const softSurface = 12.0;
+  static const softContainer = 20.0;
+  static const roundedControl = control;
+  static const roundedSurface = surface;
+  static const roundedContainer = container;
+  static const pillControl = 16.0;
+  static const pillSurface = 24.0;
+  static const pillContainer = 999.0;`
+    : "";
   return `${hdr("ThemeGenerator", "theme.v1")}
 import 'package:flutter/material.dart';
 
@@ -231,24 +258,7 @@ abstract final class AppSpacing {
 abstract final class AppRadius {
   static const control = 12.0;
   static const surface = 16.0;
-  static const container = 24.0;
-
-  // S1 (SPIKE_S1_REPORT.md §14.2): per-screen cornerRadius scale groups — composition.ts's
-  // visualFor() selects one of these by name (never a raw number at the call site); the flat
-  // control/surface/container above stay the app-wide default and are also what "rounded" aliases,
-  // so a screen with no visualStyle (or cornerRadius: "rounded") renders byte-identically.
-  static const sharpControl = 4.0;
-  static const sharpSurface = 8.0;
-  static const sharpContainer = 16.0;
-  static const softControl = 8.0;
-  static const softSurface = 12.0;
-  static const softContainer = 20.0;
-  static const roundedControl = control;
-  static const roundedSurface = surface;
-  static const roundedContainer = container;
-  static const pillControl = 16.0;
-  static const pillSurface = 24.0;
-  static const pillContainer = 999.0;
+  static const container = 24.0;${radiusScaleGroups}
 }
 
 ThemeData buildTheme() => ThemeData(

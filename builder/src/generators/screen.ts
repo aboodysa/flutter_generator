@@ -185,7 +185,28 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const sm = ctx?.sm ?? "bloc";
   const comp = compositionFor(s.type);
   const collection = collectionField(s.entity);
-  const cardSurface = comp.surface !== "plain"; // Dart bool literal driving AppListCard(card: ...)
+
+  // S1 (SPIKE_S1_REPORT.md §14.3, D4 "one rule that cannot break"): the decided VisualSpec for
+  // THIS screen (composition.ts's visualTargets, computed once per generateApp run) — consumed by
+  // name only, deltas applied verbatim, never re-derived here (composition.ts is the single
+  // owner). `undefined` (no visualStyle on this screen) makes every override below a no-op, so
+  // this screen renders byte-identically to pre-S1 output.
+  const visual = ctx?.visual?.get(s.name);
+  const cardSurface = visual && visual.surfaceBias !== "inherit"
+    ? visual.surfaceBias === "card"
+    : comp.surface !== "plain"; // Dart bool literal driving AppListCard(card: ...)
+  // hierarchy: heroScale 0/2 bias heroGap away from the archetype's own value; 1 ("balanced",
+  // undeclared hierarchy) leaves comp.heroGap untouched.
+  const heroGapExpr = visual && visual.heroScale !== 1
+    ? (visual.heroScale === 0 ? "AppSpacing.sm" : "AppSpacing.xl")
+    : `${comp.heroGap}.0`;
+  // personality: baseSpacing biases itemGap; "" (no personality declared) leaves comp.itemGap
+  // untouched.
+  const itemGapExpr = visual && visual.baseSpacing ? visual.baseSpacing : `${comp.itemGap}.0`;
+  // cornerRadius: passed to AppListCard's radius param (components.ts, S1-conditional); "" (no
+  // cornerRadius declared) omits the argument, so AppListCard falls back to the app's CardTheme
+  // default — same rendering as pre-S1.
+  const radiusArg = visual && visual.radiusScale.surface ? `, radius: ${visual.radiusScale.surface}` : "";
 
   // UIX Slice B: domain-aware app-bar title — "Tasks", "Task details", never the class name
   // "TaskListScreen". Same shape of title regardless of provider (bloc/riverpod share this text).
@@ -283,7 +304,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const hero = heroExpr(s);
   const heroBlock = comp.hasHero && hero
     ? `        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${comp.heroGap}.0),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${heroGapExpr}),
           child: Text(${hero}, style: Theme.of(context).textTheme.headlineMedium),
         ),`
     : "";
@@ -365,11 +386,11 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       // UIX Slice B (preserved): the identity field is de-emphasized — rendered LAST in a muted
       // row, never first with equal weight (users scan title/status/date, not the id).
       if (entity.fields.some((f) => f.name === identityFieldName)) {
-        blocks.push(`AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall))`);
+        blocks.push(`AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall)${radiusArg})`);
       }
       // itemGap (registry rhythm field) separates rows via a SizedBox, not a hardcoded constant.
       const rowsBlock = blocks
-        .map((b, i) => (i === 0 ? `              ${b},` : `              const SizedBox(height: ${comp.itemGap}.0),\n              ${b},`))
+        .map((b, i) => (i === 0 ? `              ${b},` : `              const SizedBox(height: ${itemGapExpr}),\n              ${b},`))
         .join("\n");
       // Parent→children navigation rows (general capability): one per child entity carrying
       // `camelize(parent)+"Id"` (e.g. FollowUp.taskId under a Task detail). Links to the child's
@@ -384,7 +405,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       const allScreens = (ctx?.ir?.screens ?? []) as Array<{ entity: string; type: string }>;
       const children = childLinks(s.entity, allEntities).filter((c) => allScreens.some((sc) => sc.entity === c.child && sc.type === "list"));
       const childRows = children.length
-        ? "\n" + children.map((c) => `              const SizedBox(height: ${comp.itemGap}.0),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')),`).join("\n")
+        ? "\n" + children.map((c) => `              const SizedBox(height: ${itemGapExpr}),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')${radiusArg}),`).join("\n")
         : "";
       // MF4: split breakdown (category → percent) — bloc-only in this iteration (mirrors the
       // Cubit read pattern the rest of this generator already uses for its own state; no current
@@ -395,7 +416,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       const splitGroup = ctx?.ir && sm !== "riverpod" ? splitGroupFor(s.entity, ctx.ir) : undefined;
       const splitState = splitGroup ? (ctx?.ir?.states ?? []).find((st: any) => st.entity === splitGroup.child) : undefined;
       const splitBlock = splitGroup && splitState
-        ? `\n              const SizedBox(height: ${comp.itemGap}.0),\n              Text('Split breakdown', style: Theme.of(context).textTheme.titleSmall),\n              const SizedBox(height: AppSpacing.xs),\n              BlocBuilder<${splitState.name}Cubit, ${splitState.name}State>(\n                builder: (context, splitState) {\n                  final lines = splitState.${collectionField(splitGroup.child)}.where((e) => e.${splitGroup.fkField} == id).toList();\n                  if (lines.isEmpty) {\n                    return const Text('No split configured', style: TextStyle(color: AppColors.textSecondary));\n                  }\n                  return Column(\n                    crossAxisAlignment: CrossAxisAlignment.stretch,\n                    children: [\n                      for (final l in lines)\n                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                          Text(l.${splitGroup.categoryField ?? "id"}),\n                          Text('\${l.percent.toStringAsFixed(1)}%'),\n                        ]),\n                    ],\n                  );\n                },\n              ),`
+        ? `\n              const SizedBox(height: ${itemGapExpr}),\n              Text('Split breakdown', style: Theme.of(context).textTheme.titleSmall),\n              const SizedBox(height: AppSpacing.xs),\n              BlocBuilder<${splitState.name}Cubit, ${splitState.name}State>(\n                builder: (context, splitState) {\n                  final lines = splitState.${collectionField(splitGroup.child)}.where((e) => e.${splitGroup.fkField} == id).toList();\n                  if (lines.isEmpty) {\n                    return const Text('No split configured', style: TextStyle(color: AppColors.textSecondary));\n                  }\n                  return Column(\n                    crossAxisAlignment: CrossAxisAlignment.stretch,\n                    children: [\n                      for (final l in lines)\n                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [\n                          Text(l.${splitGroup.categoryField ?? "id"}),\n                          Text('\${l.percent.toStringAsFixed(1)}%'),\n                        ]),\n                    ],\n                  );\n                },\n              ),`
         : "";
       if (splitGroup && splitState) {
         splitStateImport = ctx?.symbols.get(splitState.name)
@@ -477,7 +498,7 @@ ${rowsBlock}${splitBlock}${childRows}
               children: [
                 LinearProgressIndicator(value: (state.currentStep + 1) / ${Math.max(steps.length, 1)}),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${comp.heroGap}.0),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${heroGapExpr}),
                   child: Text(
                     switch (state.currentStep) {
 ${titleCases}
@@ -496,7 +517,7 @@ ${contentCases}
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(${comp.itemGap}.0),
+                  padding: const EdgeInsets.all(${itemGapExpr}),
                   child: Row(
                     children: [
                       if (state.currentStep > 0)
@@ -649,7 +670,7 @@ ${contentCases}
                         itemBuilder: (_, i) {
                           final item = ${listVar}[i];${isBudgetEntity ? `\n                          final budget = ${budgetLineExpr("item")};` : ""}
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: ${comp.itemGap}.0),
+                            padding: const EdgeInsets.only(bottom: ${itemGapExpr}),
                             child: AppListCard(
                               key: ValueKey(item.${identity}),
                               card: ${cardSurface},
@@ -657,7 +678,7 @@ ${contentCases}
                               title: Text(${titleExpr}),
                               subtitle: Text(${subtitleExpr}),
                               trailing: ${trailingWidget},
-                              onTap: ${onTapTarget ? `() => context.push('${onTapTarget}')` : "null"},
+                              onTap: ${onTapTarget ? `() => context.push('${onTapTarget}')` : "null"}${radiusArg},
                             ),
                           );
                         },
