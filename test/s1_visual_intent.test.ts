@@ -132,3 +132,39 @@ describe('S1 Item 1/2 — token agreement ("obviously different")', () => {
     60_000,
   );
 });
+
+describe('S1 Item 3 — token provenance (no hardcoded style)', () => {
+  // A decided visualStyle value must only ever reach the generated screen as an AppRadius.*/
+  // AppSpacing.* token reference — never a raw radius/color/padding numeric literal (the "one
+  // rule that cannot break": visualStyle feeds the scoring/token layer, never a widget/asset).
+  const RAW_LITERAL_PATTERNS: RegExp[] = [
+    /BorderRadius\.circular\(\d/,
+    /Radius\.circular\(\d/,
+    /Color\(0x/,
+    /EdgeInsets\.(all|only|fromLTRB)\(\d/,
+  ];
+
+  for (const { app, dartFile } of PROOF_SCREENS) {
+    test(`${app} proof screen has zero raw radius/color/padding literals`, () => {
+      const src = readFileSync(resolve(REPO_ROOT, dartFile), 'utf8');
+      for (const pattern of RAW_LITERAL_PATTERNS) {
+        expect(src).not.toMatch(pattern);
+      }
+    });
+
+    test(`${app} proof screen references AppRadius.* and AppSpacing.* tokens`, () => {
+      const src = readFileSync(resolve(REPO_ROOT, dartFile), 'utf8');
+      expect(src).toMatch(/AppRadius\.(sharp|soft|rounded|pill)/);
+      expect(src).toMatch(/AppSpacing\.(xs|sm|md|lg|xl)/);
+    });
+
+    test(`${app} proof screen's radius: argument is always an AppRadius.* token, never a raw number`, () => {
+      const src = readFileSync(resolve(REPO_ROOT, dartFile), 'utf8');
+      const radiusArgs = [...src.matchAll(/radius:\s*([^,)\s]+)/g)].map((m) => m[1]);
+      expect(radiusArgs.length).toBeGreaterThan(0);
+      for (const arg of radiusArgs) {
+        expect(arg).toMatch(/^AppRadius\./);
+      }
+    });
+  }
+});
