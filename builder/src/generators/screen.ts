@@ -63,7 +63,10 @@ function roleContextFor(entity: EntityModel, ctx?: GenContext): FieldRoleContext
 // through it is a token-name swap, not a value change (composition.ts's own values stay the
 // source of truth; this only changes how they're EMITTED).
 const SPACING_SCALE: Record<number, string> = { 4: "AppSpacing.xs", 8: "AppSpacing.sm", 16: "AppSpacing.md", 24: "AppSpacing.lg", 40: "AppSpacing.xl" };
-function spacingToken(px: number): string {
+// Exported so validate.ts's [visualIntent] gate computes the SAME default-fallback token this
+// file emits (rather than a second, independently-drifting reimplementation — the exact class of
+// bug the S1 token-rigor pass found latent in the gate's old hero-padding marker).
+export function spacingToken(px: number): string {
   return SPACING_SCALE[px] ?? `${px}.0`;
 }
 
@@ -213,17 +216,42 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const heroGapExpr = visual && visual.heroScale !== 1
     ? (visual.heroScale === 0 ? "AppSpacing.sm" : "AppSpacing.xl")
     : spacingToken(comp.heroGap);
-  // personality: baseSpacing biases itemGap; "" (no personality declared) leaves comp.itemGap
-  // untouched — same token-routing as heroGapExpr above.
-  const itemGapExpr = visual && visual.baseSpacing ? visual.baseSpacing : spacingToken(comp.itemGap);
+  // FIX-3 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): personality resolves a FULL spacing row — every
+  // layout relationship this archetype has (screen padding, section gap, item gap, card inset,
+  // FAB inset) derives from the SAME scale, not just the item gap. "" per field (no personality
+  // declared) leaves that relationship untouched — same token-routing precedent heroGapExpr above
+  // already established; every field individually byte-identical-when-unset.
+  const itemGapExpr = visual && visual.spacing.itemGap ? visual.spacing.itemGap : spacingToken(comp.itemGap);
+  const screenGapExpr = visual && visual.spacing.screen ? visual.spacing.screen : "AppSpacing.md";
+  const sectionGapExpr = visual && visual.spacing.section ? visual.spacing.section : "AppSpacing.lg";
+  const cardInsetArg = visual && visual.spacing.cardInset ? `, contentPadding: EdgeInsets.all(${visual.spacing.cardInset})` : "";
+  const fabInsetExpr = visual && visual.spacing.fabInset ? visual.spacing.fabInset : "";
   // cornerRadius: passed to AppListCard's radius param (components.ts, S1-conditional); "" (no
   // cornerRadius declared) omits the argument, so AppListCard falls back to the app's CardTheme
   // default — same rendering as pre-S1.
   const radiusArg = visual && visual.radiusScale.surface ? `, radius: ${visual.radiusScale.surface}` : "";
+  // FIX-1 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): the search field and FAB were the two dominant
+  // controls the cornerRadius rules never reached — both defaulted to Material's own stadium/
+  // circle shape regardless of the decided scale, so "sharp" never actually looked sharp on the
+  // loudest control. "" (no cornerRadius declared) omits the shape override entirely — byte-
+  // identical to today's Material-default SearchBar/FAB shape.
+  const searchShapeArg = visual && visual.radiusScale.search
+    ? `, shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(${visual.radiusScale.search})))`
+    : "";
+  const fabShapeArg = visual && visual.radiusScale.fab ? `, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(${visual.radiusScale.fab}))` : "";
 
   // UIX Slice B: domain-aware app-bar title — "Tasks", "Task details", never the class name
   // "TaskListScreen". Same shape of title regardless of provider (bloc/riverpod share this text).
   const appBarTitle = comp.layout === "detail" ? `${fieldLabel(s.entity)} details` : entityPluralTitle(s.entity);
+  // FIX-2/FIX-4: hierarchy's measurable typography effect lives on the AppBar title — the ONE
+  // element every archetype always renders, and the literal element the review's "the Tasks
+  // heading looks similar across A/B/C" complaint named. "" (heroScale balanced/undeclared) keeps
+  // the title a `const Text(...)`, byte-identical to pre-fix output — the negative control that
+  // heroScale=1 changes nothing.
+  const titleWeight = visual?.titleWeight ?? "";
+  const titleTextExpr = titleWeight
+    ? `Text('${appBarTitle}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: ${titleWeight}))`
+    : `const Text('${appBarTitle}')`;
 
   const entity = (ctx?.ir?.entities ?? []).find((e: any) => e.name === s.entity) as EntityModel | undefined;
   const identityField = entity?.identity?.field ?? "id";
@@ -324,7 +352,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const hero = heroExpr(s);
   const heroBlock = comp.hasHero && hero
     ? `        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${heroGapExpr}),
+          padding: const EdgeInsets.fromLTRB(${screenGapExpr}, ${sectionGapExpr}, ${screenGapExpr}, ${heroGapExpr}),
           child: Text(${hero}, style: Theme.of(context).textTheme.headlineMedium),
         ),`
     : "";
@@ -446,7 +474,7 @@ ${indent}      return Padding(
 ${indent}        padding: const EdgeInsets.only(right: AppSpacing.sm),
 ${indent}        child: SizedBox(
 ${indent}          width: AppTokens.cardWidth,
-${indent}          child: AppListCard(card: ${cardSurface}, title: Text(${productTitleExpr}), subtitle: Text(${productPriceExpr})${radiusArg}),
+${indent}          child: AppListCard(card: ${cardSurface}, title: Text(${productTitleExpr}), subtitle: Text(${productPriceExpr})${radiusArg}${cardInsetArg}),
 ${indent}        ),
 ${indent}      );
 ${indent}    },
@@ -539,7 +567,7 @@ ${interleaved.join("\n")}
       // UIX Slice B (preserved): the identity field is de-emphasized — rendered LAST in a muted
       // row, never first with equal weight (users scan title/status/date, not the id).
       if (entity.fields.some((f) => f.name === identityFieldName)) {
-        blocks.push(`AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall)${radiusArg})`);
+        blocks.push(`AppListCard(card: ${cardSurface}, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.${identityFieldName}, style: Theme.of(context).textTheme.labelSmall)${radiusArg}${cardInsetArg})`);
       }
       // itemGap (registry rhythm field) separates rows via a SizedBox, not a hardcoded constant.
       const rowsBlock = blocks
@@ -558,7 +586,7 @@ ${interleaved.join("\n")}
       const allScreens = (ctx?.ir?.screens ?? []) as Array<{ entity: string; type: string }>;
       const children = childLinks(s.entity, allEntities).filter((c) => allScreens.some((sc) => sc.entity === c.child && sc.type === "list"));
       const childRows = children.length
-        ? "\n" + children.map((c) => `              const SizedBox(height: ${itemGapExpr}),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')${radiusArg}),`).join("\n")
+        ? "\n" + children.map((c) => `              const SizedBox(height: ${itemGapExpr}),\n              AppListCard(card: ${cardSurface}, title: Text('View ${c.child}s'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/${kebab(c.child)}?${c.fkField}=\${id}')${radiusArg}${cardInsetArg}),`).join("\n")
         : "";
       // MF4: split breakdown (category → percent) — bloc-only in this iteration (mirrors the
       // Cubit read pattern the rest of this generator already uses for its own state; no current
@@ -651,7 +679,7 @@ ${rowsBlock}${splitBlock}${childRows}
               children: [
                 LinearProgressIndicator(value: (state.currentStep + 1) / ${Math.max(steps.length, 1)}),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${heroGapExpr}),
+                  padding: const EdgeInsets.fromLTRB(${screenGapExpr}, ${sectionGapExpr}, ${screenGapExpr}, ${heroGapExpr}),
                   child: Text(
                     switch (state.currentStep) {
 ${titleCases}
@@ -800,12 +828,12 @@ ${contentCases}
     // not stock Flutter/Material widgets).
     const searchBarBlock = searchEnabled
       ? `                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  padding: const EdgeInsets.fromLTRB(${screenGapExpr}, ${screenGapExpr}, ${screenGapExpr}, 0),
                   child: SearchBar(
                     controller: _searchController,
                     hintText: 'Search ${appBarTitle}',
                     leading: const Icon(Icons.search),
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: (v) => setState(() => _query = v)${searchShapeArg},
                   ),
                 ),
 `
@@ -818,7 +846,7 @@ ${contentCases}
                       thumbVisibility: true,
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        padding: const EdgeInsets.symmetric(horizontal: ${screenGapExpr}, vertical: AppSpacing.sm),
                         itemCount: ${listVar}.length,
                         itemBuilder: (_, i) {
                           final item = ${listVar}[i];${isBudgetEntity ? `\n                          final budget = ${budgetLineExpr("item")};` : ""}
@@ -831,7 +859,7 @@ ${contentCases}
                               title: Text(${titleExpr}),
                               subtitle: Text(${subtitleExpr}),
                               trailing: ${trailingWidget},
-                              onTap: ${onTapTarget ? `() => context.push('${onTapTarget}')` : "null"}${radiusArg},
+                              onTap: ${onTapTarget ? `() => context.push('${onTapTarget}')` : "null"}${radiusArg}${cardInsetArg},
                             ),
                           );
                         },
@@ -1073,10 +1101,18 @@ ${searchBarBlock}${heroBlock}
   // CRUD-capable is unrelated to whether the IR asked for a cart affordance.
   const fabApplies = comp.layout === "sections" ? hasFloatingCart : (comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate);
   if (loc && fabApplies) appStringsUsed = true;
+  // FIX-1: the FAB was the other dominant control the cornerRadius rules never reached (always
+  // Material's own circular default) — routed through the same decided radiusScale.fab as search.
+  // FIX-3: fabInset wraps the button in an EXTRA Padding on top of Scaffold's own default FAB
+  // margin — "" (no personality declared) omits the wrapper, byte-identical placement.
+  const fabWidget = (tooltip: string, onPressed: string, icon: string) =>
+    `FloatingActionButton(\n        tooltip: ${tooltip},\n        onPressed: ${onPressed},\n        child: const Icon(${icon})${fabShapeArg},\n      )`;
+  const wrapFabInset = (widget: string) =>
+    fabInsetExpr ? `Padding(\n        padding: EdgeInsets.all(${fabInsetExpr}),\n        child: ${widget},\n      )` : widget;
   const fab = fabApplies
     ? (comp.layout === "sections"
-        ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'Cart',\n        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty'))),\n        child: const Icon(Icons.shopping_cart),\n      )`
-        : `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newLabel},\n        onPressed: ${newFormOnPressed},\n        child: const Icon(Icons.add),\n      )`)
+        ? `,\n      floatingActionButton: ${wrapFabInset(fabWidget("'Cart'", "() => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')))", "Icons.shopping_cart"))}`
+        : `,\n      floatingActionButton: ${wrapFabInset(fabWidget(newLabel, newFormOnPressed, "Icons.add"))}`)
     : "";
   // L4: AppStrings import — same leading-"\n"-folded-into-the-value trick as budgetImport/
   // exportImport use, so a non-locale (or locale-aware-but-unused-here) screen's import block
@@ -1116,7 +1152,7 @@ class _${s.name}State extends ConsumerState<${s.name}> {
   Widget build(BuildContext context) {
 ${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
     return Scaffold(
-      appBar: AppBar(title: const Text('${appBarTitle}')${scrollAppBarSuffix}${appBarActions}),
+      appBar: AppBar(title: ${titleTextExpr}${scrollAppBarSuffix}${appBarActions}),
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {
           if (n is ScrollUpdateNotification) {
@@ -1140,7 +1176,7 @@ ${body}
   Widget build(BuildContext context, WidgetRef ref) {
 ${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
     return Scaffold(
-      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
+      appBar: AppBar(title: ${titleTextExpr}${appBarActions}),
       body: Builder(builder: (_) {
 ${checks}
 ${body}
@@ -1174,7 +1210,7 @@ ${searchEnabled ? `  final _searchController = TextEditingController();
 ` : ""}  @override
   Widget build(BuildContext context) {
 ${preBuild}    return Scaffold(
-      appBar: AppBar(title: const Text('${appBarTitle}')${scrollAppBarSuffix}${appBarActions}),
+      appBar: AppBar(title: ${titleTextExpr}${scrollAppBarSuffix}${appBarActions}),
       body: ${scrollEnabled ? `NotificationListener<ScrollNotification>(
         onNotification: (n) {
           if (n is ScrollUpdateNotification) {
@@ -1197,7 +1233,7 @@ ${body}
   @override
   Widget build(BuildContext context) {
 ${preBuild}    return Scaffold(
-      appBar: AppBar(title: const Text('${appBarTitle}')${appBarActions}),
+      appBar: AppBar(title: ${titleTextExpr}${appBarActions}),
       body: BlocBuilder<${s.state}Cubit, ${stateClass}>(
         builder: (context, state) {
 ${checks}
