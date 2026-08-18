@@ -1,6 +1,6 @@
 import { FeatureModel } from "../types";
 import { hasLocale } from "../operations";
-import { visualTargets } from "../composition";
+import { visualTargets, sectionsTargets } from "../composition";
 
 /**
  * Component registry (§8) — Tokens → Foundations → Atoms → Molecules → Organisms → Templates → Pages.
@@ -147,6 +147,35 @@ export const COMPONENT_REGISTRY: ComponentDef[] = [
     examples: ["AppStatusDot(tone: AppChip.toneForStatus(item.status.name), semanticLabel: item.status.name)"],
   },
   {
+    name: "AppHeroBanner",
+    tier: "organism",
+    purpose: "S2 (SPIKE_S2_REPORT.md §14.4): a gradient promo/hero block for a section-list "
+      + "home's `hero`/`promoBanner` sections — no image (S3 owns the asset ladder), just "
+      + "headline/optional-subtitle/optional-CTA on an AppColors.primary gradient.",
+    inputs: ["headline", "subtitle?", "ctaLabel?", "onCtaPressed?", "compact", "radius?"],
+    variants: ["default", "compact"],
+    states: [],
+    tokens: ["AppColors.primary", "AppSpacing.*", "AppRadius.container"],
+    semanticContract: { role: "none", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppHeroBanner(headline: 'Ready For School')", "AppHeroBanner(headline: 'Weekend deals', compact: true)"],
+  },
+  {
+    name: "AppProductCard",
+    tier: "organism",
+    purpose: "S2 (SPIKE_S2_REPORT.md §14.4): a `productGrid` grid cell — title, Money.format() "
+      + "price, optional struck-through oldPrice, optional stock-status AppChip, add IconButton. "
+      + "Card width/height are derived by the grid delegate (AppTokens.gridExtent/cardHeight), "
+      + "never a literal.",
+    inputs: ["title", "price", "oldPrice?", "stockLabel?", "stockTone?", "onAdd?", "radius?"],
+    variants: [],
+    states: [],
+    tokens: ["AppSpacing.*", "AppRadius.surface"],
+    semanticContract: { role: "none", states: [], mergePolicy: "merge" },
+    responsive: false,
+    examples: ["AppProductCard(title: item.title, price: item.price.format())"],
+  },
+  {
     name: "AppScrollBehavior",
     tier: "token",
     purpose: "RCA-006: Flutter's default ScrollBehavior excludes mouse from dragDevices (desktop/"
@@ -194,6 +223,124 @@ export function generateComponents(f: FeatureModel): string {
   // non-locale app's import block gains zero extra blank lines — same byte-identical-when-unused
   // guarantee every other conditional-import hook (MF5's budgetImport, L3's exportImport) keeps.
   const l10nImport = locale ? "\nimport 'app_strings.dart';" : "";
+
+  // S2 (SPIKE_S2_REPORT.md §14.4, D3): AppHeroBanner/AppProductCard + their AppTokens consts are
+  // emitted ONLY when this app has at least one screen with a non-empty `sections[]` — the exact
+  // conditional-emission posture `hasVisual`/`radiusParam` already use above, so an app with no
+  // sections screen gets byte-identical pre-S2 components.dart.
+  const hasSections = [...sectionsTargets(f).values()].length > 0;
+  const sectionsTokens = hasSections
+    ? `
+  // S2 (SPIKE_S2_REPORT.md §14.1): generator-side consts for the sections archetype's grid/rail —
+  // never IR-side literals. gridExtent bounds SliverGridDelegateWithMaxCrossAxisExtent's column
+  // width (columns are a function of viewport width, never an IR column count); cardHeight is the
+  // matching fixed row extent (a product card's content needs more than a square cell); cardWidth
+  // sizes a horizontalCards rail item.
+  static const gridExtent = 200.0;
+  static const cardWidth = 160.0;
+  static const cardHeight = 260.0;`
+    : "";
+  const sectionsComponents = hasSections
+    ? `
+
+/// semanticContract: { role: none, states: [] } — semantics come from the headline Text/CTA button.
+class AppHeroBanner extends StatelessWidget {
+  const AppHeroBanner({super.key, required this.headline, this.subtitle, this.ctaLabel, this.onCtaPressed, this.compact = false, this.radius});
+  final String headline;
+  final String? subtitle;
+  final String? ctaLabel;
+  final VoidCallback? onCtaPressed;
+  final bool compact;
+  final double? radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.85)]),
+        borderRadius: BorderRadius.circular(radius ?? AppRadius.container),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            headline,
+            style: (compact ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.headlineSmall)
+                ?.copyWith(color: Colors.white),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
+          ],
+          if (ctaLabel != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            PrimaryButton(label: ctaLabel!, onPressed: onCtaPressed),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// semanticContract: { role: none, states: [] } — semantics come from the title Text/add IconButton.
+class AppProductCard extends StatelessWidget {
+  const AppProductCard({super.key, required this.title, required this.price, this.oldPrice, this.stockLabel, this.stockTone, this.onAdd, this.radius});
+  final String title;
+  final String price;
+  final String? oldPrice;
+  final String? stockLabel;
+  final AppChipTone? stockTone;
+  final VoidCallback? onAdd;
+  final double? radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius ?? AppRadius.surface)),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
+            if (stockLabel != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              AppChip(label: stockLabel!, tone: stockTone ?? AppChipTone.neutral),
+            ],
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (oldPrice != null)
+                        Text(
+                          oldPrice!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      Text(price, style: Theme.of(context).textTheme.labelLarge, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                IconButton(tooltip: 'Add to cart', icon: const Icon(Icons.add_circle), onPressed: onAdd),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}`
+    : "";
   return `// [generated] generator=ComponentRegistryGenerator template=components.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 // Component registry (DESIGN §8): Tokens → Atoms → Molecules.
@@ -204,7 +351,7 @@ import 'theme.dart';${l10nImport}
 abstract final class AppTokens {
   static const spacing = 16.0;
   static const radius = 12.0;
-  static const Color primary = Color(0xFF006E6A);
+  static const Color primary = Color(0xFF006E6A);${sectionsTokens}
 }
 
 /// semanticContract: { role: button, accessibleName: {source: semanticLabel | label}, states: [enabled, disabled], keyboardFocusable: true }
@@ -412,6 +559,6 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.trackpad,
     PointerDeviceKind.stylus,
   };
-}
+}${sectionsComponents}
 `;
 }

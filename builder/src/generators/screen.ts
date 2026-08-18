@@ -1,4 +1,4 @@
-import { ScreenModel, EntityModel, Field, WizardStep } from "../types";
+import { ScreenModel, EntityModel, Field, WizardStep, SectionModel } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor, ActionKind, ActionSpec } from "../composition";
 import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
@@ -229,6 +229,13 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const identityField = entity?.identity?.field ?? "id";
   const childFk = childForeignKey(entity);
 
+  // S2 (SPIKE_S2_REPORT.md §14.3): the decided SectionSpec for THIS screen (composition.ts's
+  // sectionsTargets, computed once per generateApp run) — consumed by name only, never re-derived
+  // here. Hoisted above the layout branch (rather than computed inside it) because the FAB decision
+  // below (floatingCart) also needs it. `undefined` for any screen that declares no sections.
+  const sectionsSpec = ctx?.sections?.get(s.name);
+  const hasFloatingCart = !!sectionsSpec?.sections.some((sec) => sec.type === "floatingCart" || sec.children?.some((c) => c.type === "floatingCart"));
+
   // P2 (contract §4): the decided SearchSpec for THIS screen (composition.ts's searchTargets,
   // computed once per generateApp run) — consumed by name only, never re-derived here. Bloc-only
   // this slice (same documented gap L3's export buttons already carry — no current sample pairs
@@ -348,7 +355,135 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
         ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(resolvedExport.entity.name)}';`
         : `import '../domain/entities/${resolvedExport.entity.name.toLowerCase()}.dart';`)
     : "";
-  if (comp.layout === "detail") {
+  if (comp.layout === "sections") {
+    // S2 (SPIKE_S2_REPORT.md §14.3): pure per-type mapping under a vertical ListView scroll
+    // parent (the list branch's Expanded(child: ListView...) shape, :744-759) — NEVER re-derives
+    // component selection/token mapping (composition.ts's sectionsFor is the single owner);
+    // applies ctx.visual deltas verbatim, same as every other archetype above.
+    const productRoleCtx = entity ? roleContextFor(entity, ctx) : undefined;
+    const titleField = entity ? pickTitle(entity) : undefined;
+    // Ordered by IR field-declaration order (never a hardcoded field name): the first money field
+    // is the current price, the second (if any) is the struck-through "was" price — same
+    // entity-agnostic, order-derived convention the detail branch's byRole() rendering uses.
+    const moneyFields = entity ? entity.fields.filter(isMoneyField) : [];
+    const priceField = moneyFields[0];
+    const oldPriceField = moneyFields[1];
+    const stockField = entity && productRoleCtx ? entity.fields.find((f) => fieldRole(f, productRoleCtx) === "status") : undefined;
+    const productTitleExpr = titleField ? fieldValue(titleField, "item") : "item.toString()";
+    const productPriceExpr = priceField ? fieldValue(priceField, "item") : "''";
+    // fieldValue()'s nullable-safe convention (used for productPriceExpr above) coerces a null
+    // money value to the STRING '—' — correct for a always-shown row value, wrong here: an unset
+    // "was" price must stay Dart `null` (AppProductCard's `if (oldPrice != null)` check), never a
+    // struck-through '—' rendered as if it were a real compare-at price.
+    const productOldPriceExpr = oldPriceField
+      ? (nullable(oldPriceField) ? `item.${oldPriceField.name}?.format()` : `item.${oldPriceField.name}.format()`)
+      : null;
+    const stockExpr = stockField ? chipToneExpr(stockField, "toneForStatus") : null;
+    const escapeStr = (v: string) => v.replace(/'/g, "\\'");
+
+    // Depth-1 recursion (schema-enforced: `children` only exists on type:"section", one level,
+    // leaves only — types.ts/screen.schema.json) — `indent` keeps nested Column children readable
+    // in the emitted source, purely cosmetic. Every section type in the closed v1 enum is mapped
+    // here; an unmapped type can only reach this function past a schema hard-reject (unknown enum
+    // value) or the `[sections]` gate, so the `never` default is a true "cannot happen" guard, not
+    // a silent SizedBox.shrink fallback (SPIKE_S2_REPORT.md §9's named failure mode).
+    const renderSection = (section: SectionModel, indent: string): string => {
+      switch (section.type) {
+        case "header":
+          return section.title
+            ? `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleLarge)),`
+            : ""; // the Scaffold's own AppBar (below) already renders the chrome header — a
+                  // titleless `header` section is a structural marker only, nothing extra to emit.
+        case "search":
+          // Decorative only in this slice (P2's searchFor/`_query` wiring is list-archetype-only,
+          // composition.ts:157) — a stock Material SearchBar, same posture the list branch's own
+          // SearchBar block already documents (screen.ts's search precedent, no registry wrapper
+          // needed for a stock widget).
+          return `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search))),`;
+        case "hero":
+        case "promoBanner":
+          return `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, ${itemGapExpr}), child: AppHeroBanner(headline: '${escapeStr(section.title ?? appBarTitle)}', compact: ${section.type === "promoBanner"}${radiusArg})),`;
+        case "productGrid":
+          // SliverGridDelegateWithMaxCrossAxisExtent: columns are f(width) by construction (never
+          // an IR column count — VLM_DESIGN_TO_IR_CONTRACT_V2.md:304-305's "no columns" rule);
+          // mainAxisExtent is a fixed token row height (a product card's title+price+stock+add
+          // content needs more room than the delegate's own 1.0 default childAspectRatio gives).
+          return `${indent}Padding(
+${indent}  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+${indent}  child: GridView.builder(
+${indent}    shrinkWrap: true,
+${indent}    physics: const NeverScrollableScrollPhysics(),
+${indent}    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+${indent}      maxCrossAxisExtent: AppTokens.gridExtent,
+${indent}      mainAxisExtent: AppTokens.cardHeight,
+${indent}      crossAxisSpacing: AppSpacing.sm,
+${indent}      mainAxisSpacing: AppSpacing.sm,
+${indent}    ),
+${indent}    itemCount: state.${collection}.length,
+${indent}    itemBuilder: (context, i) {
+${indent}      final item = state.${collection}[i];
+${indent}      return AppProductCard(
+${indent}        title: ${productTitleExpr},
+${indent}        price: ${productPriceExpr},
+${indent}        oldPrice: ${productOldPriceExpr ?? "null"},
+${indent}        stockLabel: ${stockExpr ? stockExpr.value : "null"},
+${indent}        stockTone: ${stockExpr ? stockExpr.tone : "null"},
+${indent}        onAdd: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added \${${productTitleExpr}} to cart')))${radiusArg},
+${indent}      );
+${indent}    },
+${indent}  ),
+${indent}),`;
+        case "horizontalCards":
+          return `${indent}SizedBox(
+${indent}  height: AppTokens.cardHeight,
+${indent}  child: ListView.builder(
+${indent}    scrollDirection: Axis.horizontal,
+${indent}    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+${indent}    itemCount: state.${collection}.length,
+${indent}    itemBuilder: (context, i) {
+${indent}      final item = state.${collection}[i];
+${indent}      return Padding(
+${indent}        padding: const EdgeInsets.only(right: AppSpacing.sm),
+${indent}        child: SizedBox(
+${indent}          width: AppTokens.cardWidth,
+${indent}          child: AppListCard(card: ${cardSurface}, title: Text(${productTitleExpr}), subtitle: Text(${productPriceExpr})${radiusArg}),
+${indent}        ),
+${indent}      );
+${indent}    },
+${indent}  ),
+${indent}),`;
+        case "sectionHeader":
+          return section.title
+            ? `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleMedium)),`
+            : "";
+        case "section": {
+          const children = (section.children ?? []).map((c) => renderSection(c, `${indent}  `)).filter(Boolean);
+          if (!children.length) return "";
+          return `${indent}Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+${children.join("\n")}
+${indent}]),`;
+        }
+        case "divider":
+          return `${indent}const Padding(padding: EdgeInsets.symmetric(vertical: AppSpacing.xs), child: Divider()),`;
+        case "floatingCart":
+          return ""; // rendered as the Scaffold's floatingActionButton (below), not inline here.
+        default: {
+          const exhaustive: never = section.type;
+          throw new Error(`[sections] no renderer mapped for section type '${String(exhaustive)}'`);
+        }
+      }
+    };
+
+    const spacer = `              const SizedBox(height: ${itemGapExpr}),`;
+    const sectionWidgets = (sectionsSpec?.sections ?? []).map((sec) => renderSection(sec, "              ")).filter(Boolean);
+    const interleaved = sectionWidgets.flatMap((w, i) => (i === 0 ? [w] : [spacer, w]));
+    body = `            return ListView(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              children: [
+${interleaved.join("\n")}
+              ],
+            );`;
+  } else if (comp.layout === "detail") {
     if (entity && entity.fields.length) {
       // UIX Slice C: role-aware layout — every field is rendered by its INFERRED ROLE (title,
       // description, status/priority, date, money, plain, identifier), not the same uniform
@@ -933,10 +1068,15 @@ ${searchBarBlock}${heroBlock}
   // FAB reuses newFormOnPressed/newLabel (hoisted above, near formPath/childFk) — Slice 3's
   // empty-state CTA navigates and labels itself IDENTICALLY (SPIKE_P5_D2_REPORT.md §16: "confirm
   // the existing FAB `?<fk>=` forwarding is the desired nav").
-  const fabApplies = comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate;
+  // S2: a sections screen's FAB is decided by its declared `floatingCart` section (Q1 table: "maps
+  // to the existing FAB"), NEVER the generic canEditCreate check — a sections home's entity being
+  // CRUD-capable is unrelated to whether the IR asked for a cart affordance.
+  const fabApplies = comp.layout === "sections" ? hasFloatingCart : (comp.layout !== "detail" && comp.layout !== "wizard" && canEditCreate);
   if (loc && fabApplies) appStringsUsed = true;
   const fab = fabApplies
-    ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newLabel},\n        onPressed: ${newFormOnPressed},\n        child: const Icon(Icons.add),\n      )`
+    ? (comp.layout === "sections"
+        ? `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: 'Cart',\n        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty'))),\n        child: const Icon(Icons.shopping_cart),\n      )`
+        : `,\n      floatingActionButton: FloatingActionButton(\n        tooltip: ${newLabel},\n        onPressed: ${newFormOnPressed},\n        child: const Icon(Icons.add),\n      )`)
     : "";
   // L4: AppStrings import — same leading-"\n"-folded-into-the-value trick as budgetImport/
   // exportImport use, so a non-locale (or locale-aware-but-unused-here) screen's import block
@@ -1069,10 +1209,12 @@ ${body}
 }`;
 
   // go_router is only referenced by list (onTap navigation) and detail (pathParameters) bodies —
-  // a wizard screen navigates entirely through its own Cubit/Notifier methods, and a "dead" list
+  // a wizard screen navigates entirely through its own Cubit/Notifier methods, a "dead" list
   // (entity has neither a detail screen nor a create/edit form → onTap: null, no nav affordances)
-  // never references the router either (dead-route guard).
-  const routerImport = comp.layout !== "wizard" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
+  // never references the router either (dead-route guard), and a sections screen navigates
+  // nowhere in this slice (its add/cart affordances are SnackBar-only, no route.ts change per the
+  // spike's routing-is-agnostic finding) — so it would otherwise get an unused_import.
+  const routerImport = comp.layout !== "wizard" && comp.layout !== "sections" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
 
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}${searchEnabled ? "_search" : ""}${scrollEnabled ? "_scroll" : ""}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
