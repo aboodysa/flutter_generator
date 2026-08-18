@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>tools/orchestrator-kit/USAGE</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 46em;
+         margin: 2em auto 4em; padding: 0 1.4em; line-height: 1.5; color: #1a1a1a; }
+  h1 { font-size: 1.6em; border-bottom: 2px solid #eee; padding-bottom: .3em; }
+  h2 { font-size: 1.25em; margin-top: 1.6em; border-bottom: 1px solid #eee; padding-bottom: .2em; }
+  h3 { font-size: 1.05em; margin-top: 1.2em; }
+  code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: .88em; background: #f5f5f5;
+         padding: .1em .3em; border-radius: 3px; }
+  pre { background: #f5f5f5; padding: .8em 1em; border-radius: 6px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92em; }
+  th, td { border: 1px solid #ddd; padding: .45em .6em; text-align: left; vertical-align: top; }
+  th { background: #f0f0f0; }
+  blockquote { margin: .8em 0; padding: .1em 1em; border-left: 4px solid #ccc; color: #444; }
+  hr { border: none; border-top: 2px solid #eee; margin: 1.6em 0; }
+  a { color: #0645ad; }
+  @media print { body { margin: 0 1em; } }
+</style></head><body>
+<h1>Orchestrator Kit — Complete Usage Instructions</h1>
+<blockquote>
+<p>Portable, project-agnostic objective-driven orchestration. Companion to <code>README.md</code>; this is</p>
+<p>the full operator reference (API, config, objective format, verification, troubleshooting).</p>
+</blockquote>
+<hr/>
+<h2>1. What the kit is</h2>
+<p>A shell-only toolbox for running <strong>objective-driven autonomous agent loops</strong> with <strong>configurable progress reporting</strong> and <strong>fresh-context discipline</strong>. You point it at an objective (one small file), it dispatches the work to an agent lane (or runs checks by itself), polls until the agent is done, verifies against your own <code>check_cmd</code>, reports progress at a configured verbosity, and stops on completion — or on exactly one <code>[BLOCKED]</code> line when a human is genuinely required. It never asks "should I continue?".</p>
+<p>Two hard design rules:</p>
+<ol>
+<li><strong>Reporting is a pure observer.</strong> Changing <code>ORCH_PROGRESS_LEVEL</code> changes <em>output</em>, never</li>
+</ol>
+<p>   <em>behavior</em>.</p>
+<ol>
+<li><strong>The framework is project-agnostic.</strong> <code>core/</code> has no project paths, no machine paths, no</li>
+</ol>
+<p>   owner constants. Everything project/user/machine-specific lives in adapters and reads    <code>ORCH_*</code> variables from <code>config.env</code>.</p>
+<p>Only <code>tmux</code> and <code>git</code> are required. Everything else (curl, converters, Chrome) is optional and belongs to an adapter.</p>
+<hr/>
+<h2>2. Layout</h2>
+<pre><code></code></pre>
+<pre><code>orchestrator-kit/
+  README.md                  quick start (this doc is the complete reference)
+  config.example.env         copy to config.env and edit — ALL ORCH_* settings live here
+  core/                      GENERIC — drop-in portable, do not edit for a project
+    init.sh                  shared bootstrap: sets ORCH_KIT_DIR, sources config.env
+    report.sh                reporting library (L0-L3 levels, 6 tags, auto-escalate/recover)
+    poll.sh                  tmux-pane poller (--until &lt;sha&gt; / --idle / --timeout)
+    run_loop.sh              the objective loop: guard -&gt; dispatch -&gt; poll -&gt; verify -&gt; COMPLETE
+    objective.md.template    objective-file contract (copy + fill per slice)
+  adapters/                  owner/machine-specific — edit for your infrastructure
+    tgsend.sh                Telegram text/doc/photo (token file + chat id from config.env)
+    dispatch_kill_fresh.sh   remote tmux channel: kill stale session -&gt; fresh -&gt; launch opencode
+  examples/                  REFERENCE adapters from flutter_generator (do not keep as-is)
+    genapp.sh                approve -&gt; generate -&gt; validate command chain
+    capture_golden.sh        one-off Flutter golden-test capture harness
+    pdf_build.sh             Chrome-headless HTML-&gt;PDF + ImageMagick contact sheet
+    objective.sample.md      working checks-only objective
+  tools/
+    md2html.js               markdown -&gt; HTML (for HTML-&gt;PDF via pdf_build.sh)</code></pre>
+<hr/>
+<h2>3. Install (three steps)</h2>
+<pre><code></code></pre>
+<pre><code># 1. Copy the kit into the target project (one project = one kit copy)
+cp -R &lt;path&gt;/orchestrator-kit &lt;your-project&gt;/tools/orchestrator
+
+# 2. Create + edit config (uncomment/override what your project needs)
+cp &lt;your-project&gt;/tools/orchestrator/config.example.env \
+   &lt;your-project&gt;/tools/orchestrator/config.env
+
+# 3. Write the first objective (see core/objective.md.template)
+cp &lt;your-project&gt;/tools/orchestrator/core/objective.md.template \
+   &lt;your-project&gt;/objectives/my-slice.md</code></pre>
+<p><code>config.env</code> is optional — every script falls back to sane defaults when it is absent. The defaults are the values shown in <code>config.example.env</code>.</p>
+<hr/>
+<h2>4. Configuration reference</h2>
+<p><code>config.env</code> is a plain shell file, <code>source</code>d by <code>core/init.sh</code>. Every script in the kit reads the <code>ORCH_*</code> variables from it (or from the environment — environment takes precedence after <code>config.env</code> is sourced, per normal shell semantics).</p>
+<table><thead><tr><th>Variable</th><th>Default</th><th>Used by</th><th>What it controls</th></tr></thead><tbody>
+<tr><td><code>ORCH_PROGRESS_LEVEL</code></td><td><code>L2</code></td><td><code>core/report.sh</code> (all)</td><td>Reporting verbosity <code>L0 &lt; L1 &lt; L2 &lt; L3</code>; read fresh on every call</td></tr>
+<tr><td><code>ORCH_TG_TOKEN_FILE</code></td><td><code>${HOME}/.mac_companion/token</code></td><td><code>adapters/tgsend.sh</code></td><td>File containing the Telegram bot token</td></tr>
+<tr><td><code>ORCH_TG_CHAT_ID</code></td><td><code>1117739189</code></td><td><code>adapters/tgsend.sh</code></td><td>Target chat id for Telegram messages/attachments</td></tr>
+<tr><td><code>ORCH_HOST_SSH_&lt;name&gt;</code></td><td><em>(none)</em></td><td><code>adapters/dispatch_kill_fresh.sh</code></td><td>SSH target for a remote host, e.g. <code>root@host.example.org</code></td></tr>
+<tr><td><code>ORCH_HOST_OPCODE_&lt;name&gt;</code></td><td><em>(none)</em></td><td><code>adapters/dispatch_kill_fresh.sh</code></td><td>Path to the opencode binary on that host</td></tr>
+<tr><td><code>ORCH_CFT_CHROME</code></td><td><em>(per-machine default)</em></td><td><code>examples/pdf_build.sh</code></td><td>Headless Chrome-for-Testing binary for HTML-&gt;PDF</td></tr>
+<tr><td><code>ORCH_CAPTION_FONT</code></td><td><code>/System/Library/Fonts/Supplemental/Arial.ttf</code></td><td><code>examples/pdf_build.sh</code></td><td>Pinned font for the ImageMagick contact-sheet</td></tr>
+</tbody></table>
+<p><code>&lt;name&gt;</code> in the host variables is the arbitrary host id you pass as <code>--host &lt;name&gt;</code>; each host is a single <code>ORCH_HOST_SSH_&lt;name&gt;</code> / <code>ORCH_HOST_OPCODE_&lt;name&gt;</code> pair.</p>
+<hr/>
+<h2>5. Progress levels</h2>
+<table><thead><tr><th>Level</th><th>Reports</th><th>Use</th></tr></thead><tbody>
+<tr><td><strong>L0</strong></td><td>completion (<code>[COMPLETE]</code>) + blockers (<code>[BLOCKED]</code>) only</td><td>batch/cron</td></tr>
+<tr><td><strong>L1</strong></td><td>L0 + major milestones (<code>[PROGRESS]</code>) + retries</td><td>short runs</td></tr>
+<tr><td><strong>L2</strong> (default)</td><td>L1 + important decisions (<code>[DECISION]</code>), findings, verification results (<code>[VERIFY]</code>)</td><td>normal</td></tr>
+<tr><td><strong>L3</strong></td><td>L2 + detailed execution/tool activity</td><td>debugging</td></tr>
+</tbody></table>
+<ul>
+<li>The knob is read on <strong>every call</strong>, so changing it mid-run takes effect immediately.</li>
+<li><strong>Auto-escalation:</strong> any failure path forces L3 automatically; a clean recovery returns to the</li>
+</ul>
+<p>  configured level. Escalation is never manual.</p>
+<hr/>
+<h2>6. Standard message tags</h2>
+<p>Every emitted line starts with one of these tokens so a transcript can be grepped/split by category:</p>
+<table><thead><tr><th>Tag</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>[PROGRESS]</code></td><td>milestone reached / phase done / round started</td></tr>
+<tr><td><code>[DECISION]</code></td><td>a decision taken (config, map, verdict, direction)</td></tr>
+<tr><td><code>[VERIFY]</code></td><td>a verification result (test/gate/hash/diff outcome)</td></tr>
+<tr><td><code>[RECOVERY]</code></td><td>retry/backoff/escalation-then-recovery of a failure</td></tr>
+<tr><td><code>[BLOCKED]</code></td><td>a genuine blocker or approval gate requiring human input (stops execution)</td></tr>
+<tr><td><code>[COMPLETE]</code></td><td>objective met (summary + artifacts)</td></tr>
+</tbody></table>
+<hr/>
+<h2>7. <code>core/report.sh</code> — reporting library (source it)</h2>
+<pre><code></code></pre>
+<pre><code>source "$(dirname "$0")/report.sh"
+
+report [--always] &lt;level_needed 0-3&gt; &lt;TAG&gt; &lt;msg...&gt;   # print iff effective level &gt;= needed
+report_escalate &lt;TAG&gt; &lt;msg...&gt;                        # always prints; forces level to L3
+report_recover  &lt;TAG&gt; &lt;msg...&gt;                        # always prints; returns to configured level
+report_is_escalated                                   # exit 0 while escalated, else 1</code></pre>
+<ul>
+<li>Levels are numeric (<code>0&lt;=L0&lt;L1&lt;L2&lt;L3</code>), so one message can target several levels with the same</li>
+</ul>
+<p>  call.</p>
+<ul>
+<li><code>report --always 0 ...</code> prints unconditionally — used for <code>[COMPLETE]</code> / <code>[BLOCKED]</code> so they</li>
+</ul>
+<p>  are never hidden even on a quiet level.</p>
+<ul>
+<li><code>report_escalate</code> / <code>report_recover</code> always print: their job is guaranteeing failure-path</li>
+</ul>
+<p>  visibility even under L0.</p>
+<hr/>
+<h2>8. <code>core/poll.sh</code> — tmux-pane poller</h2>
+<pre><code></code></pre>
+<pre><code>poll.sh --lane &lt;tmux-session&gt; [--until &lt;sha&gt;] [--idle] [--timeout &lt;mins&gt;] [--quiet] [--report]</code></pre>
+<table><thead><tr><th>Flag</th><th>Behavior</th></tr></thead><tbody>
+<tr><td><code>--lane &lt;session&gt;</code> (required)</td><td>tmux session to poll</td></tr>
+<tr><td><code>--until &lt;sha&gt;</code></td><td>success once <code>&lt;sha&gt;</code> appears in the pane's visible text</td></tr>
+<tr><td><code>--idle</code></td><td>success once the pane's last non-blank line ends with an idle <code>❯</code> prompt</td></tr>
+<tr><td><code>--timeout &lt;m&gt;</code></td><td>minutes before giving up (default 10)</td></tr>
+<tr><td><code>--quiet</code></td><td>suppress the status line (exit code only)</td></tr>
+<tr><td><code>--report</code></td><td>also print the last meaningful pane line</td></tr>
+</tbody></table>
+<p><strong>Exit codes:</strong> <code>0</code> success · <code>1</code> timeout or a visible <code>FAIL</code>/<code>Error:</code>/<code>Exception</code> line · <code>2</code> bad or missing tmux session.</p>
+<p>If both <code>--until</code> and <code>--idle</code> are given, success requires the SHA to have appeared <strong>and</strong> the lane to now be idle (commit landed, agent done).</p>
+<p><strong>Idle detection caveat:</strong> a bare <code>❯</code> alone is <em>not</em> reliable — busy Claude Code panes keep a persistent input box with <code>❯</code> plus a <code>thought for Ns)</code> spinner, so idle is defined as <code>❯</code> visible <strong>and</strong> no spinner line. Remote opencode-flavored panes may render differently; if idle never triggers there, this regex needs a lane-specific update (documented in the script header).</p>
+<hr/>
+<h2>9. <code>core/run_loop.sh</code> — the objective loop</h2>
+<pre><code></code></pre>
+<pre><code>run_loop.sh --objective &lt;file.md&gt; [--level L2] [--lane &lt;tmux-session&gt;] [--from &lt;SHA&gt;]
+            [--until-commit &lt;SHA&gt;] [--max-rounds N] [--timeout &lt;mins&gt;] [--repo &lt;dir&gt;]</code></pre>
+<table><thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--objective &lt;file&gt;</code></td><td>required</td><td>the objective file (see §10)</td></tr>
+<tr><td><code>--level Ln</code></td><td>objective's <code>level</code> field, else <code>L2</code></td><td>reporting verbosity</td></tr>
+<tr><td><code>--lane &lt;tmux&gt;</code></td><td>objective's <code>lane</code> field</td><td>tmux session to dispatch the prompt into; empty = checks-only run</td></tr>
+<tr><td><code>--from &lt;SHA&gt;</code></td><td>objective's <code>from</code>, else current HEAD</td><td>starting commit for round tracking</td></tr>
+<tr><td><code>--until-commit &lt;SHA&gt;</code></td><td>objective's <code>until_commit</code></td><td>complete only once <code>check_cmd</code> passes at this commit</td></tr>
+<tr><td><code>--max-rounds N</code></td><td>objective's <code>max_rounds</code>, else <code>10</code></td><td>hard stop (becomes <code>[BLOCKED]</code>)</td></tr>
+<tr><td><code>--timeout &lt;mins&gt;</code></td><td>objective's <code>timeout_mins</code>, else <code>10</code></td><td>max minutes to wait for the lane to go idle per round</td></tr>
+<tr><td><code>--repo &lt;dir&gt;</code></td><td>git root of the current working directory</td><td>which git repo to verify against</td></tr>
+</tbody></table>
+<p>CLI flags override the matching objective-file field when both are given. Only <code>check_cmd</code> in the objective file is mandatory.</p>
+<h3>Round protocol (per round <code>n</code>, up to <code>max_rounds</code>)</h3>
+<ol>
+<li><strong>Guard</strong> — if <code>--until-commit</code> already equals HEAD, emit `[COMPLETE] objective already</li>
+</ol>
+<p>   satisfied` and exit 0 before doing anything.</p>
+<ol>
+<li><strong>Dispatch</strong> — if a <code>lane</code> is configured, <code>tmux send-keys</code> the objective's <code>prompt</code> into it;</li>
+</ol>
+<p>   a missing/dead lane is an immediate <code>[BLOCKED]</code>. No lane = verification-only run.</p>
+<ol>
+<li><strong>Poll</strong> — <code>poll.sh --lane --idle</code> with the round timeout. Timeouts escalate to L3 and retry</li>
+</ol>
+<p>   with backoff (<code>1s → up to 10s</code> per round).</p>
+<ol>
+<li><strong>Verify</strong> — run <code>check_cmd</code> inside <code>--repo</code>; capture output to a temp log.</li>
+</ol>
+<ul>
+<li>PASS: <code>[VERIFY]</code>, recover verbosity if it was escalated, update <code>current_head</code>.</li>
+<li>FAIL: escalate to L3 (<code>[RECOVERY] … escalating</code>), print the last log line, backoff, retry.</li>
+</ul>
+<ol>
+<li><strong>Complete</strong> — if <code>--until-commit</code> is set, only finish when <code>check_cmd</code> passes at that exact</li>
+</ol>
+<p>   HEAD (<code>[COMPLETE] objective met at &lt;sha&gt;</code>); otherwise finish as soon as <code>check_cmd</code> passes    (first round that is green).</p>
+<p>The loop halts on exactly two conditions: <code>[COMPLETE]</code> (objective met) or one <code>[BLOCKED]</code> (approval gate, dead lane, <code>max_rounds</code> exhausted). There are no "should I continue?" prompts.</p>
+<hr/>
+<h2>10. Objective-file format</h2>
+<p>Plain <code>key: value</code> lines (one value per line; shell-greppable, no YAML/JSON parser). Lines starting with <code>#</code> and blank lines are ignored. Only <code>check_cmd</code> is required.</p>
+<table><thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>goal</code></td><td>no</td><td>one-line statement of what "done" means</td></tr>
+<tr><td><code>acceptance</code></td><td>no</td><td>the exact gate(s) a human would check to call this done</td></tr>
+<tr><td><code>check_cmd</code></td><td><strong>yes</strong></td><td>command proving the objective is met; run inside <code>--repo</code> each round, e.g. <code>npm run typecheck:builder &amp;&amp; npx jest test/s1_visual_intent.test.ts</code></td></tr>
+<tr><td><code>artifacts</code></td><td>no</td><td>evidence/artifacts the objective is expected to produce</td></tr>
+<tr><td><code>lane</code></td><td>no</td><td>tmux session to dispatch into; empty = checks-only, no dispatch</td></tr>
+<tr><td><code>from</code></td><td>no</td><td>SHA the run starts from</td></tr>
+<tr><td><code>until_commit</code></td><td>no</td><td>SHA marking completion once <code>check_cmd</code> passes there; empty = complete on the first green round</td></tr>
+<tr><td><code>level</code></td><td>no</td><td>reporting level (<code>L0</code>–<code>L3</code>), default <code>L2</code></td></tr>
+<tr><td><code>max_rounds</code></td><td>no</td><td>max rounds before <code>[BLOCKED]</code>, default <code>10</code></td></tr>
+<tr><td><code>timeout_mins</code></td><td>no</td><td>lane-idle wait per round, default <code>10</code></td></tr>
+<tr><td><code>prompt</code></td><td>no</td><td>single-line prompt/command sent into the lane each round via <code>tmux send-keys</code></td></tr>
+</tbody></table>
+<p>Template: <code>core/objective.md.template</code>. Worked example: <code>examples/objective.sample.md</code>.</p>
+<hr/>
+<h2>11. Adapters</h2>
+<h3><code>adapters/tgsend.sh</code> — Telegram</h3>
+<pre><code></code></pre>
+<pre><code>tgsend.sh text  "message"
+tgsend.sh doc   &lt;file&gt; ["caption"]    # sendDocument — preferred for files/reports
+tgsend.sh photo &lt;file&gt; ["caption"]    # sendPhoto — screenshots/goldens</code></pre>
+<p>Reads <code>ORCH_TG_TOKEN_FILE</code> (bot token) and <code>ORCH_TG_CHAT_ID</code> from <code>config.env</code>. Prints nothing on success, an error line + non-zero exit on failure. Never used for heavy back-and-forth — one point/paragraph per <code>text</code> message, files as <code>doc</code> attachments.</p>
+<h3><code>adapters/dispatch_kill_fresh.sh</code> — remote tmux channel</h3>
+<pre><code></code></pre>
+<pre><code>dispatch_kill_fresh.sh --host &lt;name&gt; --channel &lt;name&gt; --workdir &lt;path&gt; [--primed] --yes</code></pre>
+<p>Looks up <code>ORCH_HOST_SSH_&lt;name&gt;</code> / <code>ORCH_HOST_OPCODE_&lt;name&gt;</code> in <code>config.env</code>, then: kill the existing remote tmux session → start a fresh detached session in <code>&lt;workdir&gt;</code> → launch opencode → dismiss a first-launch welcome overlay if seen → wait for a ready prompt. It does <strong>not</strong> send the task prompt — <code>run_loop.sh</code> (or you) sends that separately with <code>tmux send-keys</code>.</p>
+<p><strong>Destructive</strong> — kills a remote tmux session, so it refuses to run without <code>--yes</code>; without <code>--yes</code> it prints the planned actions (dry run). Use this for every new task: a fresh channel is cheap and carries no polluted context from the previous one.</p>
+<hr/>
+<h2>12. Writing a new adapter (from <code>examples/</code>)</h2>
+<ol>
+<li><code>source core/init.sh</code> so it picks up <code>config.env</code>.</li>
+<li>Read machine/user-specific values with <code>: "${VAR:=default}"</code> (never hardcode).</li>
+<li>Do exactly one task; print one line per meaningful result; exit non-zero on failure.</li>
+<li>If the task's verbosity should react to the level, also <code>source core/report.sh</code> and use the</li>
+</ol>
+<p>   standard tags.</p>
+<p>Reference adapters shipped in <code>examples/</code> (project-specific, do not keep as-is): <code>genapp.sh</code> (approve→generate→validate for a generated app), <code>capture_golden.sh</code> (one-off Flutter golden harness), <code>pdf_build.sh</code> (Chrome HTML→PDF + ImageMagick contact sheet).</p>
+<hr/>
+<h2>13. End-to-end worked example</h2>
+<p>Objective <code>objectives/s6-slice5.md</code> for a "write the A11y test generator" slice:</p>
+<pre><code></code></pre>
+<pre><code>goal: land the A11y test generator slice (regression suite green)
+acceptance: typecheck clean, jest green, validate.ts VALIDATION PASSED on all samples
+check_cmd: npm run typecheck:builder &amp;&amp; npx jest test/s1_visual_intent.test.ts &amp;&amp; git status --porcelain | grep -q ''
+artifacts: commit SHA + test/s1_visual_intent.test.ts additions
+lane: s-hermetic
+from: c848640
+until_commit: f030dd4
+level: L2
+max_rounds: 8
+timeout_mins: 15
+prompt: read design/flutter-app-builder/research/S6_IMPL_BRIEF_CLAUDE.md, implement slices 1-4, push</code></pre>
+<p>Run:</p>
+<pre><code></code></pre>
+<pre><code>tools/orchestrator/run_loop.sh --objective objectives/s6-slice5.md</code></pre>
+<p>What you see at L2: <code>[PROGRESS]</code> round starts, <code>[VERIFY]</code> pass/fail per round, <code>[RECOVERY]</code> on any failure with auto-escalation, <code>[COMPLETE] objective met at f030dd4</code> when the until-commit lands green. If the lane dies or rounds run out: exactly one <code>[BLOCKED]</code> line, then it stops.</p>
+<p>A checks-only run (no lane, no agent) reuses the same loop to watch any external process reach a commit — see <code>examples/objective.sample.md</code>.</p>
+<hr/>
+<h2>14. Verification (prove the kit works)</h2>
+<ol>
+<li><strong>Level gating</strong> — run the same objective at <code>--level L0</code> and <code>--level L3</code>; outcomes are</li>
+</ol>
+<p>   identical, output radically different (L0 ≈ 2-4 lines, L3 verbose).</p>
+<ol>
+<li><strong>Auto-escalate/recover</strong> — make one <code>check_cmd</code> fail; observe <code>[RECOVERY]</code> emitted at verbose</li>
+</ol>
+<p>   level, then a clean success returns to the configured level.</p>
+<ol>
+<li><strong>Tags</strong> — every emitted line begins with one of the six tags; grep the transcript for the tag</li>
+</ol>
+<p>   histogram.</p>
+<ol>
+<li><strong>Autonomy</strong> — a generated run transcript contains no "should I / continue? / permission?"</li>
+</ol>
+<p>   prompts; it runs to <code>[COMPLETE]</code> (or one <code>[BLOCKED]</code>) unaided.</p>
+<ol>
+<li><strong>Gates intact</strong> — your project's own check commands still pass (run_loop never mutates the</li>
+</ol>
+<p>   repo; it only reads git and runs your <code>check_cmd</code>).</p>
+<p>Quick sanity:</p>
+<pre><code></code></pre>
+<pre><code>bash -n tools/orchestrator/core/*.sh tools/orchestrator/adapters/*.sh   # no syntax errors
+tools/orchestrator/core/run_loop.sh --help                              # usage prints
+source tools/orchestrator/core/report.sh; report 0 "[TEST]" "hello"     # prints at any level</code></pre>
+<hr/>
+<h2>15. Troubleshooting</h2>
+<table><thead><tr><th>Symptom</th><th>Cause / fix</th></tr></thead><tbody>
+<tr><td><code>lane '&lt;name&gt;' has no live tmux session</code> → <code>[BLOCKED]</code></td><td>the lane isn't running. Start it (<code>dispatch_kill_fresh.sh --host … --yes</code> for remote, or attach locally) and re-run</td></tr>
+<tr><td>Lane never goes idle → timeouts, escalating</td><td><code>poll.sh</code> idle detection is tuned for Claude Code TUI panes; remote opencode may need a <code>--until &lt;sha&gt;</code> target or a lane-specific idle regex (see <code>poll.sh</code> header)</td></tr>
+<tr><td><code>[BLOCKED] objective not met after N round(s)</code></td><td><code>max_rounds</code> exhausted. Increase it, fix the lane, or split the objective into smaller ones</td></tr>
+<tr><td><code>--repo is not a git repo</code></td><td><code>--repo</code> must point at a git repo (or a dir whose git root is discoverable); run_loop defaults to the cwd's git root</td></tr>
+<tr><td>check_cmd keeps failing</td><td>read the last log line printed with the <code>[RECOVERY]</code> message; fix the objective/project, not the kit</td></tr>
+<tr><td>no config found but scripts complain about missing vars</td><td>copy <code>config.example.env</code> → <code>config.env</code> and set the required <code>ORCH_*</code> variables</td></tr>
+<tr><td>tgsend fails with HTTP ≠ 200</td><td>token file missing (<code>ORCH_TG_TOKEN_FILE</code>), wrong chat id, or the bot can't reach the chat</td></tr>
+</tbody></table>
+<hr/>
+<h2>16. Loop discipline (how to keep looping without burning context)</h2>
+<ul>
+<li>One objective = one fresh session. Pass <code>objective.md</code> file paths, never conversation history.</li>
+<li>Repository artifacts (briefs, reports, tests, <code>HANDOFF.md</code>) are the durable state; the session</li>
+</ul>
+<p>  is disposable.</p>
+<ul>
+<li>Between independent objectives: <code>/clear</code> (local) or kill+fresh the remote channel</li>
+</ul>
+<p>  (<code>dispatch_kill_fresh.sh --yes</code>), then re-anchor on the objective file.</p>
+<ul>
+<li>Mid-slice with growing context: <code>/compact</code>, keep working.</li>
+<li><code>[COMPLETE]</code> is the trigger to stop, checkpoint/commit, and start the next objective fresh.</li>
+</ul>
+</body></html>
