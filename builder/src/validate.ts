@@ -117,6 +117,121 @@ function themeCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// D2#1 (SPIKE_S6_REPORT.md §14.1/§16): WCAG 2.1 contrast gate over emitted core/theme.dart
+// tokens. Real relative-luminance + src-over alpha-composite math (never a heuristic) — no vision
+// judge, per D1. Pairs are scoped to how each token is ACTUALLY painted in generated code today
+// (grep-verified against generators/components.ts/screen.ts), not a blind cross-product:
+//   - textPrimary/textSecondary: declared body-text tokens (textSecondary is consumed as
+//     icon/caption text in screen.ts; textPrimary isn't consumed yet but is validated
+//     pre-emptively like any other declared token) — checked opaque against every static
+//     background theme.dart declares, 4.5:1 (WCAG body text).
+//   - info/warning/danger/success: AppStatusDot paints these opaque against the ambient surface
+//     (3.0:1, WCAG 1.4.11 non-text UI component) AND AppChip paints the SAME opaque tone as label
+//     TEXT over its own `color.withValues(alpha: 0.12)` tint (components.ts:372,375) — composited
+//     with real src-over math against AppColors.surface, 4.5:1 (it's text, however small).
+//   - primary is declared but only ever consumed as a ColorScheme.fromSeed `seedColor:` (never
+//     painted as a literal fg) — excluded; checking it as if it were opaque foreground would test a
+//     render that never happens. Its actual on-screen role is M3's dynamically-derived tonal
+//     palette, which (like textTheme's default colors) is out of reach without reimplementing
+//     Material Color Utilities — genuinely undeterminable statically, not skipped for convenience.
+// theme.dart is 100% generator-owned (no user region ever appears in it), so every finding here is
+// `generated`-region, never advisory (§14.1 v3.4's inherited-region carve-out is vacuous for this
+// file, by construction).
+function parseArgbHex(hex: string): { r: number; g: number; b: number; a: number } {
+  const clean = hex.replace(/^0x/i, "");
+  return {
+    a: parseInt(clean.slice(0, 2), 16) / 255,
+    r: parseInt(clean.slice(2, 4), 16),
+    g: parseInt(clean.slice(4, 6), 16),
+    b: parseInt(clean.slice(6, 8), 16),
+  };
+}
+
+function srcOver(fg: { r: number; g: number; b: number; a: number }, bg: { r: number; g: number; b: number }) {
+  return {
+    r: fg.a * fg.r + (1 - fg.a) * bg.r,
+    g: fg.a * fg.g + (1 - fg.a) * bg.g,
+    b: fg.a * fg.b + (1 - fg.a) * bg.b,
+  };
+}
+
+function relativeLuminance(c: { r: number; g: number; b: number }): number {
+  const lin = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+}
+
+function contrastRatio(l1: number, l2: number): number {
+  const hi = Math.max(l1, l2);
+  const lo = Math.min(l1, l2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function contrastCheck(ir: any, files: string[]): string[] {
+  const issues: string[] = [];
+  const themeFile = files.find((f) => f.endsWith("/core/theme.dart"));
+  if (!themeFile) return issues; // [header]/[determinism] already report a missing theme file
+
+  const src = fs.readFileSync(themeFile, "utf8");
+  const tokens = new Map<string, string>();
+  for (const m of src.matchAll(/static const (\w+) = Color\((0x[0-9A-Fa-f]{8})\);/g)) {
+    tokens.set(m[1] ?? "", m[2] ?? "");
+  }
+  if (tokens.size === 0 || !tokens.has("surface")) return issues; // theme.dart shape changed underneath this gate — nothing parseable
+
+  const lightBlock = src.split("ThemeData buildThemeDark")[0] ?? "";
+  const darkBlock = src.split("ThemeData buildThemeDark")[1] ?? "";
+  const bgOf = (block: string, key: string): string | null => {
+    const m = block.match(new RegExp(`${key}:\\s*const Color\\((0x[0-9A-Fa-f]{8})\\)`));
+    return m ? (m[1] ?? null) : null;
+  };
+
+  const backgrounds: { label: string; hex: string }[] = [{ label: "AppColors.surface", hex: tokens.get("surface")! }];
+  const scaffoldLight = bgOf(lightBlock, "scaffoldBackgroundColor");
+  if (scaffoldLight) backgrounds.push({ label: "light scaffoldBackgroundColor", hex: scaffoldLight });
+  const fillLight = bgOf(lightBlock, "fillColor");
+  if (fillLight) backgrounds.push({ label: "light fillColor", hex: fillLight });
+  const scaffoldDark = bgOf(darkBlock, "scaffoldBackgroundColor");
+  if (scaffoldDark) backgrounds.push({ label: "dark scaffoldBackgroundColor", hex: scaffoldDark });
+  const fillDark = bgOf(darkBlock, "fillColor");
+  if (fillDark) backgrounds.push({ label: "dark fillColor", hex: fillDark });
+
+  const opaqueAgainst = (tokenName: string, threshold: number, kind: string, backgroundsToUse: { label: string; hex: string }[]) => {
+    const fgHex = tokens.get(tokenName);
+    if (!fgHex) return;
+    const fg = parseArgbHex(fgHex);
+    for (const bg of backgroundsToUse) {
+      const bgRgb = parseArgbHex(bg.hex);
+      const ratio = contrastRatio(relativeLuminance(srcOver(fg, bgRgb)), relativeLuminance(bgRgb));
+      if (ratio < threshold) {
+        issues.push(`[contrast] AppColors.${tokenName} (${kind}) on ${bg.label} — ${ratio.toFixed(2)}:1 below WCAG ${threshold.toFixed(1)}:1 (fg=${fgHex} bg=${bg.hex})`);
+      }
+    }
+  };
+
+  for (const t of ["textPrimary", "textSecondary"]) opaqueAgainst(t, 4.5, "body text", backgrounds);
+  for (const t of ["info", "warning", "danger", "success"]) opaqueAgainst(t, 3.0, "AppStatusDot (non-text UI component)", backgrounds);
+
+  // AppChip (components.ts:368-375): the SAME opaque tone painted as label TEXT over its own
+  // `color.withValues(alpha: 0.12)` tint — a real, present-day alpha usage, not a hypothetical one.
+  const surfaceRgb = parseArgbHex(tokens.get("surface")!);
+  for (const t of ["info", "warning", "danger", "success"]) {
+    const hex = tokens.get(t);
+    if (!hex) continue;
+    const opaque = parseArgbHex(hex);
+    const tint = { ...opaque, a: 0.12 };
+    const chipBg = srcOver(tint, surfaceRgb);
+    const ratio = contrastRatio(relativeLuminance(opaque), relativeLuminance(chipBg));
+    if (ratio < 4.5) {
+      issues.push(`[contrast] AppColors.${t} (AppChip label text) on its own 12%-tint over AppColors.surface — ${ratio.toFixed(2)}:1 below WCAG 4.5:1 (fg=${hex} tint-bg composited)`);
+    }
+  }
+
+  return issues;
+}
+
 // S2 (§6.3): the Swift analogue of archCheck above, for the [swiftarch] gate — a sibling function,
 // not a shared/parametrized one, so archCheck's Flutter behavior stays byte-for-byte untouched
 // (§2.6 Open/Closed). V1 rule (requirements §6.3): a Domain-layer file must not import
@@ -1161,6 +1276,7 @@ export interface ValidationResult {
   exportGate: number; // count of export issues: unresolved export declaration, secret field in an export row, or missing core/export.dart (L3)
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   theme: number;     // count of D1 theme-wiring issues: main.dart not on buildTheme(), raw colorSchemeSeed literal, themeMode drift, or seed/palette mismatch (D1)
+  contrast: number;  // count of WCAG contrast issues in emitted core/theme.dart tokens, real usage pairs only (D2#1)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
@@ -1231,7 +1347,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, planDeterminism: 0,
-    theme: 0, lockfile: 0, timestamps: 0,
+    theme: 0, contrast: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -1410,6 +1526,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...themeIssues);
   const theme = themeIssues.length;
 
+  // Contrast (D2#1, SPIKE_S6_REPORT.md §14.1): WCAG ratio over the same core/theme.dart tokens
+  // themeCheck just verified are actually wired in, restricted to pairs the generator actually
+  // paints (AppStatusDot, AppChip label-on-tint) — see contrastCheck's own comment for scoping.
+  const contrastIssues = contrastCheck(ir, files);
+  issues.push(...contrastIssues);
+  const contrast = contrastIssues.length;
+
   // Outbox (MF6): a declared outbox must emit core/outbox.dart and be actually referenced by at
   // least one generated repository impl.
   const outboxIssues = outboxCheck(ir, files);
@@ -1472,7 +1595,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
 
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, outbox, platform, shell, search,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, outbox, platform, shell, search,
     scroll, actions, states, visualIntent, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
@@ -1523,6 +1646,7 @@ function main() {
   console.log(`[export] ${r.exportGate === 0 ? "PASS" : "FAIL (" + r.exportGate + ")"}`);
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[theme] ${r.theme === 0 ? "PASS" : "FAIL (" + r.theme + ")"}`);
+  console.log(`[contrast] ${r.contrast === 0 ? "PASS" : "FAIL (" + r.contrast + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
@@ -1532,7 +1656,7 @@ function main() {
   console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
