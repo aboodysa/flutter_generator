@@ -1,5 +1,5 @@
 import { FeatureModel, StatePlacementSpec } from "./types";
-import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec, VisualSpec } from "./composition";
+import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -53,6 +53,10 @@ export interface GenerationPlan {
   // visualStyle sub-field set (composition.ts's visualFor). Omitted entirely when no screen in
   // this app declares a visualStyle. The `[visualIntent]` gate re-derives-and-diffs this the same
   // way `[states]` does for `patterns.states`.
+  // S2 (SPIKE_S2_REPORT.md §14.5): `sections` is additive alongside the above — keyed by
+  // screenPath() like visual, one entry per screen with a non-empty `sections[]` (composition.ts's
+  // sectionsFor). Omitted entirely when no screen in this app declares sections. The `[sections]`
+  // gate re-derives-and-diffs this the same way `[visualIntent]` does for `patterns.visual`.
   patterns?: {
     shell?: { destinations: ShellDestination[] };
     search?: Record<string, SearchSpec>;
@@ -60,6 +64,7 @@ export interface GenerationPlan {
     actions?: Record<string, ActionSpec[]>;
     states?: Record<string, StatePlacementSpec>;
     visual?: Record<string, VisualSpec>;
+    sections?: Record<string, SectionSpec>;
   };
 }
 

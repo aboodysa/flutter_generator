@@ -8,7 +8,7 @@
 // narrowest capability they actually use — TS structural typing lets index.ts keep constructing
 // and passing one full GenContext everywhere without any caller-side change.
 import { StateManagementProvider, StatePlacementSpec } from "./types";
-import { SearchSpec, ScrollSpec, ActionSpec, VisualSpec } from "./composition";
+import { SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec } from "./composition";
 
 export interface PkgContext {
   pkg: string; // package name (e.g. "rasheed_replica_expense")
@@ -37,4 +37,8 @@ export interface GenContext extends PkgContext {
   // generateApp run — screen.ts looks itself up by `s.name` to apply its decided VisualSpec's
   // radius/spacing/hero/surface deltas verbatim (or nothing, absent = today's output).
   visual?: Map<string, VisualSpec>;
+  // S2 (SPIKE_S2_REPORT.md §14.2): composition.ts's sectionsTargets(ir), computed once per
+  // generateApp run — screen.ts's sections branch looks itself up by `s.name` to render its
+  // decided SectionSpec verbatim (or nothing, for any screen that declares no sections).
+  sections?: Map<string, SectionSpec>;
 }

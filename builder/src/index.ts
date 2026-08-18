@@ -24,7 +24,7 @@ import { generateRule } from "./generators/rule";
 import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
-import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec } from "./composition";
+import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec, sectionsTargets, SectionSpec } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
 import { generateA11yTest, a11yTestFileName } from "./generators/a11y_test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
@@ -808,25 +808,39 @@ function visualByPath(ir: FeatureModel, visual: Map<string, VisualSpec>): Record
   return out;
 }
 
+// S2 (SPIKE_S2_REPORT.md §14.5): the sections-analogue of searchByPath/scrollByPath/actionsByPath/
+// statesByPath/visualByPath above — same pure re-keying of sectionsTargets() (by screen NAME) into
+// plan.json's patterns.sections (by screenPath()).
+function sectionsByPath(ir: FeatureModel, sections: Map<string, SectionSpec>): Record<string, SectionSpec> {
+  const screens = ir.screens ?? [];
+  const out: Record<string, SectionSpec> = {};
+  for (const [screenName, spec] of sections) {
+    const screen = screens.find((s) => s.name === screenName);
+    if (screen) out[screenPath(screens, screen)] = spec;
+  }
+  return out;
+}
+
 // Validate + serialize the Generation Plan (§6.1) and the region-detection manifest.
-function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>, scroll?: Record<string, ScrollSpec>, actions?: Record<string, ActionSpec[]>, states?: Record<string, StatePlacementSpec>, visual?: Record<string, VisualSpec>): void {
+function writePlan(irVersion: string, planEntries: PlanEntry[], arch: ArchitectureDecision, outDir: string, regionManifestPath: string, nextHashes: Record<string, string>, shell?: ShellPattern | null, search?: Record<string, SearchSpec>, scroll?: Record<string, ScrollSpec>, actions?: Record<string, ActionSpec[]>, states?: Record<string, StatePlacementSpec>, visual?: Record<string, VisualSpec>, sections?: Record<string, SectionSpec>): void {
   const hasSearch = !!search && Object.keys(search).length > 0;
   const hasScroll = !!scroll && Object.keys(scroll).length > 0;
   const hasActions = !!actions && Object.keys(actions).length > 0;
   const hasStates = !!states && Object.keys(states).length > 0;
   const hasVisual = !!visual && Object.keys(visual).length > 0;
+  const hasSections = !!sections && Object.keys(sections).length > 0;
   const plan: GenerationPlan = {
     schemaVersion: irVersion,
     generatorVersion: "1.0.0",
     artifactCount: planEntries.length,
     entries: planEntries,
     scoring: { stateManagement: arch.stateManagement, di: arch.di, routing: arch.routing, persistence: arch.persistence, coupledPair: arch.coupledPair, complexity: arch.complexity },
-    // P1/P2/P3/P4/D2/S1 (contract §2.2/§2.6): record the composition layer's shell/search/scroll/
-    // actions/states/visual decisions as data. Omitted entirely (not `{ shell: undefined }`/`null`)
-    // when none apply — an app with no shell, no searchable list, no list/detail screen, no
-    // capability-driven action, no applicable state-placement member, and no screen visualStyle
-    // stays byte-identical plan.json to pre-P1/P2/P3/P4/D2/S1 output.
-    ...(shell || hasSearch || hasScroll || hasActions || hasStates || hasVisual ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}), ...(hasScroll ? { scroll } : {}), ...(hasActions ? { actions } : {}), ...(hasStates ? { states } : {}), ...(hasVisual ? { visual } : {}) } } : {}),
+    // P1/P2/P3/P4/D2/S1/S2 (contract §2.2/§2.6): record the composition layer's shell/search/
+    // scroll/actions/states/visual/sections decisions as data. Omitted entirely (not
+    // `{ shell: undefined }`/`null`) when none apply — an app with no shell, no searchable list,
+    // no list/detail screen, no capability-driven action, no applicable state-placement member, no
+    // screen visualStyle, and no screen sections stays byte-identical plan.json to pre-S2 output.
+    ...(shell || hasSearch || hasScroll || hasActions || hasStates || hasVisual || hasSections ? { patterns: { ...(shell ? { shell: { destinations: shell.branches.map(({ feature, ...destination }) => destination) } } : {}), ...(hasSearch ? { search } : {}), ...(hasScroll ? { scroll } : {}), ...(hasActions ? { actions } : {}), ...(hasStates ? { states } : {}), ...(hasVisual ? { visual } : {}), ...(hasSections ? { sections } : {}) } } : {}),
   };
   const planIssues = validatePlanReferences(plan);
   if (planIssues.length) throw new Error(planIssues.join("\n"));
@@ -917,7 +931,11 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
   // visualTargets is the only owner of this decision; screen.ts only ever consumes ctx.visual by
   // name, applying the decided deltas verbatim (never re-deriving from the raw enum values).
   const visual = visualTargets(ir);
-  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search, scroll, actions, states, visual };
+  // S2 (SPIKE_S2_REPORT.md §14.5): decide per-screen sections ONCE, here — composition.ts's
+  // sectionsTargets is the only owner of this decision; screen.ts's sections branch only ever
+  // consumes ctx.sections by name, applying the decided component mapping verbatim.
+  const sections = sectionsTargets(ir);
+  const ctx: GenContext = { pkg, symbols, ir, sm: arch.stateManagement, search, scroll, actions, states, visual, sections };
 
   const scoring: string[] = [];
   for (const s of ir.states ?? []) scoring.push(`${s.name} → ${arch.perStateStrategy.get(s.name) ?? "enum-status"}`);
@@ -981,7 +999,7 @@ function generateSingleFeatureApp(ir: FeatureModel, outDir: string, irVersion = 
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search), scrollByPath(ir, scroll), actionsByPath(ir, actions), statesByPath(ir, states), visualByPath(ir, visual));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, undefined, searchByPath(ir, search), scrollByPath(ir, scroll), actionsByPath(ir, actions), statesByPath(ir, states), visualByPath(ir, visual), sectionsByPath(ir, sections));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }
@@ -1081,7 +1099,9 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
   const states = statePlacementTargets(merged);
   // S1 (SPIKE_S1_REPORT.md §14.3): same single decision point, over the merged screens.
   const visual = visualTargets(merged);
-  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search, scroll, actions, states, visual };
+  // S2 (SPIKE_S2_REPORT.md §14.5): same single decision point, over the merged screens.
+  const sections = sectionsTargets(merged);
+  const ctx: GenContext = { pkg, symbols, ir: merged, sm: arch.stateManagement, search, scroll, actions, states, visual, sections };
 
   // P1 (INTERFACE_PATTERN_CONTRACT.md §3): decide the global-shell pattern ONCE, here — the only
   // owner of this decision (contract §1 master principle). `null` for a single-feature AppModel;
@@ -1181,7 +1201,7 @@ function generateMultiFeatureApp(app: AppModel, outDir: string, irVersion = "1",
     { artifact: "core:main", generator: "MainGenerator", schema: "core", layer: "core", file: path.relative(outDir, mainFile), strategy: "default", dependsOn: ["core:barrel"], mode: "deterministic", class: "structural" },
   );
 
-  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search), scrollByPath(merged, scroll), actionsByPath(merged, actions), statesByPath(merged, states), visualByPath(merged, visual));
+  writePlan(irVersion, planEntries, arch, outDir, regionManifestPath, nextHashes, shell, searchByPath(merged, search), scrollByPath(merged, scroll), actionsByPath(merged, actions), statesByPath(merged, states), visualByPath(merged, visual), sectionsByPath(merged, sections));
 
   return { outDir, fileCount: files.length + 9, scoring, conflicts };
 }

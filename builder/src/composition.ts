@@ -4,7 +4,7 @@
  * and surface treatment. Adding a new archetype = one entry here (data), no dispatch rewrite.
  * The screen generator consults this registry; unknown archetypes fall back to `list`.
  */
-import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec, VisualHierarchy, VisualCornerRadius, VisualPersonality } from "./types";
+import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec, VisualHierarchy, VisualCornerRadius, VisualPersonality, SectionModel } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
 import { findRepoForEntity, crudFormTargets, isAudited, resolveExport, findWizardScreen } from "./operations";
@@ -12,7 +12,7 @@ import { DEFAULT_STATUSES } from "./generators/state";
 
 export interface CompositionSpec {
   archetype: string;
-  layout: "list" | "detail" | "grid" | "wizard";
+  layout: "list" | "detail" | "grid" | "wizard" | "sections";
   hasHero: boolean;      // whether the archetype renders a hero header
   heroGap: number;       // space below the hero (logical px)
   itemGap: number;       // space between list/grid items (wizard: space around the step footer)
@@ -27,6 +27,10 @@ export const COMPOSITIONS: Record<string, CompositionSpec> = {
   // P8-W1: step header + progress indicator (hasHero) drives the step title block; itemGap
   // spaces the Next/Back footer from the step content.
   wizard: { archetype: "wizard", layout: "wizard", hasHero: true, heroGap: 16, itemGap: 16, surface: "card" },
+  // S2 (SPIKE_S2_REPORT.md §14.2): a declarative section-list home. hasHero:false — hierarchy
+  // comes from a first-class `hero` SECTION (position + heroScale), not the legacy s.hero/comp.
+  // hasHero mechanism list/detail/wizard use; heroGap/itemGap space consecutive sections.
+  sections: { archetype: "sections", layout: "sections", hasHero: false, heroGap: 16, itemGap: 16, surface: "card" },
   // Extend here: add an entry (e.g. dashboard/settings) + a layout branch in screen.ts.
 };
 
@@ -448,6 +452,39 @@ export function visualTargets(ir: FeatureModel): Map<string, VisualSpec> {
   const out = new Map<string, VisualSpec>();
   for (const screen of ir.screens ?? []) {
     const spec = visualFor(screen, ir);
+    if (spec) out.set(screen.name, spec);
+  }
+  return out;
+}
+
+/**
+ * S2 (SPIKE_S2_REPORT.md §14.2) — section-list selector. Same single-owner posture as every other
+ * selector in this family: sectionsFor is the ONE place a screen's declared `sections[]` becomes a
+ * decided `SectionSpec`; screen.ts's sections branch applies it verbatim (component selection +
+ * token mapping happen HERE, never re-derived in the renderer).
+ *
+ * Deliberately archetype-agnostic (mirrors visualFor: it reads only `s.sections`, never `s.type`) —
+ * whether `sections` is well-formed FOR this screen's archetype (declared on a non-"sections"
+ * screen, or a "sections" screen with none) is a `[sections]` gate concern (validate.ts), not a
+ * selector concern; a selector that silently normalized a misuse case would erode the same schema
+ * teeth D1's rejected alternatives warn against.
+ */
+export interface SectionSpec {
+  sections: SectionModel[];
+}
+
+export function sectionsFor(s: ScreenModel, _ir: FeatureModel): SectionSpec | null {
+  if (!s.sections || !s.sections.length) return null;
+  return { sections: s.sections };
+}
+
+// Runs sectionsFor across every screen in one IR (single- or already-merged multi-feature — same
+// posture as visualTargets). Keyed by screen NAME (screen.ts's lookup); index.ts re-keys by
+// screenPath() for plan.json `patterns.sections`.
+export function sectionsTargets(ir: FeatureModel): Map<string, SectionSpec> {
+  const out = new Map<string, SectionSpec>();
+  for (const screen of ir.screens ?? []) {
+    const spec = sectionsFor(screen, ir);
     if (spec) out.set(screen.name, spec);
   }
   return out;
