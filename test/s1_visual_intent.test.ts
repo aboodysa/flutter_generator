@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { resolve, join } from 'path';
+import { tmpdir } from 'os';
 
 // S1 evidence-into-tests (design/flutter-app-builder/research/S1_EVIDENCE_TESTS_BRIEF_CLAUDE.md).
 // Codifies the 5 review items from S1_PROOF_SCREENS.html into permanent, real-generator-backed
@@ -30,6 +31,14 @@ function sh(cmd: string): ShellResult {
 
 function validate(irPath: string, outDir: string): ShellResult {
   return sh(`npx ts-node --transpile-only builder/src/validate.ts ${irPath} ${outDir}`);
+}
+
+function generate(irPath: string, outDir: string): ShellResult {
+  return sh(`npx ts-node --transpile-only builder/src/index.ts ${irPath} ${outDir}`);
+}
+
+function approve(irPath: string): ShellResult {
+  return sh(`npx ts-node --transpile-only builder/src/approve.ts ${irPath}`);
 }
 
 interface VisualSpec {
@@ -167,4 +176,70 @@ describe('S1 Item 3 — token provenance (no hardcoded style)', () => {
       }
     });
   }
+});
+
+describe('S1 Item 4 — trust boundary (negative control)', () => {
+  const HR_SERVICE_IR = resolve(REPO_ROOT, 'apps/hr_service/input/hr_service.ir.json');
+  let workDir: string;
+
+  beforeAll(() => {
+    workDir = mkdtempSync(join(tmpdir(), 's1-trust-boundary-'));
+  });
+
+  afterAll(() => {
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  test(
+    'an unattested visualStyle.hierarchy.requiresApproval=true blocks generation, then approve.ts unblocks it',
+    () => {
+      const ir = JSON.parse(readFileSync(HR_SERVICE_IR, 'utf8'));
+      // screens[1] is LeaveRequestDetailScreen — the proof screen already carrying a visualStyle
+      // fragment (S1 commit hr_service.input.ir.json). Same injection shape S1's own manual
+      // negative control used: only requiresApproval, no actor — matches unapprovedElements()'s
+      // `actor ?? "none"` fallback.
+      expect(ir.screens[1].name).toBe('LeaveRequestDetailScreen');
+      ir.screens[1].visualStyle.hierarchy.requiresApproval = true;
+
+      const irPath = join(workDir, 'hr_service.unattested.ir.json');
+      writeFileSync(irPath, JSON.stringify(ir, null, 2));
+      const outDir = join(workDir, 'out_unattested');
+
+      const blocked = generate(irPath, outDir);
+      expect(blocked.status).not.toBe(0);
+      const output = blocked.stdout + blocked.stderr;
+      expect(output).toMatch(/\[approval\]/);
+      expect(output).toMatch(/require human approval/);
+
+      // No artifact written — the approval gate is the very first thing generateApp does, before
+      // any fs.rmSync/mkdirSync/writeFileSync of the output tree.
+      expect(existsSync(join(outDir, 'lib'))).toBe(false);
+      expect(existsSync(join(outDir, 'plan.json'))).toBe(false);
+
+      const approved = approve(irPath);
+      expect(approved.status).toBe(0);
+      expect(approved.stdout).toMatch(/human-attested/);
+
+      const allowed = generate(irPath, outDir);
+      expect(allowed.status).toBe(0);
+      expect(existsSync(join(outDir, 'lib'))).toBe(true);
+      expect(existsSync(join(outDir, 'plan.json'))).toBe(true);
+    },
+    30_000,
+  );
+
+  test('an out-of-v1-enum visualStyle.imagery value is rejected (S3-deferred field, D2/D3)', () => {
+    const ir = JSON.parse(readFileSync(HR_SERVICE_IR, 'utf8'));
+    expect(ir.screens[1].name).toBe('LeaveRequestDetailScreen');
+    ir.screens[1].visualStyle.imagery = { value: 'photo' };
+
+    const irPath = join(workDir, 'hr_service.imagery.ir.json');
+    writeFileSync(irPath, JSON.stringify(ir, null, 2));
+    const outDir = join(workDir, 'out_imagery');
+
+    const rejected = generate(irPath, outDir);
+    expect(rejected.status).not.toBe(0);
+    const output = rejected.stdout + rejected.stderr;
+    expect(output).toMatch(/additional propert/i);
+  });
 });
