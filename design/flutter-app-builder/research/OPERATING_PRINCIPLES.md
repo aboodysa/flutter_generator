@@ -24,8 +24,16 @@ source of nondeterminism.
    questions without new evidence.
 9. **Small commits preserve causal history.** Additive changes; one logical commit; clean regeneration
    at the end; pre-existing artifacts remain distinguishable from spike output.
-10. **The loop shape:** Hypothesis → Spike → Evidence → Review → Regression test → Implementation →
-    Determinism proof → Approval.
+ 10. **The loop shape:** Hypothesis → Spike → Evidence → Review → Regression test → Implementation →
+     Determinism proof → Approval.
+ 11. **Context lifetime is a pipeline resource, not a byproduct.** Each objective is an independent
+     execution unit: fresh session → execute → checkpoint/evidence → compact if continuing → fresh
+     session for the next objective. Pass brief/report paths, never conversation history. Repository
+     artifacts (briefs, reports, tests, HANDOFF) are durable state; the session is disposable.
+ 12. **Progress reporting must be observable without becoming context accumulation.**
+     L1 one-liner → L2 decisions+verifies → L3 detail. Never narrate execution into the conversation
+     — that narration IS context, and long sessions are the real usage driver (~95% of usage came
+     from >150k sessions). See `CONTEXT_POLICY.md`.
 
 **Meta-lesson:** LLMs produce decisions and semantic IR; the surrounding system makes those decisions
-testable, reproducible, inspectable, and cheap to operate.
+testable, reproducible, inspectable, and cheap to operate. Context discipline is part of that system.
