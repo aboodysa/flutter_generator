@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 53,
+  "artifactCount": 54,
   "entries": [
     {
       "artifact": "enum:TaskStatus",
@@ -546,6 +546,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/golden_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:viewport_squeeze",
+      "generator": "ViewportSqueezeTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/viewport_squeeze_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

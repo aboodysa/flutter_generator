@@ -364,8 +364,13 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
         const chipRow = chipWidgets.join(",\n                const SizedBox(width: AppSpacing.sm),\n                ");
         blocks.push(`Row(children: [\n                ${chipRow},\n              ])`);
       }
+      // D2#2 (SPIKE_S6_REPORT.md §14.4.3 viewport-squeeze gate caught this): the value Text is the
+      // variable-length part (a full ISO date string) — unwrapped, it forced this Row past its
+      // available width at 320px and RenderFlex-overflowed. Flexible+ellipsis is a no-op at any
+      // width the text already fits (390×844 goldens render byte-identical), and guarantees no
+      // overflow regardless of how long a future date format ever gets.
       for (const f of byRole("date")) {
-        blocks.push(`Row(children: [\n                const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),\n                const SizedBox(width: AppSpacing.xs),\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                const SizedBox(width: AppSpacing.xs),\n                Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium),\n              ])`);
+        blocks.push(`Row(children: [\n                const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),\n                const SizedBox(width: AppSpacing.xs),\n                Text('${fieldLabel(f.name)}', style: Theme.of(context).textTheme.bodySmall),\n                const SizedBox(width: AppSpacing.xs),\n                Flexible(child: Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),\n              ])`);
       }
       for (const f of byRole("description")) {
         blocks.push(`Text(${fieldValue(f, "item")}, style: Theme.of(context).textTheme.bodyMedium)`);

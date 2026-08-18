@@ -13,10 +13,16 @@ abstract final class AppColors {
   static const textPrimary = Color(0xFF1F2937);
   static const textSecondary = Color(0xFF475569);
   static const error = Color(0xFFDC2626);
-  static const success = Color(0xFF16A34A);
-  static const warning = Color(0xFFF59E0B);
-  static const danger = Color(0xFFDC2626);
-  static const info = Color(0xFF2563EB);
+  // D2#1 (SPIKE_S6_REPORT.md §14.1, the [contrast] gate): darkened from the original
+  // 16A34A/F59E0B/DC2626/2563EB — those failed real WCAG math for how AppChip/AppStatusDot
+  // actually paint them (opaque label text over their own color.withValues(alpha: 0.12) tint,
+  // and opaque against AppColors.surface) — see validate.ts's contrastCheck. Same hue family,
+  // darkened just enough to clear 4.5:1/3.0:1; 'error' is untouched (a separate token, not part of
+  // AppChipTone, not painted this way).
+  static const success = Color(0xFF166534);
+  static const warning = Color(0xFF92400E);
+  static const danger = Color(0xFFB91C1C);
+  static const info = Color(0xFF1D4ED8);
 }
 
 // Rhythm / spacing scale (composition layer) — gap by intent, not fixed 16s.

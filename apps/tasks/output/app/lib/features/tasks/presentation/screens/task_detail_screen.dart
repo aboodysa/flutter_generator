@@ -74,7 +74,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text('Due Date', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: AppSpacing.xs),
-                Text(((item.dueDate?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium),
+                Flexible(child: Text(((item.dueDate?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
               const SizedBox(height: 4.0),
               Text(item.description ?? '—', style: Theme.of(context).textTheme.bodyMedium),

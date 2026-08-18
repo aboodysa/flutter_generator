@@ -7,6 +7,7 @@ import { actionsTargets, statePlacementFor } from "../composition";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
 import { GenContext } from "../gen_context";
+import { screenPath } from "../routing";
 
 // MF2: shared auth-aware test plumbing. The router boots to /login when unauthenticated (route.ts's
 // guardPath), so the app-boot regression tests MUST sign in before pumping the real ReplicaApp.
@@ -675,6 +676,84 @@ ${getItImport}import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 ${diImport}
 ${session.import}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * ViewportSqueezeTestGenerator — structural, deterministic, 0% LLM (D2#2, SPIKE_S6_REPORT.md
+ * §14.4.3 / DESIGN.md §14.4.3). Renders EVERY declared screen at three fixed viewports — 320×480
+ * (small phone), 390×844 (iPhone-class, the goldens' own size), 1400×900 (desktop) — and asserts
+ * `tester.takeException()` is null: no RenderFlex overflow or other layout exception at any size.
+ * Run unconditionally across every screen (DESIGN.md §14.4.3: "the 11 real overflows were all on
+ * low-attention admin screens — sampling would miss exactly these"). Assertions-only, no
+ * `matchesGoldenFile` — wiring this in touches zero existing goldens.
+ * Same "pump the real app, appRouter.go(route)" navigation generateFocusTest/generateBackTest
+ * already use, reusing `screenPath` (routing.ts) for the route — works uniformly for
+ * list/detail/wizard/dashboard screens regardless of app topology, no per-screen state seeding
+ * needed. A dynamic `:id` segment gets the same literal 'x' placeholder generateFocusTest/
+ * generateBackTest already rely on (the detail/edit screen's own
+ * `orElse: () => state.<collection>.first` fallback renders real seeded data for it).
+ */
+const VIEWPORT_MATRIX: [string, string][] = [
+  ["320x480", "Size(320, 480)"],
+  ["390x844", "Size(390, 844)"],
+  ["1400x900", "Size(1400, 900)"],
+];
+
+export function generateViewportSqueezeTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string {
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const screens = feature.screens ?? [];
+
+  if (!screens.length) {
+    return `// [generated] generator=ViewportSqueezeTestGenerator template=viewport_squeeze.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('vanilla app has no screens to squeeze-test', () {
+    expect(true, isTrue);
+  });
+}
+`;
+  }
+
+  const session = authSession(feature, pkg, "    ");
+  // Riverpod apps don't register a get_it container (mirrors generateFocusTest/generateGoldenTest's
+  // own sm-branch) — `ReplicaApp` itself wires ProviderScope internally either way, so the pump
+  // statement below needs no sm-branch, only the DI bootstrap does.
+  const setupDi = sm === "riverpod" ? "" : "    setupDependencies();\n";
+  const diImport = sm === "riverpod" ? "" : `import 'package:${pkg}/core/di.dart';\n`;
+
+  const cases = screens.flatMap((s) => {
+    const route = screenPath(screens, s).replace(":id", "x");
+    return VIEWPORT_MATRIX.map(([label, size]) => `  testWidgets('${s.name}: no overflow at ${label}', (tester) async {
+    tester.view.physicalSize = const ${size};
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+${setupDi}${session.boot}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${route}');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: '${s.name} must not overflow at ${label}');
+  });`);
+  });
+
+  // Every case independently calls setupDependencies() (get_it's global singleton) — with more
+  // than one case in this file, the second call throws "already registered" unless the container
+  // is torn down between tests (same fix generateFocusTest/generateScrollTest already carry).
+  const getItReset = sm === "bloc" ? "  setUp(() => GetIt.instance.reset());\n\n" : "";
+  const getItImport = sm === "bloc" ? "import 'package:get_it/get_it.dart';\n" : "";
+
+  return `// [generated] generator=ViewportSqueezeTestGenerator template=viewport_squeeze.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+${diImport}${session.import}
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }

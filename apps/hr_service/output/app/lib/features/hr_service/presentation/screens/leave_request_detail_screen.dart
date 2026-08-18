@@ -87,7 +87,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text('Start Date', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: AppSpacing.xs),
-                Text((item.startDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium),
+                Flexible(child: Text((item.startDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
               const SizedBox(height: AppSpacing.sm),
               Row(children: [
@@ -95,7 +95,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text('End Date', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: AppSpacing.xs),
-                Text((item.endDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium),
+                Flexible(child: Text((item.endDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
               const SizedBox(height: AppSpacing.sm),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

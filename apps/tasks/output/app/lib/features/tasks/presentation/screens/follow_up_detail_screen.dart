@@ -68,7 +68,7 @@ class _FollowUpDetailScreenState extends State<FollowUpDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text('Created At', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: AppSpacing.xs),
-                Text(((item.createdAt?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium),
+                Flexible(child: Text(((item.createdAt?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
               const SizedBox(height: 4.0),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),

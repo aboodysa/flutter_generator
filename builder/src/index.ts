@@ -25,7 +25,7 @@ import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
 import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec } from "./composition";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -281,6 +281,7 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     ["unit_test.dart", generateUnitTest(ir), "UnitTestGenerator"],
     ["flow_test.dart", generateFlowTest(flowTestScope), "FlowTestGenerator"],
     ["golden_test.dart", generateGoldenTest(ir, arch.stateManagement), "GoldenTestGenerator"],
+    ["viewport_squeeze_test.dart", generateViewportSqueezeTest(ir, arch.stateManagement), "ViewportSqueezeTestGenerator"],
   ];
   for (const [f, content, generator] of testFiles) {
     fs.writeFileSync(path.join(testDir, f), content);

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 59,
+  "artifactCount": 60,
   "entries": [
     {
       "artifact": "enum:LeaveType",
@@ -573,6 +573,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/golden_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:viewport_squeeze",
+      "generator": "ViewportSqueezeTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/viewport_squeeze_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
