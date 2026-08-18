@@ -1,96 +1,109 @@
-# HANDOFF — V1 MILESTONE: frozen roadmap COMPLETE (round: 2026-08-18)
+# HANDOFF — VISUAL LANE S1 ✅ / S6 ✅ / S2 ⏳ (round: 2026-08-18)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-**The frozen roadmap is COMPLETE → v1 milestone reached.** S-CTX → P3 → P4 → **P5/D2** → **S-HERMETIC**
-all done. Remaining: **S-TDE (visual lane S1–S7, from `VISUAL_GENERATION_REVIEW.md`)** and
-**S-DEEPLINK** (backlog). P5/D2 is finished as 4 slices + D1 theme; S-HERMETIC closes C12.
+Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) is v1 COMPLETE. Now executing the **visual lane
+S1–S7** (`VISUAL_GENERATION_REVIEW.md`) with two implement lanes: Claude Code (Mac, `s-hermetic`)
+for implementation, remote opencode (tracematrix `germany3`, DeepSeek Flash Free) for read-only
+spikes. Zen session orchestrates/verifies only.
 
-## This round: P5/D2 + S-HERMETIC + visual-lane decision (2026-08-17/18)
+## This round: S1 done+approved, S6 done, S2 in flight
 
-### P5/D2 — state-model-conditional placement, COMPLETE (4 slices + D1)
+### S1 — VisualIntent fragment, **APPROVED for shipment**
 
-- **D1 (theme)** `4e60c76` — `normalizeBrandSeed` (teal fallback 0D9488), `buildThemeDark()`,
-  `AppAttributes.{brandSeedColor,themeMode}` (additive), dark goldens, `[theme]` gate
-  (`validate.ts:79`, wired :1122).
-- **Slice 1** `eff7168` — `StatePlacementSpec` + `statePlacementFor()` in composition.ts, plan/ctx
-  wiring.
-- **Slice 2** `38111b4` — screen.ts renders the spec; wizard (null spec) emits no loading/failure
-  → fixes the wizard compile bug.
-- **Slice 3** `e715646`+`6627d70`+`9d3e74b`+`c81049c` — empty-state CTA "New <Entity>"
-  (`crudFormTargets`-gated, FAB nav), Retry `OutlinedButton` + `RefreshIndicator` on LIST screens
-  only (owner decision); non-CRUD → no CTA; wizard/detail → nothing new; `*_empty.png` goldens.
-- **Slice 4** `5256671`+`41c3a9d` — `[states]` gate (`validate.ts:647`, exported, wired :1266);
-  re-derives `statePlacementFor` vs plan.json `patterns.states` + screen markers; retry marker
-  requires `screen.type==="list"`. 3 negative controls demonstrated as real runs.
+- Spike `bb68a9e` → impl (7 commits `c848640`→`f030dd4`) → goldens/QA `a6f7a51` → evidence v3
+  `8c13198` → regression tests `061cf7e`,`d31f73c`,`16b00bd`,`19332d6` → **owner Verdict: APPROVED**
+  (5/5 on evidence v3; caveat was standalone PNGs, delivered).
+- `ScreenModel.visualStyle` optional `{hierarchy, cornerRadius, personality}`; each value is a
+  `VisualStyleValue<T>` with provenance; `visualFor()` (composition.ts) → `plan.json
+  patterns.visual`; `[visualIntent]` gate (`validate.ts:741`) re-derives + closed-enums +
+  blocks unattested nested visualStyle. AppColors theme remains app-level; `userSelections
+  .visualFor` no longer authored by hand.
+- Proof screens: tasks TaskListScreen = friendly/rounded; hr_service LeaveRequestDetailScreen =
+  professional/sharp/strong (hero "Leave request"); ledgerly ExpenseClaimListScreen = premium/soft.
+- Tests: `test/s1_visual_intent.test.ts` 20/20 (token-agreement 6, provenance 9, trust-boundary 2,
+  determinism 3). Determinism canon: `find|sort|xargs shasum|shasum` (naïve unsorted differs).
 
-### S-HERMETIC — toolchain hermeticity, COMPLETE (3 slices)
+### S6 — no-vision-judge coverage, **D2 implemented (slices 1-4)**
 
-- Spike (remote germany3/DeepSeek) `af5bdb3` — decisions: **D1 ADOPT (b)** caret+committed
-  per-app `pubspec.lock` / REJECT exact pins; **D2 ADOPT** toolchain pin doc; **D3 CONFIRM+ADOPT**
-  timestamp-absence gate. Found + grounded real drift: generated `sdk: ^3.0.0` below the proven
-  floor; stale `localeDataVersion "intl-0.19.0"` vs resolved 0.20.2.
-- Impl (Claude Mac): **`cebae60`** `[lockfile]`+`[timestamp]` gates; **`23a52ee`** SDK floor
-  `>=3.11.0 <4.0.0` + intl-from-lock in context.ts; **`6a2e26d`** `FLUTTER_TOOLCHAIN.md` + C12
-  closure; **`d7e9b28`** bonus — `[determinism]` crashed on real diffs (execSync no try/catch,
-  like swiftdeterminism).
-- Verified: typecheck clean; 4 apps regen — lib+plan.json byte-identical (only sdk line +
-  localeDataVersion changed); validate 29/29 (rasheed_replica WARNs floor-differs per ratified
-  severity; expense.semantic_app ERRORs no-lock — pre-existing); negative controls fired; `pub get`
-  reproduced the lock byte-for-byte.
+- Spike `182af5c` (D1 ADOPT all §18 defects deterministic; D2 ADOPT validator list; D3 CONFIRM
+  golden-diff; D4 CONFIRM S1 interplay). §18 REJECT of LLM-visual-judge stands.
+- Impl (Claude): `d8a46f6` `[contrast]` WCAG gate (real luminance on theme tokens; found+fixed 2
+  genuine pre-existing chip failures); `871fab1` darken AppColors.success/warning/danger/info;
+  `da811fc` per-screen viewport-squeeze generator (320/390/1400, assertions-only, caught+fixed a
+  real 2.5px overflow on 3 detail screens); `facc2fe` `[literals]` raw spacing/typography scan all
+  screens (token-routed itemGap/heroGap, zero golden churn). Gates PASS all apps; jest 20/20; npm
+  test 63/63; typecheck clean.
+- Deferred: slice 3 `[asset-ref]`/`[aspect-ratio]` (S3 not in tree — gated on S3); slice 5
+  A11yTestGenerator → queued as its own fresh objective (context policy).
 
-### Visual-lane product decision (Opus + ChatGPT ADOPT)
+### Ops: context policy + orchestrator framework (ChatGPT review adopted)
 
-- `F_brief` `cb94e94` + review `eadee35` — Claude Opus reviewed the owner's visual-generation
-  proposal: **13 ACCEPT / 6 MODIFY / 1 DEFER / 1 REJECT** (REJECT §18 LLM-visual-judge loop;
-  kept via deterministic validators + human goldens). Spike backlog S1–S7 with priorities.
-- ChatGPT replied **ADOPT WITH MODIFY** (record `039a8d6`); Opus produced contract **v2**
-  `40e40e1` (`VLM_DESIGN_TO_IR_CONTRACT_V2.md`): provenance envelope
-  `{origin,confidence,evidence,requiresApproval}` on every inferred decision, Observed/Inferred/
-  Proposed/Approved split, id'd+nested sections with `emphasis.targetId`, AssetRequest decoupled,
-  observations[] with evidence regions, **evidence coords ≠ layout coords**, existing `dashboard`
-  archetype (not "market"), productGrid never encodes columns (320→1/390→2/1400→N), acceptance:
-  provenance on every inferred value + no silent promotion.
+- `CONTEXT_POLICY.md` + OPERATING_PRINCIPLES 11-12 (`6937718`): each objective = independent fresh
+  session; context is a pipeline resource; artifacts are durable state; progress observable WITHOUT
+  context accumulation (L1/L2/L3 levels).
+- `tools/orchestrator/` (`a738763`+helpers): report.sh (L0-L3, 6 tags), run_loop.sh
+  (objective.md-driven guard→dispatch→poll→verify→escalate/recover→COMPLETE), poll.sh, tgsend.sh,
+  pdf_build.sh, genapp.sh, dispatch_kill_fresh.sh, capture_golden.sh.
+- Lessons `cf44427`, principles `549f37f` (now 12).
 
 ## Ground truth table
 
 | Area | State |
 |---|---|
-| Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) | ✅ **v1 COMPLETE** |
-| P5/D2 (placement) | ✅ COMPLETE (4 slices + D1) |
-| S-HERMETIC (C12) | ✅ COMPLETE |
-| VLM contract v2 | ✅ (product decision, ready for S1+) |
-| S1 VisualIntent spike (P0) | **Next** (entry vocabulary for UI-SLC) |
-| S6 no-vision-judge (P0) | Next (before any visual-QA work) |
-| S2 section-layout IR / S5 banner (P1/P2) | After S1 |
-| S3 asset ladder / S4 asset manifest (P1) | After P4-data layer / at S-HERMETIC hardening |
+| Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) | ✅ v1 COMPLETE |
+| S1 VisualIntent (P0) | ✅ **APPROVED for shipment** |
+| S6 no-vision-judge (P0) | ✅ spike closed; D2 slices 1,2,4 done; slice 3 deferred to S3 |
+| S2 section-layout IR (P0) | ⏳ **spike in flight** on germany3 (was @69% last check) |
+| S3 asset ladder / S4 asset manifest (P1) | Next after S2/S6 |
+| S5 banner-composition (P2) | After S3 |
 | S7 AI asset gen | Post-v1 / Phase 4 (trust boundary) |
 | S-DEEPLINK | Backlog / owner call |
+
+## Verdicts & review record
+
+- S1: owner APPROVED (evidence v3, 5/5, standalone PNGs delivered). Review checklist lives in
+  `S1_PROOF_SCREENS.html` review-instructions section.
+- S6: D1-D4 closed (see `SPIKE_S6_REPORT.md` §13). Slice 3 needs S3 in tree.
+- Display-side open item: same-screen showcase (TaskListScreen @ A_rounded/B_sharp/C_pill) contact
+  sheet has a caption-render TODO (ImageMagick convert font issue → use `magick` + pinned
+  `/System/Library/Fonts/*.ttf`); artifacts at `/Users/username/temp/opencode/s1_showcase/`.
 
 ## Verification commands
 ```bash
 npm run typecheck:builder
 npx ts-node --transpile-only builder/src/index.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
 npx ts-node --transpile-only builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
+npx jest test/s1_visual_intent.test.ts          # S1 regression, 20/20
+npm test                                        # full builder suite, 63/63
 cd apps/<app>/output/app && flutter pub get && flutter analyze && flutter test
 ```
 
-## Next steps (not started, for whoever picks this up)
+## Next steps (in order)
 
-1. **S1 — typed VisualIntent fragment** (P0): closed-enum `visualStyle` on ScreenModel, feeds §5.2
-   scoring, zero new raw literals, byte-identical re-run. Spike (remote) → then impl slice.
-2. **S6 — Section-18 defect coverage without a vision judge** (P0): proves the rejected
-   LLM-visual-analyzer's intent is fully covered by deterministic validators + human goldens.
-3. **S2 section-layout IR + S5 banner-composition** — the Keemart-level visual richness pass.
-4. **S3 asset ladder, S4 asset manifest** — deterministic, no-AI (AI deferred to S7/Phase 4).
-5. **S-DEEPLINK** — backlog/owner call (see SPIKE_PLAN.md).
-6. **VLM contract v2 → feed the S1 spike brief** so the VLM-mapping contract and the IR fragment
-   stay consistent.
+1. **S2 spike → close**: poll germany3 (content-change detection, not `❯`), scp
+   `SPIKE_S2_REPORT.md`, review D1-D5 against the brief, commit `S2_SPIKE_REPORT.md` + push →
+   Telegram summary → S2 impl brief for Claude.
+2. **S6 slice 5** (A11yTestGenerator) as a FRESH Claude objective (per context policy — do not reuse
+   the bloated s-hermetic session; `/clear` it first).
+3. **S3 asset ladder spike** (dispatch to server when a slot frees / quota available) → then S6 slice
+   3 `[asset-ref]`/`[aspect-ratio]` gates flip ON.
+4. Finish the same-screen showcase contact sheet (magick + pinned font) and deliver the PDF.
+5. Keep looping S2→S3→S4→S5 (+ S7 later). Each spike closes decisions with ONE verb
+   (SPIKE_PROTOCOL), implementation goes to Claude first (remote as fallback), zen verifies.
 
 ## Rules
+
 Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;
-backward-compat via stash+regen+diff; zen = orchestrator, Claude-first implementer (remote opencode
-fallback), spikes on remote agents per SPIKE_PROTOCOL; report everything to owner on Telegram; keep
-HANDOFF lean (archive to context_history with dated header).
+backward-compat via stash+regen+diff; zen = orchestrator (Claude-first implementer, remote opencode
+fallback); spikes on remote agents per SPIKE_PROTOCOL; CONTEXT_POLICY applies to every lane;
+report everything to owner on Telegram (goldens as photos, files as sendDocument, text in separate
+short messages); keep HANDOFF lean (archive to context_history with dated header).
+
+## Lanes
+
+- **s-hermetic** (Claude Code 2.1.210, Mac): idle/checkpointed after S6; slice 5 queued fresh.
+- **germany3** (remote tracematrix, DeepSeek Flash Free): S2 spike running.
+- Mac git origin HEAD: `6937718`. Remote /root/fg-p5: synced (verify before next dispatch).
