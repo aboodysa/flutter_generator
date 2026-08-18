@@ -5,7 +5,7 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor, sectionsFor } from "./composition";
 import { screenPath } from "./routing";
 import { DART_SDK_FLOOR } from "./toolchain";
 import { unapprovedElements } from "./provenance";
@@ -1001,6 +1001,147 @@ export function visualIntentCheck(ir: any, outDir: string, files: string[]): str
   return issues;
 }
 
+// S2 (SPIKE_S2_REPORT.md §14.6) — the `[sections]` gate. Same centralized-decision posture as
+// [visualIntent]:
+//   (a) re-derive `sectionsFor` fresh for every screen and diff against plan.json's recorded
+//       patterns.sections — INCLUDING the null case;
+//   (b) closed-enum + archetype pairing: `sections` is only meaningful on a type:"sections"
+//       screen — a "sections" screen declaring none, or any other archetype declaring some, is an
+//       ERROR (never a silent fallback, D1's rejected alternative);
+//   (c) belt-and-suspenders raw-IR scan: no section object may carry a key outside
+//       {id,type,title,children} (columns/width/height/aspectRatio/padding/x/y) — schema already
+//       hard-rejects this at generation time (additionalProperties:false); this re-verifies
+//       against the RAW ir this gate itself was handed, independent of whatever produced the
+//       already-existing outDir;
+//   (d) marker scan: every declared section TYPE leaves its mapped component's marker in the
+//       generated screen, no OTHER archetype ever emits a sections marker, and every grid/rail
+//       extent this branch emits is an AppTokens.* token reference, never a raw literal.
+export function sectionsCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // (b) archetype pairing — never a silent fallback.
+  for (const screen of screens) {
+    const declared = Array.isArray(screen.sections) ? screen.sections : undefined;
+    if (screen.type === "sections" && (!declared || !declared.length)) {
+      issues.push(`[sections] screen '${screen.name}' has type:"sections" but declares no sections`);
+    }
+    if (screen.type !== "sections" && declared && declared.length) {
+      issues.push(`[sections] screen '${screen.name}' (type:"${screen.type}") declares sections — only a type:"sections" screen may`);
+    }
+  }
+
+  // (c) belt-and-suspenders raw-IR scan against the RAW ir object (schema already hard-rejects
+  // this at generation time — this independently re-verifies the IR this gate itself was handed).
+  const ALLOWED_KEYS = new Set(["id", "type", "title", "children"]);
+  const CLOSED_TYPES = new Set(["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "section", "divider", "floatingCart"]);
+  const scanSection = (screenName: string, sec: any, depth: number) => {
+    if (!sec || typeof sec !== "object") return;
+    for (const key of Object.keys(sec)) {
+      if (!ALLOWED_KEYS.has(key)) issues.push(`[sections] screen '${screenName}' section '${sec.id}' carries disallowed key '${key}' (no coordinates/columns/pixels — never IR-side)`);
+    }
+    if (typeof sec.type === "string" && !CLOSED_TYPES.has(sec.type)) {
+      issues.push(`[sections] screen '${screenName}' section '${sec.id}' has unknown type '${sec.type}' — not in the v1 closed enum`);
+    }
+    if (sec.children) {
+      if (sec.type !== "section") issues.push(`[sections] screen '${screenName}' section '${sec.id}' (type '${sec.type}') declares children — only type:"section" may`);
+      if (depth > 0) issues.push(`[sections] screen '${screenName}' section '${sec.id}' nests children past depth 1`);
+      for (const child of sec.children) scanSection(screenName, child, depth + 1);
+    }
+  };
+  for (const screen of screens) {
+    for (const sec of screen.sections ?? []) scanSection(screen.name, sec, 0);
+  }
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[sections] plan.json missing in ${outDir} — cannot verify sections decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.sections ?? {};
+  const recordedPaths = new Set(Object.keys(recorded));
+  const expectedPaths = new Set<string>();
+  const specEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
+
+  // (a) plan.json vs fresh re-derivation — same "stale plan entry" posture as [visualIntent].
+  for (const screen of screens) {
+    const spec = sectionsFor(screen, flat);
+    const p = screenPath(screens, screen);
+    if (spec) {
+      expectedPaths.add(p);
+      if (!recordedPaths.has(p)) {
+        issues.push(`[sections] '${p}' should declare sections (screen has sections[]) but plan.json's patterns.sections has no entry for it`);
+      } else if (!specEqual(spec, recorded[p])) {
+        issues.push(`[sections] '${p}' plan.json entry does not match the re-derived decision`);
+      }
+    } else if (recordedPaths.has(p)) {
+      issues.push(`[sections] '${p}' has a plan.json patterns.sections entry but re-deriving sectionsFor against the current IR returns null — stale plan entry`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedPaths.has(p)) {
+      issues.push(`[sections] plan.json declares sections for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // (d) marker scan — the sections renderer only ever exists on a type:"sections" screen (D2's
+  // single-routing-site guarantee); every OTHER archetype must never emit a sections marker.
+  const SECTION_MARKER: Partial<Record<string, string>> = {
+    hero: "AppHeroBanner(",
+    promoBanner: "AppHeroBanner(",
+    productGrid: "AppProductCard(",
+    horizontalCards: "AppListCard(",
+    divider: "Divider()",
+    search: "SearchBar(",
+  };
+  const CROSS_ARCHETYPE_MARKERS = ["AppHeroBanner(", "AppProductCard(", "SliverGridDelegateWithMaxCrossAxisExtent("];
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+
+    if (screen.type !== "sections") {
+      for (const marker of CROSS_ARCHETYPE_MARKERS) {
+        if (src.includes(marker)) issues.push(`[sections] '${p}' (${screen.name}, type '${screen.type}') emits sections marker '${marker}' — sections must only render on a type:"sections" screen`);
+      }
+      continue;
+    }
+    const spec = sectionsFor(screen, flat);
+    if (!spec) continue; // (b) above already reported the sections-screen-with-none case
+
+    const allTypes = spec.sections.flatMap((sec: any) => [sec.type, ...(sec.children ?? []).map((c: any) => c.type)]);
+    for (const t of allTypes) {
+      const marker = SECTION_MARKER[t];
+      if (marker && !src.includes(marker)) {
+        issues.push(`[sections] '${p}' (${screen.name}) declares a '${t}' section but no '${marker}' marker found in the generated screen`);
+      }
+    }
+
+    // Token-only extents: the grid/rail extents this branch emits must always be AppTokens.* — a
+    // raw maxCrossAxisExtent/mainAxisExtent/SizedBox(width|height:) number would mean the renderer
+    // regressed into a literal (SPIKE_S2_REPORT.md §9: "renderer emits a raw extent" → FAIL).
+    for (const m of src.matchAll(/(maxCrossAxisExtent|mainAxisExtent):\s*([^,\n]+)/g)) {
+      const val = (m[2] ?? "").trim();
+      if (!val.startsWith("AppTokens.")) {
+        issues.push(`[sections] '${p}' (${screen.name}) emits a raw grid extent '${m[0]}' — must be an AppTokens.* token, never a literal`);
+      }
+    }
+    for (const m of src.matchAll(/SizedBox\(\s*(?:width|height):\s*([^,)\n]+)/g)) {
+      const val = (m[1] ?? "").trim();
+      if (/\d/.test(val) && !val.startsWith("AppTokens.")) {
+        issues.push(`[sections] '${p}' (${screen.name}) emits a raw SizedBox extent '${m[0]}' — must be an AppTokens.* token, never a literal`);
+      }
+    }
+  }
+
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -1338,6 +1479,7 @@ export interface ValidationResult {
   actions: number;   // count of per-screen-action issues: plan/output drift, missing/unexpected action, unconfirmed delete, save FAB (P4)
   states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
   visualIntent: number; // count of visual-intent issues: plan/output drift, unapproved nested visualStyle value, v1-closed-enum violation, raw radius literal (S1)
+  sections: number;  // count of section-list issues: plan/output drift, archetype-pairing misuse, disallowed section keys/unknown types, missing per-type marker, raw grid/rail extent (S2)
   lockfile: number;  // count of missing pubspec.lock (ERROR only; floor-differs is a warning, logged but not counted — S-HERMETIC)
   timestamps: number; // count of header-band build-time date/timestamp stamps (S-HERMETIC)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
@@ -1399,7 +1541,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, planDeterminism: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, sections: 0, planDeterminism: 0,
     theme: 0, contrast: 0, literals: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
@@ -1641,6 +1783,14 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...visualIntentIssues);
   const visualIntent = visualIntentIssues.length;
 
+  // Section-list layout (S2): plan.json's recorded sections decisions must match a fresh
+  // re-derivation (same sectionsFor), sections may only appear on a type:"sections" screen, no
+  // raw coordinate/columns key survives, and every declared section type leaves its mapped
+  // component's marker with token-only extents.
+  const sectionsIssues = sectionsCheck(ir, outDir, files);
+  issues.push(...sectionsIssues);
+  const sections = sectionsIssues.length;
+
   // Lockfile governance (S-HERMETIC 14.1): missing pubspec.lock is an ERROR (counted below);
   // floor-differs is a WARNING, logged into issues but never counted toward `lockfile`.
   const lockfileResult = lockfileCheck(outDir);
@@ -1656,7 +1806,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, literals, outbox, platform, shell, search,
-    scroll, actions, states, visualIntent, lockfile, timestamps,
+    scroll, actions, states, visualIntent, sections, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1715,9 +1865,10 @@ function main() {
   console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
   console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
   console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
+  console.log(`[sections] ${r.sections === 0 ? "PASS" : "FAIL (" + r.sections + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
