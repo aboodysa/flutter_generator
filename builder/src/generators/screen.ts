@@ -408,6 +408,15 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       : null;
     const stockExpr = stockField ? chipToneExpr(stockField, "toneForStatus") : null;
     const escapeStr = (v: string) => v.replace(/'/g, "\\'");
+    // S2.1 GAP-2 (S2_HARDENING_BRIEF_CLAUDE.md): every emitted section carries a
+    // ValueKey('section-<id>') — makes `id` meaningful (keyed rendering + widget-test selectors +
+    // future deep-link anchors) instead of pure IR bookkeeping. The `[sections]` gate's own
+    // duplicate-id check is what guarantees this key is actually unique per screen.
+    const sectionKey = (id: string) => `ValueKey('section-${id}')`;
+
+    // Empty-list copy shared by productGrid's inline EmptyState (GAP-3) — same "No <Title> yet"
+    // convention the list branch's own plainEmptyExpr already uses.
+    const sectionsEmptyExpr = `EmptyState(message: 'No ${appBarTitle} yet')`;
 
     // Depth-1 recursion (schema-enforced: `children` only exists on type:"section", one level,
     // leaves only — types.ts/screen.schema.json) — `indent` keeps nested Column children readable
@@ -419,26 +428,35 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
       switch (section.type) {
         case "header":
           return section.title
-            ? `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleLarge)),`
+            ? `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleLarge)),`
             : ""; // the Scaffold's own AppBar (below) already renders the chrome header — a
                   // titleless `header` section is a structural marker only, nothing extra to emit.
         case "search":
           // Decorative only in this slice (P2's searchFor/`_query` wiring is list-archetype-only,
           // composition.ts:157) — a stock Material SearchBar, same posture the list branch's own
           // SearchBar block already documents (screen.ts's search precedent, no registry wrapper
-          // needed for a stock widget).
-          return `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search))),`;
+          // needed for a stock widget). Still respects the decided radiusScale.search (S1 token
+          // rigor, S2_HARDENING_BRIEF_CLAUDE.md: "respect all of it") — same searchShapeArg the
+          // list branch's own SearchBar applies, so a sections home's search field is just as
+          // sharp/pill as a list screen's under the same cornerRadius decision.
+          return `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search)${searchShapeArg})),`;
         case "hero":
         case "promoBanner":
-          return `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, ${itemGapExpr}), child: AppHeroBanner(headline: '${escapeStr(section.title ?? appBarTitle)}', compact: ${section.type === "promoBanner"}${radiusArg})),`;
+          return `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, ${itemGapExpr}), child: AppHeroBanner(headline: '${escapeStr(section.title ?? appBarTitle)}', compact: ${section.type === "promoBanner"}${radiusArg})),`;
         case "productGrid":
           // SliverGridDelegateWithMaxCrossAxisExtent: columns are f(width) by construction (never
           // an IR column count — VLM_DESIGN_TO_IR_CONTRACT_V2.md:304-305's "no columns" rule);
           // mainAxisExtent is a fixed token row height (a product card's title+price+stock+add
           // content needs more room than the delegate's own 1.0 default childAspectRatio gives).
+          // S2.1 GAP-3: the grid sits inside a shrinkWrapped NeverScrollableScrollPhysics parent —
+          // an empty backing list renders zero children (a real but invisible empty state), so an
+          // inline EmptyState stands in for the grid when the collection is empty.
           return `${indent}Padding(
+${indent}  key: ${sectionKey(section.id)},
 ${indent}  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-${indent}  child: GridView.builder(
+${indent}  child: state.${collection}.isEmpty
+${indent}      ? ${sectionsEmptyExpr}
+${indent}      : GridView.builder(
 ${indent}    shrinkWrap: true,
 ${indent}    physics: const NeverScrollableScrollPhysics(),
 ${indent}    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -463,6 +481,7 @@ ${indent}  ),
 ${indent}),`;
         case "horizontalCards":
           return `${indent}SizedBox(
+${indent}  key: ${sectionKey(section.id)},
 ${indent}  height: AppTokens.cardHeight,
 ${indent}  child: ListView.builder(
 ${indent}    scrollDirection: Axis.horizontal,
@@ -482,17 +501,17 @@ ${indent}  ),
 ${indent}),`;
         case "sectionHeader":
           return section.title
-            ? `${indent}Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleMedium)),`
+            ? `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs), child: Text('${escapeStr(section.title)}', style: Theme.of(context).textTheme.titleMedium)),`
             : "";
         case "section": {
           const children = (section.children ?? []).map((c) => renderSection(c, `${indent}  `)).filter(Boolean);
           if (!children.length) return "";
-          return `${indent}Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          return `${indent}Column(key: ${sectionKey(section.id)}, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 ${children.join("\n")}
 ${indent}]),`;
         }
         case "divider":
-          return `${indent}const Padding(padding: EdgeInsets.symmetric(vertical: AppSpacing.xs), child: Divider()),`;
+          return `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs), child: const Divider()),`;
         case "floatingCart":
           return ""; // rendered as the Scaffold's floatingActionButton (below), not inline here.
         default: {
