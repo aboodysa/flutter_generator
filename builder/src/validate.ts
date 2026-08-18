@@ -134,6 +134,8 @@ function themeCheck(ir: any, files: string[]): string[] {
 //     render that never happens. Its actual on-screen role is M3's dynamically-derived tonal
 //     palette, which (like textTheme's default colors) is out of reach without reimplementing
 //     Material Color Utilities — genuinely undeterminable statically, not skipped for convenience.
+//   - dark scaffoldBackgroundColor/fillColor are only checked when the IR actually opts into
+//     dark/system themeMode — buildThemeDark() is dead code otherwise (same reasoning as primary).
 // theme.dart is 100% generator-owned (no user region ever appears in it), so every finding here is
 // `generated`-region, never advisory (§14.1 v3.4's inherited-region carve-out is vacuous for this
 // file, by construction).
@@ -193,10 +195,20 @@ function contrastCheck(ir: any, files: string[]): string[] {
   if (scaffoldLight) backgrounds.push({ label: "light scaffoldBackgroundColor", hex: scaffoldLight });
   const fillLight = bgOf(lightBlock, "fillColor");
   if (fillLight) backgrounds.push({ label: "light fillColor", hex: fillLight });
-  const scaffoldDark = bgOf(darkBlock, "scaffoldBackgroundColor");
-  if (scaffoldDark) backgrounds.push({ label: "dark scaffoldBackgroundColor", hex: scaffoldDark });
-  const fillDark = bgOf(darkBlock, "fillColor");
-  if (fillDark) backgrounds.push({ label: "dark fillColor", hex: fillDark });
+
+  // buildThemeDark() is only ever ACTIVATED when the IR opts in (themeCheck's own default:
+  // attributes.themeMode ?? "light" forces ThemeMode.light at the app root) — for every app that
+  // stays on the default, dark backgrounds are unreachable dead code today, so checking AppColors
+  // (a single, non-brightness-aware palette) against them would flag a render that can never
+  // happen, the same reasoning that excludes `primary` above. "system" can resolve to dark via the
+  // OS, so it's treated the same as an explicit "dark" opt-in.
+  const themeMode = flattenedIr(ir).attributes?.themeMode ?? "light";
+  if (themeMode === "dark" || themeMode === "system") {
+    const scaffoldDark = bgOf(darkBlock, "scaffoldBackgroundColor");
+    if (scaffoldDark) backgrounds.push({ label: "dark scaffoldBackgroundColor", hex: scaffoldDark });
+    const fillDark = bgOf(darkBlock, "fillColor");
+    if (fillDark) backgrounds.push({ label: "dark fillColor", hex: fillDark });
+  }
 
   const opaqueAgainst = (tokenName: string, threshold: number, kind: string, backgroundsToUse: { label: string; hex: string }[]) => {
     const fgHex = tokens.get(tokenName);
