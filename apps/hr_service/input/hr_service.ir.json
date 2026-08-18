@@ -301,7 +301,13 @@
       "name": "LeaveRequestDetailScreen",
       "entity": "LeaveRequest",
       "type": "detail",
-      "state": "LeaveRequestList"
+      "state": "LeaveRequestList",
+      "hero": "Leave request",
+      "visualStyle": {
+        "personality": { "value": "professional" },
+        "cornerRadius": { "value": "sharp" },
+        "hierarchy": { "value": "strong" }
+      }
     },
     {
       "name": "ApprovalListScreen",

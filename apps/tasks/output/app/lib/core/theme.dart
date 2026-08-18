@@ -33,6 +33,23 @@ abstract final class AppRadius {
   static const control = 12.0;
   static const surface = 16.0;
   static const container = 24.0;
+
+  // S1 (SPIKE_S1_REPORT.md §14.2): per-screen cornerRadius scale groups — composition.ts's
+  // visualFor() selects one of these by name (never a raw number at the call site); the flat
+  // control/surface/container above stay the app-wide default and are also what "rounded"
+  // aliases, so a screen with cornerRadius: "rounded" renders the same numbers as no visualStyle.
+  static const sharpControl = 4.0;
+  static const sharpSurface = 8.0;
+  static const sharpContainer = 16.0;
+  static const softControl = 8.0;
+  static const softSurface = 12.0;
+  static const softContainer = 20.0;
+  static const roundedControl = control;
+  static const roundedSurface = surface;
+  static const roundedContainer = container;
+  static const pillControl = 16.0;
+  static const pillSurface = 24.0;
+  static const pillContainer = 999.0;
 }
 
 ThemeData buildTheme() => ThemeData(

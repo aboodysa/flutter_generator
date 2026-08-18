@@ -258,7 +258,11 @@
       "name": "TaskListScreen",
       "entity": "Task",
       "type": "list",
-      "state": "TaskList"
+      "state": "TaskList",
+      "visualStyle": {
+        "personality": { "value": "friendly" },
+        "cornerRadius": { "value": "rounded" }
+      }
     },
     {
       "name": "TaskDetailScreen",

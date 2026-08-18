@@ -795,6 +795,18 @@
         "retry": true,
         "refresh": true
       }
+    },
+    "visual": {
+      "/leave-request/:id": {
+        "radiusScale": {
+          "control": "AppRadius.sharpControl",
+          "surface": "AppRadius.sharpSurface",
+          "container": "AppRadius.sharpContainer"
+        },
+        "baseSpacing": "AppSpacing.sm",
+        "heroScale": 2,
+        "surfaceBias": "inherit"
+      }
     }
   }
 }

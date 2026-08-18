@@ -85,7 +85,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         itemBuilder: (_, i) {
                           final item = filtered[i];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,
@@ -93,7 +93,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                               title: Text(item.title),
                               subtitle: Text('${((item.dueDate?.toIso8601String() ?? '').split('T').first)} · ${item.priority.name}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push('/task/${item.id}'),
+                              onTap: () => context.push('/task/${item.id}'), radius: AppRadius.roundedSurface,
                             ),
                           );
                         },

@@ -326,7 +326,11 @@
           "entity": "ExpenseClaim",
           "type": "list",
           "state": "ExpenseClaimList",
-          "export": "csv"
+          "export": "csv",
+          "visualStyle": {
+            "personality": { "value": "premium" },
+            "cornerRadius": { "value": "soft" }
+          }
         },
         {
           "name": "ExpenseClaimDetailScreen",

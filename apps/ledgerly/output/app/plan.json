@@ -1524,6 +1524,18 @@
         "retry": true,
         "refresh": false
       }
+    },
+    "visual": {
+      "/expense-claim": {
+        "radiusScale": {
+          "control": "AppRadius.softControl",
+          "surface": "AppRadius.softSurface",
+          "container": "AppRadius.softContainer"
+        },
+        "baseSpacing": "AppSpacing.lg",
+        "heroScale": 1,
+        "surfaceBias": "card"
+      }
     }
   }
 }

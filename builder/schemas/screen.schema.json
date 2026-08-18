@@ -97,6 +97,59 @@
         "additionalProperties": false
       }
     },
+    "hero": {
+      "type": "string",
+      "description": "S1: optional field name or literal headline rendered as the screen's focal point (only visible when the archetype's composition.ts entry has hasHero:true)."
+    },
+    "visualStyle": {
+      "type": "object",
+      "description": "S1 (SPIKE_S1_REPORT.md §14.1, D1/D2): per-screen visual-intent fragment. Feeds composition.ts's deterministic visualFor scoring selector only — never selects a widget/asset directly. density stays app-level (AppAttributes.density), not duplicated here. imagery (S3) and emphasis (S2) are deliberately NOT part of this v1 set (D2/D3) — the [visualIntent] gate rejects them if present.",
+      "properties": {
+        "hierarchy": {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": { "enum": ["soft", "balanced", "strong"] },
+            "actor": { "type": "string" },
+            "origin": { "enum": ["deterministic", "schema-structural", "schema-interpreted", "llm-inferred", "human-confirmed"] },
+            "confidence": { "type": "number" },
+            "confidenceSource": { "enum": ["deterministic", "second-party", "human-attested"] },
+            "requiresApproval": { "type": "boolean" },
+            "source": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "cornerRadius": {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": { "enum": ["sharp", "soft", "rounded", "pill"] },
+            "actor": { "type": "string" },
+            "origin": { "enum": ["deterministic", "schema-structural", "schema-interpreted", "llm-inferred", "human-confirmed"] },
+            "confidence": { "type": "number" },
+            "confidenceSource": { "enum": ["deterministic", "second-party", "human-attested"] },
+            "requiresApproval": { "type": "boolean" },
+            "source": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "personality": {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": { "enum": ["professional", "friendly", "premium", "playful", "minimal"] },
+            "actor": { "type": "string" },
+            "origin": { "enum": ["deterministic", "schema-structural", "schema-interpreted", "llm-inferred", "human-confirmed"] },
+            "confidence": { "type": "number" },
+            "confidenceSource": { "enum": ["deterministic", "second-party", "human-attested"] },
+            "requiresApproval": { "type": "boolean" },
+            "source": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "actor": {
       "type": "string"
     },

@@ -106,7 +106,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                         itemBuilder: (_, i) {
                           final item = filtered[i];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,
@@ -114,7 +114,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                               title: Text(item.name),
                               subtitle: Text('${item.amount.format()} · ${item.status.name}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push('/expense-claim/${item.id}'),
+                              onTap: () => context.push('/expense-claim/${item.id}'), radius: AppRadius.softSurface,
                             ),
                           );
                         },

@@ -72,13 +72,16 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.xl),
+          child: Text('Leave request', style: Theme.of(context).textTheme.headlineMedium),
+        ),
               Text(item.name, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(children: [
                 AppChip(label: item.status.name, tone: AppChip.toneForStatus(item.status.name)),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
@@ -86,7 +89,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text((item.startDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
@@ -94,30 +97,30 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Text((item.endDate.toIso8601String().split('T').first), style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Leave Type', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.leaveType.name, style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Days', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.days.toString(), style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Reason', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.reason ?? '—', style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.sm),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Exported', style: Theme.of(context).textTheme.bodySmall),
                 Text((item.exported ? 'yes' : 'no'), style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
-              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
-              const SizedBox(height: 4.0),
-              AppListCard(card: true, title: Text('View Approvals'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/approval?leaveRequestId=${id}')),
+              const SizedBox(height: AppSpacing.sm),
+              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall), radius: AppRadius.sharpSurface),
+              const SizedBox(height: AppSpacing.sm),
+              AppListCard(card: true, title: Text('View Approvals'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/approval?leaveRequestId=${id}'), radius: AppRadius.sharpSurface),
               ],
             );
         },

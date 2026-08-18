@@ -748,6 +748,18 @@
         "retry": true,
         "refresh": false
       }
+    },
+    "visual": {
+      "/task": {
+        "radiusScale": {
+          "control": "AppRadius.roundedControl",
+          "surface": "AppRadius.roundedSurface",
+          "container": "AppRadius.roundedContainer"
+        },
+        "baseSpacing": "AppSpacing.md",
+        "heroScale": 1,
+        "surfaceBias": "card"
+      }
     }
   }
 }

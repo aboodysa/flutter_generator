@@ -107,6 +107,7 @@ class AppListCard extends StatelessWidget {
     this.leading,
     this.trailing,
     this.onTap,
+    this.radius,
   });
   final bool card;
   final Widget title;
@@ -114,6 +115,7 @@ class AppListCard extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final double? radius;
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +126,11 @@ class AppListCard extends StatelessWidget {
       trailing: trailing,
       onTap: onTap,
     );
-    return card ? Card(child: tile) : tile;
+    if (!card) return tile;
+    return Card(
+      shape: radius != null ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius!)) : null,
+      child: tile,
+    );
   }
 }
 
