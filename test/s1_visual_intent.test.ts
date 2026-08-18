@@ -60,10 +60,11 @@ function sha256File(filePath: string): string {
 }
 
 interface VisualSpec {
-  radiusScale: { control: string; surface: string; container: string };
-  baseSpacing: string;
+  radiusScale: { control: string; surface: string; container: string; search: string; fab: string };
+  spacing: { screen: string; section: string; itemGap: string; cardInset: string; fabInset: string };
   heroScale: 0 | 1 | 2;
   surfaceBias: 'plain' | 'card' | 'inherit';
+  titleWeight: string;
 }
 
 interface ProofScreen {
@@ -81,10 +82,11 @@ const PROOF_SCREENS: ProofScreen[] = [
     screenPath: '/task',
     dartFile: 'apps/tasks/output/app/lib/features/tasks/presentation/screens/task_list_screen.dart',
     spec: {
-      radiusScale: { control: 'AppRadius.roundedControl', surface: 'AppRadius.roundedSurface', container: 'AppRadius.roundedContainer' },
-      baseSpacing: 'AppSpacing.md',
+      radiusScale: { control: 'AppRadius.roundedControl', surface: 'AppRadius.roundedSurface', container: 'AppRadius.roundedContainer', search: 'AppRadius.roundedSearch', fab: 'AppRadius.roundedFab' },
+      spacing: { screen: 'AppSpacing.md', section: 'AppSpacing.md', itemGap: 'AppSpacing.md', cardInset: 'AppSpacing.md', fabInset: 'AppSpacing.md' },
       heroScale: 1,
       surfaceBias: 'card',
+      titleWeight: '',
     },
   },
   {
@@ -92,10 +94,11 @@ const PROOF_SCREENS: ProofScreen[] = [
     screenPath: '/leave-request/:id',
     dartFile: 'apps/hr_service/output/app/lib/features/hr_service/presentation/screens/leave_request_detail_screen.dart',
     spec: {
-      radiusScale: { control: 'AppRadius.sharpControl', surface: 'AppRadius.sharpSurface', container: 'AppRadius.sharpContainer' },
-      baseSpacing: 'AppSpacing.sm',
+      radiusScale: { control: 'AppRadius.sharpControl', surface: 'AppRadius.sharpSurface', container: 'AppRadius.sharpContainer', search: 'AppRadius.sharpSearch', fab: 'AppRadius.sharpFab' },
+      spacing: { screen: 'AppSpacing.sm', section: 'AppSpacing.sm', itemGap: 'AppSpacing.sm', cardInset: 'AppSpacing.sm', fabInset: 'AppSpacing.sm' },
       heroScale: 2,
       surfaceBias: 'inherit',
+      titleWeight: 'AppType.titleWeightStrong',
     },
   },
   {
@@ -103,21 +106,26 @@ const PROOF_SCREENS: ProofScreen[] = [
     screenPath: '/expense-claim',
     dartFile: 'apps/ledgerly/output/app/lib/features/expenses/presentation/screens/expense_claim_list_screen.dart',
     spec: {
-      radiusScale: { control: 'AppRadius.softControl', surface: 'AppRadius.softSurface', container: 'AppRadius.softContainer' },
-      baseSpacing: 'AppSpacing.lg',
+      radiusScale: { control: 'AppRadius.softControl', surface: 'AppRadius.softSurface', container: 'AppRadius.softContainer', search: 'AppRadius.softSearch', fab: 'AppRadius.softFab' },
+      spacing: { screen: 'AppSpacing.lg', section: 'AppSpacing.lg', itemGap: 'AppSpacing.lg', cardInset: 'AppSpacing.lg', fabInset: 'AppSpacing.lg' },
       heroScale: 1,
       surfaceBias: 'card',
+      titleWeight: '',
     },
   },
 ];
 
-/** Count of the 4 structural VisualSpec dimensions that differ between two specs. */
+/** Count of the structural VisualSpec dimensions that differ between two specs (S1_TOKEN_RIGOR_
+ *  BRIEF_CLAUDE.md grew the spec from 4 to 5 dimensions — radiusScale/spacing/heroScale/
+ *  surfaceBias/titleWeight — search/fab ride inside radiusScale, not counted as separate
+ *  dimensions here). */
 function dimensionsDiffer(a: VisualSpec, b: VisualSpec): number {
   let n = 0;
   if (a.radiusScale.control !== b.radiusScale.control) n++;
-  if (a.baseSpacing !== b.baseSpacing) n++;
+  if (a.spacing.itemGap !== b.spacing.itemGap) n++;
   if (a.heroScale !== b.heroScale) n++;
   if (a.surfaceBias !== b.surfaceBias) n++;
+  if (a.titleWeight !== b.titleWeight) n++;
   return n;
 }
 

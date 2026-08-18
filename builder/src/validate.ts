@@ -6,6 +6,7 @@ import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
 import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor, sectionsFor } from "./composition";
+import { spacingToken } from "./generators/screen";
 import { screenPath } from "./routing";
 import { DART_SDK_FLOOR } from "./toolchain";
 import { unapprovedElements } from "./provenance";
@@ -925,6 +926,29 @@ export function visualIntentCheck(ir: any, outDir: string, files: string[]): str
     }
   }
 
+  // FIX-6 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md acceptance criterion 3): "no component contains
+  // `if (style === 'premium')`" — composition.ts is the ONE place allowed to branch on a
+  // visualStyle enum value; every generated component/screen must only ever consume the ALREADY-
+  // RESOLVED token names (AppRadius.*/AppSpacing.*/AppType.*), never re-decide by comparing
+  // against the raw hierarchy/cornerRadius/personality value. Scans every presentation-layer file
+  // + core/components.dart (the only two places a decided VisualSpec is ever consumed) for a
+  // literal comparison against the field name or one of the v1 enum value strings.
+  const ENUM_BRANCH_FIELDS = ["hierarchy", "cornerRadius", "personality"];
+  const ENUM_BRANCH_VALUES = ["soft", "balanced", "strong", "sharp", "rounded", "pill", "professional", "friendly", "premium", "playful", "minimal"];
+  for (const f of files) {
+    const rel = f.replace(/.*\/lib\//, "");
+    if (!rel.includes("/presentation/") && rel !== "core/components.dart") continue;
+    const src = fs.readFileSync(f, "utf8");
+    for (const field of ENUM_BRANCH_FIELDS) {
+      const m = src.match(new RegExp(`\\b${field}\\s*(==|!=)`));
+      if (m) issues.push(`[visualIntent] ${rel} branches on visualStyle field '${field}' (${m[0]}) — only composition.ts may decide by enum value; components/screens must consume resolved tokens only`);
+    }
+    for (const value of ENUM_BRANCH_VALUES) {
+      const m = src.match(new RegExp(`==\\s*['"]${value}['"]`));
+      if (m) issues.push(`[visualIntent] ${rel} branches on a raw visualStyle enum value ('${value}') — only composition.ts's mapping tables may reference it; the resolved token is the only thing a component/screen may consume`);
+    }
+  }
+
   const planPath = path.join(outDir, "plan.json");
   if (!fs.existsSync(planPath)) {
     issues.push(`[visualIntent] plan.json missing in ${outDir} — cannot verify visual-intent decisions`);
@@ -935,10 +959,13 @@ export function visualIntentCheck(ir: any, outDir: string, files: string[]): str
   const recordedPaths = new Set(Object.keys(recorded));
   const expectedPaths = new Set<string>();
 
-  const specEqual = (a: any, b: any) =>
-    !!a && !!b && a.heroScale === b.heroScale && a.baseSpacing === b.baseSpacing && a.surfaceBias === b.surfaceBias &&
-    !!a.radiusScale && !!b.radiusScale && a.radiusScale.control === b.radiusScale.control &&
-    a.radiusScale.surface === b.radiusScale.surface && a.radiusScale.container === b.radiusScale.container;
+  // FIX-1/FIX-3/FIX-4 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): VisualSpec grew radiusScale.search/fab,
+  // spacing.{screen,section,itemGap,cardInset,fabInset} (replacing the old single baseSpacing),
+  // and titleWeight — every one of these is compared here now. Deep-JSON-equal, not a hand-listed
+  // field-by-field check, so a future VisualSpec field can never silently escape this gate again
+  // (the exact class of bug this pass found: the old field-by-field check still compiled and
+  // "passed" after baseSpacing was removed, because both sides read `undefined`).
+  const specEqual = (a: any, b: any) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
 
   // (a) plan.json vs fresh re-derivation — same "stale plan entry" posture as [states].
   for (const screen of screens) {
@@ -975,12 +1002,17 @@ export function visualIntentCheck(ir: any, outDir: string, files: string[]): str
     const spec = visualFor(screen, flat);
     const comp = compositionFor(screen.type);
 
+    // screenGapExpr/sectionGapExpr mirror screen.ts's own fallback exactly (spacingToken —
+    // imported, not reimplemented, so this can never drift from what screen.ts actually emits).
+    const screenGapExpr = spec && spec.spacing.screen ? spec.spacing.screen : "AppSpacing.md";
+    const sectionGapExpr = spec && spec.spacing.section ? spec.spacing.section : "AppSpacing.lg";
+
     if (comp.hasHero && screen.hero) {
       const heroScale = spec && spec.heroScale !== 1 ? spec.heroScale : 1;
-      const token = heroScale === 0 ? "AppSpacing.sm" : heroScale === 2 ? "AppSpacing.xl" : `${comp.heroGap}.0`;
-      const marker = `AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${token}),`;
+      const token = heroScale === 0 ? "AppSpacing.sm" : heroScale === 2 ? "AppSpacing.xl" : spacingToken(comp.heroGap);
+      const marker = `${screenGapExpr}, ${sectionGapExpr}, ${screenGapExpr}, ${token}),`;
       if (!src.includes(marker)) {
-        issues.push(`[visualIntent] '${p}' (${screen.name}) hero padding does not match the decided hierarchy (expected ${token})`);
+        issues.push(`[visualIntent] '${p}' (${screen.name}) hero padding does not match the decided hierarchy/personality (expected ${marker})`);
       }
     }
 
@@ -995,6 +1027,52 @@ export function visualIntentCheck(ir: any, outDir: string, files: string[]): str
       if (!arg.startsWith("AppRadius.")) {
         issues.push(`[visualIntent] '${p}' (${screen.name}) emits a raw radius argument '${arg}' — must be an AppRadius.* token, never an IR-side number`);
       }
+    }
+
+    // FIX-1: search field + FAB must participate in the SAME cornerRadius rule as AppListCard —
+    // the review's core complaint ("the most dominant control looks identical across A/B/C").
+    // SearchBar only ever renders on a searchable list screen (P2's searchFor) — this scan is a
+    // no-op (both sides absent) for any screen without one.
+    // Applicability gate: a DETAIL/WIZARD screen never renders a SearchBar (P2's searchFor is
+    // list-only) and a DETAIL/WIZARD screen never renders a FAB (screen.ts's fabApplies excludes
+    // both) — checking the marker on a screen that never emits the widget at all would false-fire
+    // regardless of the decision. Scoped to "does the generated file actually contain the widget",
+    // not a re-derived applicability guess, so this can never drift from what screen.ts emits.
+    const SEARCH_SHAPE_PREFIX = "shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(";
+    if (src.includes("child: SearchBar(")) {
+      const decidedSearchRadius = spec && spec.radiusScale.search ? spec.radiusScale.search : null;
+      const hasSearchShapeMarker = src.includes(`${SEARCH_SHAPE_PREFIX}${decidedSearchRadius}))`);
+      const hasAnySearchShape = src.includes(SEARCH_SHAPE_PREFIX);
+      if (decidedSearchRadius && !hasSearchShapeMarker) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) decided search radius (${decidedSearchRadius}) but no matching SearchBar shape marker found`);
+      } else if (!decidedSearchRadius && hasAnySearchShape) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) has no cornerRadius decided but the generated SearchBar carries an explicit shape anyway`);
+      }
+    }
+
+    const FAB_SHAPE_PREFIX = "shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(";
+    if (src.includes("floatingActionButton:")) {
+      const decidedFabRadius = spec && spec.radiusScale.fab ? spec.radiusScale.fab : null;
+      const hasFabShapeMarker = src.includes(`${FAB_SHAPE_PREFIX}${decidedFabRadius}))`);
+      const hasAnyFabShape = src.includes(FAB_SHAPE_PREFIX);
+      if (decidedFabRadius && !hasFabShapeMarker) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) decided FAB radius (${decidedFabRadius}) but no matching FloatingActionButton shape marker found`);
+      } else if (!decidedFabRadius && hasAnyFabShape) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) has no cornerRadius decided but the generated FAB carries an explicit shape anyway`);
+      }
+    }
+
+    // FIX-2/FIX-4: the AppBar title's typography must match the decided hierarchy — proves
+    // heroScale is no longer an invisible token (and the heroScale=1 negative control: no
+    // titleWeight decided → the title must stay the exact pre-fix `const Text(...)`).
+    const TITLE_STYLE_PREFIX = "Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: ";
+    const decidedTitleWeight = spec && spec.titleWeight ? spec.titleWeight : null;
+    const hasTitleStyleMarker = src.includes(`${TITLE_STYLE_PREFIX}${decidedTitleWeight})`);
+    const hasAnyTitleStyle = src.includes(TITLE_STYLE_PREFIX);
+    if (decidedTitleWeight && !hasTitleStyleMarker) {
+      issues.push(`[visualIntent] '${p}' (${screen.name}) decided titleWeight (${decidedTitleWeight}) but no matching AppBar title style marker found`);
+    } else if (!decidedTitleWeight && hasAnyTitleStyle) {
+      issues.push(`[visualIntent] '${p}' (${screen.name}) has no titleWeight decided but the generated AppBar title carries an explicit style anyway`);
     }
   }
 
