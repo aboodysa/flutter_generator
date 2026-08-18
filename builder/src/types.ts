@@ -1,3 +1,5 @@
+import { Provenance } from "./provenance";
+
 export type PrimitiveType =
   | "String"
   | "int"
@@ -275,6 +277,31 @@ export interface ScreenModel {
   // Requires the shown entity to declare a `bool` field literally named `exported` — enforced by
   // the `[export]` gate (mirrors [split]'s categoryField requirement), not silently ignored.
   export?: "csv" | "json" | "csv+json";
+  // S1 (SPIKE_S1_REPORT.md §14.1): per-screen visual-intent fragment — feeds composition.ts's
+  // deterministic `visualFor` scoring selector only, never selects a widget/asset directly (the one
+  // rule that cannot break, per the S1 brief). Additive — absent = today's output byte-identical.
+  // `AppAttributes.density` stays app-level (D1) and is NOT duplicated here.
+  visualStyle?: VisualStyleModel;
+}
+
+// S1 (SPIKE_S1_REPORT.md §14.1): v1 closed enums — `imagery` is deferred to S3 (no consumer before
+// the asset ladder) and `emphasis` to S2 (needs `sections[]`/`targetId` to resolve); do not add
+// either here until that slice lands (D2/D3).
+export type VisualHierarchy = "soft" | "balanced" | "strong";
+export type VisualCornerRadius = "sharp" | "soft" | "rounded" | "pill";
+export type VisualPersonality = "professional" | "friendly" | "premium" | "playful" | "minimal";
+
+// Reuses the existing Provenance envelope (provenance.ts) — D4: a bespoke fragment-carried
+// provenance type was rejected (duplicates the v2-contract-standardized envelope). Each value is
+// individually stamped/attested so `[visualIntent]` can block generation on a per-value basis.
+export interface VisualStyleValue<T> extends Provenance {
+  value: T;
+}
+
+export interface VisualStyleModel {
+  hierarchy?: VisualStyleValue<VisualHierarchy>;
+  cornerRadius?: VisualStyleValue<VisualCornerRadius>;
+  personality?: VisualStyleValue<VisualPersonality>;
 }
 
 // P8-W3: an inline branching condition — `field` names an entity/step field, compared against a
