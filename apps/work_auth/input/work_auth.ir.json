@@ -15,7 +15,16 @@
   "enums": [
     {
       "name": "WorkAuthStatus",
-      "values": ["draft", "submitted", "approved", "issued"]
+      "values": [
+        "draft",
+        "submitted",
+        "approved",
+        "issued"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "entities": [
@@ -26,14 +35,83 @@
       },
       "primaryDisplayField": "name",
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "name", "type": "String", "required": true, "nullable": false },
-        { "name": "country", "type": "String", "required": true, "nullable": false },
-        { "name": "jobTitle", "type": "String", "required": true, "nullable": false },
-        { "name": "startDate", "type": "DateTime", "required": true, "nullable": false },
-        { "name": "durationDays", "type": "int", "required": true, "nullable": false },
-        { "name": "status", "type": "enum", "required": true, "nullable": false, "of": "WorkAuthStatus", "default": "draft" }
-      ]
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "country",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "jobTitle",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "startDate",
+          "type": "DateTime",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "durationDays",
+          "type": "int",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "required": true,
+          "nullable": false,
+          "of": "WorkAuthStatus",
+          "default": "draft",
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     },
     {
       "name": "VisaQuota",
@@ -42,12 +120,67 @@
       },
       "primaryDisplayField": "name",
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false },
-        { "name": "name", "type": "String", "required": true, "nullable": false },
-        { "name": "limit", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" },
-        { "name": "committed", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" },
-        { "name": "actual", "type": "double", "required": true, "nullable": false, "semanticType": "Money", "currency": "VSA" }
-      ]
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "limit",
+          "type": "double",
+          "required": true,
+          "nullable": false,
+          "semanticType": "Money",
+          "currency": "VSA",
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "committed",
+          "type": "double",
+          "required": true,
+          "nullable": false,
+          "semanticType": "Money",
+          "currency": "VSA",
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "actual",
+          "type": "double",
+          "required": true,
+          "nullable": false,
+          "semanticType": "Money",
+          "currency": "VSA",
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "businessRules": [
@@ -56,38 +189,160 @@
       "entity": "WorkAuth",
       "result": "true",
       "conditions": [
-        { "field": "durationDays", "operator": ">", "value": "60" }
-      ]
+        {
+          "field": "durationDays",
+          "operator": ">",
+          "value": "60"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "repositories": [
     {
       "name": "WorkAuthRepository",
       "operations": [
-        { "name": "listWorkAuths", "returns": "Future<List<WorkAuth>>", "params": [] },
-        { "name": "createWorkAuth", "returns": "Future<WorkAuth>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] },
-        { "name": "updateWorkAuth", "returns": "Future<void>", "params": [{ "name": "workAuth", "type": "WorkAuth", "named": false }] }
-      ]
+        {
+          "name": "listWorkAuths",
+          "returns": "Future<List<WorkAuth>>",
+          "params": []
+        },
+        {
+          "name": "createWorkAuth",
+          "returns": "Future<WorkAuth>",
+          "params": [
+            {
+              "name": "workAuth",
+              "type": "WorkAuth",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateWorkAuth",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "workAuth",
+              "type": "WorkAuth",
+              "named": false
+            }
+          ]
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     },
     {
       "name": "VisaQuotaRepository",
       "operations": [
-        { "name": "listVisaQuotas", "returns": "Future<List<VisaQuota>>", "params": [] },
-        { "name": "createVisaQuota", "returns": "Future<VisaQuota>", "params": [{ "name": "quota", "type": "VisaQuota", "named": false }] },
-        { "name": "updateVisaQuota", "returns": "Future<void>", "params": [{ "name": "quota", "type": "VisaQuota", "named": false }] },
-        { "name": "deleteVisaQuota", "returns": "Future<void>", "params": [{ "name": "id", "type": "String", "named": false }] }
-      ]
+        {
+          "name": "listVisaQuotas",
+          "returns": "Future<List<VisaQuota>>",
+          "params": []
+        },
+        {
+          "name": "createVisaQuota",
+          "returns": "Future<VisaQuota>",
+          "params": [
+            {
+              "name": "quota",
+              "type": "VisaQuota",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateVisaQuota",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "quota",
+              "type": "VisaQuota",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "deleteVisaQuota",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "id",
+              "type": "String",
+              "named": false
+            }
+          ]
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "states": [
-    { "name": "WorkAuthList", "entity": "WorkAuth" },
-    { "name": "WorkAuthWizard", "entity": "WorkAuth" },
-    { "name": "VisaQuotaList", "entity": "VisaQuota" }
+    {
+      "name": "WorkAuthList",
+      "entity": "WorkAuth",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "WorkAuthWizard",
+      "entity": "WorkAuth",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "VisaQuotaList",
+      "entity": "VisaQuota",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
   ],
   "screens": [
-    { "name": "WorkAuthListScreen", "entity": "WorkAuth", "type": "list", "state": "WorkAuthList" },
-    { "name": "VisaQuotaListScreen", "entity": "VisaQuota", "type": "list", "state": "VisaQuotaList" },
-    { "name": "VisaQuotaDetailScreen", "entity": "VisaQuota", "type": "detail", "state": "VisaQuotaList" },
+    {
+      "name": "WorkAuthListScreen",
+      "entity": "WorkAuth",
+      "type": "list",
+      "state": "WorkAuthList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "VisaQuotaListScreen",
+      "entity": "VisaQuota",
+      "type": "list",
+      "state": "VisaQuotaList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "VisaQuotaDetailScreen",
+      "entity": "VisaQuota",
+      "type": "detail",
+      "state": "VisaQuotaList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
     {
       "name": "WorkAuthWizardScreen",
       "entity": "WorkAuth",
@@ -97,7 +352,12 @@
         {
           "id": "submit",
           "title": "Submit Work Authorization",
-          "fields": ["name", "country", "jobTitle", "durationDays"]
+          "fields": [
+            "name",
+            "country",
+            "jobTitle",
+            "durationDays"
+          ]
         },
         {
           "id": "manager-review",
@@ -113,16 +373,90 @@
           "id": "result",
           "title": "Result"
         }
-      ]
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "useCases": [
-    { "name": "ListWorkAuths", "repository": "WorkAuthRepository", "operation": "listWorkAuths", "paramType": "NoParams", "returnType": "List<WorkAuth>" },
-    { "name": "CreateWorkAuth", "repository": "WorkAuthRepository", "operation": "createWorkAuth", "paramType": "WorkAuth", "returnType": "WorkAuth" },
-    { "name": "UpdateWorkAuth", "repository": "WorkAuthRepository", "operation": "updateWorkAuth", "paramType": "WorkAuth", "returnType": "void" },
-    { "name": "ListVisaQuotas", "repository": "VisaQuotaRepository", "operation": "listVisaQuotas", "paramType": "NoParams", "returnType": "List<VisaQuota>" },
-    { "name": "CreateVisaQuota", "repository": "VisaQuotaRepository", "operation": "createVisaQuota", "paramType": "VisaQuota", "returnType": "VisaQuota" },
-    { "name": "UpdateVisaQuota", "repository": "VisaQuotaRepository", "operation": "updateVisaQuota", "paramType": "VisaQuota", "returnType": "void" },
-    { "name": "DeleteVisaQuota", "repository": "VisaQuotaRepository", "operation": "deleteVisaQuota", "paramType": "String", "returnType": "void" }
+    {
+      "name": "ListWorkAuths",
+      "repository": "WorkAuthRepository",
+      "operation": "listWorkAuths",
+      "paramType": "NoParams",
+      "returnType": "List<WorkAuth>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "CreateWorkAuth",
+      "repository": "WorkAuthRepository",
+      "operation": "createWorkAuth",
+      "paramType": "WorkAuth",
+      "returnType": "WorkAuth",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "UpdateWorkAuth",
+      "repository": "WorkAuthRepository",
+      "operation": "updateWorkAuth",
+      "paramType": "WorkAuth",
+      "returnType": "void",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "ListVisaQuotas",
+      "repository": "VisaQuotaRepository",
+      "operation": "listVisaQuotas",
+      "paramType": "NoParams",
+      "returnType": "List<VisaQuota>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "CreateVisaQuota",
+      "repository": "VisaQuotaRepository",
+      "operation": "createVisaQuota",
+      "paramType": "VisaQuota",
+      "returnType": "VisaQuota",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "UpdateVisaQuota",
+      "repository": "VisaQuotaRepository",
+      "operation": "updateVisaQuota",
+      "paramType": "VisaQuota",
+      "returnType": "void",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "DeleteVisaQuota",
+      "repository": "VisaQuotaRepository",
+      "operation": "deleteVisaQuota",
+      "paramType": "String",
+      "returnType": "void",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
   ]
 }

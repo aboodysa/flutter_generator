@@ -63,22 +63,22 @@ class _VisaQuotaDetailScreenState extends State<VisaQuotaDetailScreen> {
               children: [
 
               Text(item.name, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Limit', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.limit.format(), style: Theme.of(context).textTheme.labelMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Committed', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.committed.format(), style: Theme.of(context).textTheme.labelMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Actual', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.actual.format(), style: Theme.of(context).textTheme.labelMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Text('Remaining', style: Theme.of(context).textTheme.bodySmall),
@@ -91,7 +91,7 @@ class _VisaQuotaDetailScreenState extends State<VisaQuotaDetailScreen> {
                   const AppChip(label: 'Over budget', tone: AppChipTone.danger),
                 ],
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               ],
             );

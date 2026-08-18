@@ -25,7 +25,7 @@ class WorkAuthWizardScreen extends StatelessWidget {
               children: [
                 LinearProgressIndicator(value: (state.currentStep + 1) / 4),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, 16.0),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.md),
                   child: Text(
                     switch (state.currentStep) {
                       0 => 'Submit Work Authorization',
@@ -72,7 +72,7 @@ class WorkAuthWizardScreen extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   child: Row(
                     children: [
                       if (state.currentStep > 0)
