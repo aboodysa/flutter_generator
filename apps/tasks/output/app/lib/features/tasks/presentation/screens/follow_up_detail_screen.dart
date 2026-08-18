@@ -62,7 +62,7 @@ class _FollowUpDetailScreenState extends State<FollowUpDetailScreen> {
               children: [
 
               Text(item.subject, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
@@ -70,7 +70,7 @@ class _FollowUpDetailScreenState extends State<FollowUpDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Flexible(child: Text(((item.createdAt?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
               ],
             );

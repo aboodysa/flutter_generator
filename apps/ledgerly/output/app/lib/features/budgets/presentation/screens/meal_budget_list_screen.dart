@@ -87,7 +87,7 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
                           final item = filtered[i];
                           final budget = BudgetLine(scope: item.name, limit: item.limit, committed: item.committed, actual: item.actual);
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,

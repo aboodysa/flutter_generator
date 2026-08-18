@@ -58,6 +58,15 @@ function roleContextFor(entity: EntityModel, ctx?: GenContext): FieldRoleContext
 // chip row and the list-row leading glyph consume the same value+tone expression (fieldValue()
 // already handles a nullable enum's `?.name ?? '—'` fallback, so the chip never crashes on null,
 // it just renders the neutral/info default tone for that fallback text).
+// D2#4 (SPIKE_S6_REPORT.md §16 item-gap decision): AppSpacing's own scale, keyed by its logical-px
+// value — every COMPOSITIONS heroGap/itemGap constant lands on one of these exactly, so routing
+// through it is a token-name swap, not a value change (composition.ts's own values stay the
+// source of truth; this only changes how they're EMITTED).
+const SPACING_SCALE: Record<number, string> = { 4: "AppSpacing.xs", 8: "AppSpacing.sm", 16: "AppSpacing.md", 24: "AppSpacing.lg", 40: "AppSpacing.xl" };
+function spacingToken(px: number): string {
+  return SPACING_SCALE[px] ?? `${px}.0`;
+}
+
 function chipToneExpr(field: Field, toneFn: "toneForStatus" | "toneForPriority"): { value: string; tone: string } {
   const value = fieldValue(field, "item");
   return { value, tone: `AppChip.${toneFn}(${value})` };
@@ -196,13 +205,17 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
     ? visual.surfaceBias === "card"
     : comp.surface !== "plain"; // Dart bool literal driving AppListCard(card: ...)
   // hierarchy: heroScale 0/2 bias heroGap away from the archetype's own value; 1 ("balanced",
-  // undeclared hierarchy) leaves comp.heroGap untouched.
+  // undeclared hierarchy) leaves comp.heroGap untouched — routed through the matching AppSpacing
+  // token (D2#4, SPIKE_S6_REPORT.md §16 item-gap decision) rather than a raw literal: every
+  // COMPOSITIONS heroGap/itemGap value already equals an AppSpacing step exactly, so this is
+  // byte-identical at runtime (AppSpacing.lg === 24.0), zero golden churn. A future archetype
+  // whose gap falls outside the scale still falls back to a raw literal — resilience preserved.
   const heroGapExpr = visual && visual.heroScale !== 1
     ? (visual.heroScale === 0 ? "AppSpacing.sm" : "AppSpacing.xl")
-    : `${comp.heroGap}.0`;
+    : spacingToken(comp.heroGap);
   // personality: baseSpacing biases itemGap; "" (no personality declared) leaves comp.itemGap
-  // untouched.
-  const itemGapExpr = visual && visual.baseSpacing ? visual.baseSpacing : `${comp.itemGap}.0`;
+  // untouched — same token-routing as heroGapExpr above.
+  const itemGapExpr = visual && visual.baseSpacing ? visual.baseSpacing : spacingToken(comp.itemGap);
   // cornerRadius: passed to AppListCard's radius param (components.ts, S1-conditional); "" (no
   // cornerRadius declared) omits the argument, so AppListCard falls back to the app's CardTheme
   // default — same rendering as pre-S1.

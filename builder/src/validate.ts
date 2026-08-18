@@ -244,6 +244,46 @@ function contrastCheck(ir: any, files: string[]): string[] {
   return issues;
 }
 
+// D2#4 (SPIKE_S6_REPORT.md §14, generalizing S1's RAW_LITERAL_PATTERNS from the 3 proof screens in
+// test/s1_visual_intent.test.ts to every generated screen): a spacing/typography literal in the
+// presentation layer means a value that bypassed the token system entirely — the "one rule that
+// cannot break" S1 already enforces for radius/color on 3 screens, extended here to
+// EdgeInsets/SizedBox spacing + fontSize on all of them. `Color(0x`/`BorderRadius.circular(`/
+// `Radius.circular(` aren't re-checked here — archCheck (this file) already gates raw color
+// literals presentation-wide, and S1's own visualIntentCheck already gates the `radius:` argument;
+// re-scanning them here would just duplicate an existing gate under a new name.
+// EdgeInsets: any digit inside the call means a raw literal — a properly token-routed call only
+// ever contains AppSpacing.xs/sm/md/lg/xl identifiers, which contain no digits at all, so
+// "contains a digit" is a clean, false-positive-free discriminator (verified against the
+// itemGap/heroGap fallback this same slice just token-routed in screen.ts). Deliberately scoped to
+// EdgeInsets, not SizedBox — SizedBox legitimately carries raw pixel dimensions all over this
+// codebase for reasons unrelated to rhythm/spacing (icon boxes, fixed-size loading indicators),
+// so "any digit" would false-positive there; EdgeInsets padding/margin is the actual rhythm gate
+// the brief names, and is where the raw-literal risk actually lives.
+function literalScanCheck(files: string[]): string[] {
+  const issues: string[] = [];
+  for (const f of files) {
+    const rel = f.replace(/.*\/lib\//, "");
+    if (!rel.includes("/presentation/")) continue; // scope: presentation layer only, matches archCheck
+    const src = fs.readFileSync(f, "utf8");
+
+    for (const m of src.matchAll(/EdgeInsets\.(?:only|all|fromLTRB|symmetric)\(([^)]*)\)/g)) {
+      const call = m[0] ?? "";
+      const args = m[1] ?? "";
+      // A bare 0 is "no space" — the identity element, not a scale choice (AppSpacing has no
+      // token for it, same as no design system tokenizes zero) — strip standalone `0`s before
+      // testing so this doesn't false-positive on a deliberate `... , 0)` suppression.
+      if (/\d/.test(args.replace(/\b0\b/g, ""))) {
+        issues.push(`[literals] raw EdgeInsets literal in ${rel}: ${call}`);
+      }
+    }
+    for (const m of src.matchAll(/fontSize:\s*\d[\d.]*/g)) {
+      issues.push(`[literals] raw fontSize literal in ${rel}: ${m[0]}`);
+    }
+  }
+  return issues;
+}
+
 // S2 (§6.3): the Swift analogue of archCheck above, for the [swiftarch] gate — a sibling function,
 // not a shared/parametrized one, so archCheck's Flutter behavior stays byte-for-byte untouched
 // (§2.6 Open/Closed). V1 rule (requirements §6.3): a Domain-layer file must not import
@@ -1289,6 +1329,7 @@ export interface ValidationResult {
   l10n: number;      // count of l10n issues: AppStrings not locale-aware, or main.dart missing locale/RTL wiring (L4)
   theme: number;     // count of D1 theme-wiring issues: main.dart not on buildTheme(), raw colorSchemeSeed literal, themeMode drift, or seed/palette mismatch (D1)
   contrast: number;  // count of WCAG contrast issues in emitted core/theme.dart tokens, real usage pairs only (D2#1)
+  literals: number;  // count of raw EdgeInsets/fontSize literals in the presentation layer, all screens (D2#4)
   outbox: number;    // count of outbox issues: missing core/outbox.dart, or no repo impl references Outbox.instance.enqueue (MF6)
   symbols: number;   // count of cross-feature type-name collisions in the symbol table (MF1, M3)
   shell: number;     // count of global-nav-shell issues: missing/unexpected shell, bad destination order/title/icon (P1)
@@ -1359,7 +1400,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, planDeterminism: 0,
-    theme: 0, contrast: 0, lockfile: 0, timestamps: 0,
+    theme: 0, contrast: 0, literals: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -1545,6 +1586,13 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...contrastIssues);
   const contrast = contrastIssues.length;
 
+  // Raw spacing/typography literals (D2#4, SPIKE_S6_REPORT.md §14): S1's token-provenance rule
+  // ("a decided value only ever reaches the screen as a token reference"), generalized from the 3
+  // S1 proof screens to every generated screen.
+  const literalIssues = literalScanCheck(files);
+  issues.push(...literalIssues);
+  const literals = literalIssues.length;
+
   // Outbox (MF6): a declared outbox must emit core/outbox.dart and be actually referenced by at
   // least one generated repository impl.
   const outboxIssues = outboxCheck(ir, files);
@@ -1607,7 +1655,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
 
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
-    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, outbox, platform, shell, search,
+    tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, literals, outbox, platform, shell, search,
     scroll, actions, states, visualIntent, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
@@ -1659,6 +1707,7 @@ function main() {
   console.log(`[l10n] ${r.l10n === 0 ? "PASS" : "FAIL (" + r.l10n + ")"}`);
   console.log(`[theme] ${r.theme === 0 ? "PASS" : "FAIL (" + r.theme + ")"}`);
   console.log(`[contrast] ${r.contrast === 0 ? "PASS" : "FAIL (" + r.contrast + ")"}`);
+  console.log(`[literals] ${r.literals === 0 ? "PASS" : "FAIL (" + r.literals + ")"}`);
   console.log(`[outbox] ${r.outbox === 0 ? "PASS" : "FAIL (" + r.outbox + ")"}`);
   console.log(`[shell] ${r.shell === 0 ? "PASS" : "FAIL (" + r.shell + ")"}`);
   console.log(`[search] ${r.search === 0 ? "PASS" : "FAIL (" + r.search + ")"}`);
@@ -1668,7 +1717,7 @@ function main() {
   console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

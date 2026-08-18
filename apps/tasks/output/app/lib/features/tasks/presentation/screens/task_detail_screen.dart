@@ -62,13 +62,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               children: [
 
               Text(item.title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(children: [
                 AppChip(label: item.status.name, tone: AppChip.toneForStatus(item.status.name)),
                 const SizedBox(width: AppSpacing.sm),
                 AppChip(label: item.priority.name, tone: AppChip.toneForPriority(item.priority.name)),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
@@ -76,11 +76,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 const SizedBox(width: AppSpacing.xs),
                 Flexible(child: Text(((item.dueDate?.toIso8601String() ?? '').split('T').first), style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Text(item.description ?? '—', style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               AppListCard(card: true, title: Text('View FollowUps'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/follow-up?taskId=${id}')),
               ],
             );

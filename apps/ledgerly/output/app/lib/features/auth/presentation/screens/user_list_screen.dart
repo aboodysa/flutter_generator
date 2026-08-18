@@ -83,7 +83,7 @@ class _UserListScreenState extends State<UserListScreen> {
                         itemBuilder: (_, i) {
                           final item = filtered[i];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: AppListCard(
                               key: ValueKey(item.id),
                               card: true,

@@ -74,23 +74,23 @@ class _ExpenseClaimDetailScreenState extends State<ExpenseClaimDetailScreen> {
               children: [
 
               Text(item.name, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(children: [
                 AppChip(label: item.status.name, tone: AppChip.toneForStatus(item.status.name)),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Amount', style: Theme.of(context).textTheme.bodySmall),
                 Text(item.amount.format(), style: Theme.of(context).textTheme.labelMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Exported', style: Theme.of(context).textTheme.bodySmall),
                 Text((item.exported ? 'yes' : 'no'), style: Theme.of(context).textTheme.bodyMedium),
               ]),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall)),
-              const SizedBox(height: 4.0),
+              const SizedBox(height: AppSpacing.xs),
               Text('Split breakdown', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: AppSpacing.xs),
               BlocBuilder<ExpenseClaimSplitListCubit, ExpenseClaimSplitListState>(
