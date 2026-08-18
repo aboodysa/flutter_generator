@@ -26,6 +26,7 @@ import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
 import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec } from "./composition";
 import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
+import { generateA11yTest, a11yTestFileName } from "./generators/a11y_test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
 import { generatePubspec, generateMain, generateMultiMain, generateBarrel, generateWidgetTest } from "./generators/project";
@@ -296,6 +297,31 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
       mode: "deterministic",
       class: "structural",
     });
+  }
+
+  // A11yTestGenerator (DESIGN.md §15) — one file per declared screen, scoped against the full
+  // `ir` (same reasoning as ViewportSqueezeTestGenerator: run unconditionally across every
+  // screen, not just flowTestScope's reachable subset, since the 11-overflow precedent showed
+  // low-attention screens are exactly the ones sampling would miss).
+  if ((ir.screens ?? []).length) {
+    const a11yTestDir = path.join(testDir, "a11y");
+    fs.mkdirSync(a11yTestDir, { recursive: true });
+    for (const screen of ir.screens ?? []) {
+      const f = path.join(a11yTestDir, a11yTestFileName(screen));
+      fs.writeFileSync(f, generateA11yTest(ir, screen, arch.stateManagement));
+      files.push(f);
+      planEntries.push({
+        artifact: `test:a11y:${screen.name}`,
+        generator: "A11yTestGenerator",
+        schema: "test",
+        layer: "test/a11y",
+        file: path.relative(outDir, f),
+        strategy: "default",
+        dependsOn: [],
+        mode: "deterministic",
+        class: "structural",
+      });
+    }
   }
 
   // CRUD flow test (§5.2-F1 proof) — only when an entity actually has the full create/edit/

@@ -18,7 +18,7 @@ import { screenPath } from "../routing";
 // `core/session.dart` + `core/auth_login_screen.dart`): flow/crud-flow/focus/scroll tests use the
 // direct import, back_test (which always imports generated.dart) passes `sessionViaBarrel=true`
 // so it does not emit a redundant import.
-function authSession(feature: FeatureModel, pkg: string, indent: string, sessionViaBarrel = false): { import: string; boot: string } {
+export function authSession(feature: FeatureModel, pkg: string, indent: string, sessionViaBarrel = false): { import: string; boot: string } {
   if (!hasAuth(feature)) return { import: "", boot: "" };
   return {
     import: sessionViaBarrel ? "" : `import 'package:${pkg}/core/session.dart';\n`,
