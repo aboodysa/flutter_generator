@@ -1272,6 +1272,102 @@ export function sectionsCheck(ir: any, outDir: string, files: string[]): string[
   return issues;
 }
 
+// S6_IMPL_BRIEF_CLAUDE.md slice 3 / SPIKE_S6_REPORT.md §14.3: gated on S3/S4 (asset generation +
+// Image emission haven't landed yet — confirmed: no generator under builder/src/generators emits
+// Image.asset/AssetImage/Image(/AspectRatio( anywhere in this tree today). Owner decision (§16):
+// build the real gate logic now rather than stub it, wire it into validateOutput/main() like every
+// other gate, and let it PASS VACUOUSLY (zero matches → zero issues) until S3 starts emitting
+// asset references and Image widgets — at that point these gates start having real teeth with no
+// further wiring changes required.
+
+// extractCallArgs: balanced-paren argument extraction for a `Name(` constructor match. A plain
+// regex window (the style literalScanCheck/visualIntentCheck use for simple `key: value` scans)
+// breaks the moment the call nests another paren'd expression — e.g. `fit: cond ? BoxFit.cover :
+// BoxFit.contain` is fine, but `errorBuilder: (context, error, stack) => Placeholder()` is not —
+// both gates below need the full argument list, not the text up to the first incidental `)`.
+function extractCallArgs(src: string, openParenIdx: number): string {
+  let depth = 0;
+  for (let i = openParenIdx; i < src.length; i++) {
+    if (src[i] === "(") depth++;
+    else if (src[i] === ")") {
+      depth--;
+      if (depth === 0) return src.slice(openParenIdx + 1, i);
+    }
+  }
+  return src.slice(openParenIdx + 1);
+}
+
+// [asset-ref]: every asset reference an emitted screen/component makes (Image.asset/AssetImage)
+// must be (a) declared in the generated pubspec.yaml's flutter.assets and (b) actually present on
+// disk under outDir — either miss ships a runtime "unable to load asset" crash that no widget test
+// catches (none render real image bytes, only layout/exception assertions).
+export function assetRefCheck(outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const refs: { rel: string; assetPath: string }[] = [];
+  const ASSET_CTOR = /\b(?:Image\.asset|AssetImage)\(/g;
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    const rel = f.replace(/.*\/lib\//, "");
+    for (const m of src.matchAll(ASSET_CTOR)) {
+      const args = extractCallArgs(src, m.index! + m[0].length - 1);
+      const strMatch = args.match(/^\s*['"]([^'"]+)['"]/);
+      if (strMatch && strMatch[1]) refs.push({ rel, assetPath: strMatch[1] });
+    }
+  }
+  if (!refs.length) return issues; // vacuous today — no generator emits an asset reference yet (S3)
+
+  const pubspecPath = path.join(outDir, "pubspec.yaml");
+  let declared: string[] = [];
+  if (fs.existsSync(pubspecPath)) {
+    const pubspecSrc = fs.readFileSync(pubspecPath, "utf8");
+    // `flutter:\n  assets:\n    - <path>\n...` — the same 2-space/4-space nesting generatePubspec
+    // already uses for `fonts:` (generators/project.ts); mirrors that shape, doesn't reimplement it.
+    const block = pubspecSrc.match(/\n {2}assets:\n((?: {4}- .*\n)+)/);
+    if (block && block[1]) declared = [...block[1].matchAll(/- (.+)/g)].map((mm) => (mm[1] ?? "").trim());
+  }
+
+  for (const { rel, assetPath } of refs) {
+    const isDeclared = declared.some((d) => d === assetPath || (d.endsWith("/") && assetPath.startsWith(d)));
+    if (!isDeclared) {
+      issues.push(`[asset-ref] ${rel} references asset '${assetPath}' not declared in pubspec.yaml's flutter.assets`);
+    }
+    if (!fs.existsSync(path.join(outDir, assetPath))) {
+      issues.push(`[asset-ref] ${rel} references asset '${assetPath}' which does not exist on disk at ${assetPath}`);
+    }
+  }
+  return issues;
+}
+
+// [aspect-ratio]: every emitted Image must carry a `fit:` argument, and any `AspectRatio` wrapping
+// one must carry an `aspectRatio:` value that is NOT a raw IR-side number literal (SPIKE_S6_REPORT.md
+// §14.3 — "never an IR-side number") — it must come from the resolved IR ImageSpec token instead of
+// a literal the generator baked in directly (the same "no raw literal survives the token system"
+// invariant [visualIntent]'s radius scan and [literals]'s EdgeInsets/fontSize scan already enforce).
+export function aspectRatioCheck(files: string[]): string[] {
+  const issues: string[] = [];
+  const IMAGE_CTOR = /\bImage(?:\.asset|\.network|\.memory|\.file)?\(/g;
+  const ASPECT_CTOR = /\bAspectRatio\(/g;
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    const rel = f.replace(/.*\/lib\//, "");
+    for (const m of src.matchAll(IMAGE_CTOR)) {
+      const args = extractCallArgs(src, m.index! + m[0].length - 1);
+      if (!/\bfit:\s*/.test(args)) {
+        issues.push(`[aspect-ratio] ${rel} emits '${m[0]}...' with no fit: argument — must carry the IR ImageSpec fit token`);
+      }
+    }
+    for (const m of src.matchAll(ASPECT_CTOR)) {
+      const args = extractCallArgs(src, m.index! + m[0].length - 1);
+      const valueMatch = args.match(/aspectRatio:\s*([^,]+?)(?:,|$)/);
+      const rawValue = (valueMatch?.[1] ?? "").trim();
+      if (rawValue && /^-?\d/.test(rawValue)) {
+        issues.push(`[aspect-ratio] ${rel} emits AspectRatio(aspectRatio: ${rawValue}) — raw IR-side number, must be an ImageSpec aspectRatio token`);
+      }
+    }
+  }
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -1610,6 +1706,8 @@ export interface ValidationResult {
   states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
   visualIntent: number; // count of visual-intent issues: plan/output drift, unapproved nested visualStyle value, v1-closed-enum violation, raw radius literal (S1)
   sections: number;  // count of section-list issues: plan/output drift, archetype-pairing misuse, disallowed section keys/unknown types, missing per-type marker, raw grid/rail extent (S2)
+  assetRef: number;  // count of asset references not declared in pubspec.yaml's flutter.assets or missing on disk — gated on S3, passes vacuously today (S6 D2#3)
+  aspectRatio: number; // count of emitted Image/AspectRatio issues: missing fit: token, or a raw IR-side aspectRatio number — gated on S3, passes vacuously today (S6 D2#3)
   lockfile: number;  // count of missing pubspec.lock (ERROR only; floor-differs is a warning, logged but not counted — S-HERMETIC)
   timestamps: number; // count of header-band build-time date/timestamp stamps (S-HERMETIC)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
@@ -1672,7 +1770,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, sections: 0, planDeterminism: 0,
-    theme: 0, contrast: 0, literals: 0, lockfile: 0, timestamps: 0,
+    theme: 0, contrast: 0, literals: 0, assetRef: 0, aspectRatio: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -1921,6 +2019,20 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...sectionsIssues);
   const sections = sectionsIssues.length;
 
+  // Asset references (S6 D2#3, gated on S3): every Image.asset/AssetImage path in generated code
+  // must be declared in pubspec.yaml's flutter.assets and exist on disk. No generator emits an
+  // asset reference yet, so this scans zero matches and passes vacuously until S3 lands.
+  const assetRefIssues = assetRefCheck(outDir, files);
+  issues.push(...assetRefIssues);
+  const assetRef = assetRefIssues.length;
+
+  // Image fit/aspectRatio tokens (S6 D2#3, gated on S3): every emitted Image must carry a fit:
+  // token and never a raw IR-side aspectRatio number. No generator emits an Image or AspectRatio
+  // widget yet, so this scans zero matches and passes vacuously until S3 lands.
+  const aspectRatioIssues = aspectRatioCheck(files);
+  issues.push(...aspectRatioIssues);
+  const aspectRatio = aspectRatioIssues.length;
+
   // Lockfile governance (S-HERMETIC 14.1): missing pubspec.lock is an ERROR (counted below);
   // floor-differs is a WARNING, logged into issues but never counted toward `lockfile`.
   const lockfileResult = lockfileCheck(outDir);
@@ -1936,7 +2048,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, literals, outbox, platform, shell, search,
-    scroll, actions, states, visualIntent, sections, lockfile, timestamps,
+    scroll, actions, states, visualIntent, sections, assetRef, aspectRatio, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1996,9 +2108,11 @@ function main() {
   console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
   console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
   console.log(`[sections] ${r.sections === 0 ? "PASS" : "FAIL (" + r.sections + ")"}`);
+  console.log(`[asset-ref] ${r.assetRef === 0 ? "PASS" : "FAIL (" + r.assetRef + ")"}`);
+  console.log(`[aspect-ratio] ${r.aspectRatio === 0 ? "PASS" : "FAIL (" + r.aspectRatio + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.assetRef + r.aspectRatio + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
