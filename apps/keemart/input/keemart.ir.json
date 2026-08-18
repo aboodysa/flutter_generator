@@ -1,0 +1,81 @@
+{
+  "$comment": "S2 proof sample (SPIKE_S2_REPORT.md §14.7) — a Keemart-style grocery home. Single Product entity, single HomeScreen (type: sections), the worked-example section tree (VLM_DESIGN_TO_IR_CONTRACT_V2.md:296-307) minus images, translated into the S2-adopted vocabulary (header/search/hero/horizontalCards/section+sectionHeader+productGrid/divider/floatingCart).",
+  "name": "keemart",
+  "schemaVersion": "1",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "InStockStatus",
+      "values": ["inStock", "lowStock", "outOfStock"]
+    }
+  ],
+  "entities": [
+    {
+      "name": "Product",
+      "identity": { "field": "id" },
+      "fields": [
+        { "name": "id", "type": "String", "required": true },
+        { "name": "title", "type": "String", "required": true },
+        { "name": "price", "type": "double", "required": true, "semanticType": "Money", "currency": "SAR" },
+        { "name": "oldPrice", "type": "double", "nullable": true, "semanticType": "Money", "currency": "SAR" },
+        { "name": "status", "type": "enum", "of": "InStockStatus", "required": true, "default": "inStock" }
+      ]
+    }
+  ],
+  "repositories": [
+    {
+      "name": "ProductRepository",
+      "operations": [
+        { "name": "listProducts", "returns": "Future<List<Product>>", "params": [] }
+      ]
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListProducts",
+      "repository": "ProductRepository",
+      "operation": "listProducts",
+      "paramType": "NoParams",
+      "returnType": "List<Product>"
+    }
+  ],
+  "states": [
+    {
+      "name": "Home",
+      "entity": "Product",
+      "statuses": ["initial", "loading", "success", "failure"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "HomeScreen",
+      "entity": "Product",
+      "type": "sections",
+      "state": "Home",
+      "visualStyle": {
+        "hierarchy": { "value": "strong" },
+        "cornerRadius": { "value": "rounded" },
+        "personality": { "value": "friendly" }
+      },
+      "sections": [
+        { "id": "header", "type": "header" },
+        { "id": "search", "type": "search" },
+        { "id": "primaryHero", "type": "hero", "title": "Ready For School" },
+        { "id": "discover", "type": "horizontalCards", "title": "Discover more" },
+        {
+          "id": "offers",
+          "type": "section",
+          "title": "Weekly offers",
+          "children": [
+            { "id": "offersHeader", "type": "sectionHeader", "title": "Weekly offers" },
+            { "id": "offersGrid", "type": "productGrid" }
+          ]
+        },
+        { "id": "offersDivider", "type": "divider" },
+        { "id": "floatingCart", "type": "floatingCart" }
+      ]
+    }
+  ]
+}
