@@ -47,6 +47,9 @@ spikes. Zen session orchestrates/verifies only.
 - `tools/orchestrator/` (`a738763`+helpers): report.sh (L0-L3, 6 tags), run_loop.sh
   (objective.md-driven guard→dispatch→poll→verify→escalate/recover→COMPLETE), poll.sh, tgsend.sh,
   pdf_build.sh, genapp.sh, dispatch_kill_fresh.sh, capture_golden.sh.
+- `tools/orchestrator-kit/` (new, uncommitted): portable project-agnostic template extracted from
+  the above — generic `core/` + owner/machine `adapters/` reading `config.env` + reference
+  `examples/`. Copy into any project to run objective-driven loops.
 - Lessons `cf44427`, principles `549f37f` (now 12).
 
 ## Ground truth table
@@ -56,7 +59,7 @@ spikes. Zen session orchestrates/verifies only.
 | Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) | ✅ v1 COMPLETE |
 | S1 VisualIntent (P0) | ✅ **APPROVED for shipment** |
 | S6 no-vision-judge (P0) | ✅ spike closed; D2 slices 1,2,4 done; slice 3 deferred to S3 |
-| S2 section-layout IR (P0) | ⏳ **spike in flight** on germany3 (was @69% last check) |
+| S2 section-layout IR (P0) | ✅ spike **CLOSED (MODIFY)**: D1 MODIFY, D2 ADOPT, D3 MODIFY, D4 ADOPT (+`[sections]` gate), D5 ADOPT; net MODIFY. Impl brief written (`S2_SECTION_IMPL_BRIEF_CLAUDE.md`), **dispatched to Claude (s-hermetic) — in flight** |
 | S3 asset ladder / S4 asset manifest (P1) | Next after S2/S6 |
 | S5 banner-composition (P2) | After S3 |
 | S7 AI asset gen | Post-v1 / Phase 4 (trust boundary) |
@@ -104,6 +107,13 @@ short messages); keep HANDOFF lean (archive to context_history with dated header
 
 ## Lanes
 
-- **s-hermetic** (Claude Code 2.1.210, Mac): idle/checkpointed after S6; slice 5 queued fresh.
-- **germany3** (remote tracematrix, DeepSeek Flash Free): S2 spike running.
-- Mac git origin HEAD: `6937718`. Remote /root/fg-p5: synced (verify before next dispatch).
+- **s-hermetic** (Claude Code 2.1.210, Mac): **S2 sections-archetype implementation RUNNING**
+  (dispatched brief `S2_SECTION_IMPL_BRIEF_CLAUDE.md`; was parked after S6-slice-5 landed).
+- **germany3** (remote tracematrix, DeepSeek Flash Free): idle after S2 spike re-run — report
+  recovered + transferred (already at HEAD, byte-identical). Keep fresh for the next spike.
+- Mac git origin HEAD: `d937b02` (S6 slice 5 A11yTestGenerator + same-screen showcase landed+push
+  past old 6937718). Remote /root/fg-p5: synced to origin/master (verified). ⚠ tracematrix flaps
+  (OOM, 1vcpu n8n) — re-dispatch tolerates refusals with backoff.
+- `tools/orchestrator-kit/` (new): portable project-agnostic kit + USAGE.md/pdf (md2html.js
+  pipeline). Verified in-tree (run_loop monitor ran a real round loop to [COMPLETE]); sent to
+  owner as documents. Commit this round.
