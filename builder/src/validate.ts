@@ -1110,6 +1110,58 @@ export function sectionsCheck(ir: any, outDir: string, files: string[]): string[
     }
   }
 
+  // S2.1 (S2_HARDENING_BRIEF_CLAUDE.md, S2_RATIFICATION.md gaps 1/2): flatten a screen's
+  // sections[] (top-level + depth-1 children) into one array — shared by the hero-cardinality and
+  // duplicate-id checks below, both of which must see nested hero/promoBanner and nested ids.
+  const flattenSections = (declared: any[]): any[] =>
+    declared.flatMap((sec) => [sec, ...(Array.isArray(sec.children) ? sec.children : [])]);
+
+  // GAP-1 — hero cardinality 0..1: at most one hero-family (hero|promoBanner) section per screen.
+  // Zero is valid (a sections screen need not have a focal section); order (not a count > 1)
+  // determines prominence (S2_RATIFICATION.md #3).
+  for (const screen of screens) {
+    const declared = Array.isArray(screen.sections) ? screen.sections : [];
+    if (!declared.length) continue;
+    const heroCount = flattenSections(declared).filter((sec) => sec.type === "hero" || sec.type === "promoBanner").length;
+    if (heroCount > 1) {
+      issues.push(`[sections] screen '${screen.name}' declares ${heroCount} hero-family sections (hero/promoBanner) — at most one focal section per screen`);
+    }
+  }
+
+  // GAP-2 — duplicate section IDs: `id` must be unique within a screen (top-level + children) —
+  // the renderer now keys every emitted widget by it (ValueKey('section-<id>')), so a duplicate
+  // would collide two real widget keys, not just bookkeeping.
+  for (const screen of screens) {
+    const declared = Array.isArray(screen.sections) ? screen.sections : [];
+    if (!declared.length) continue;
+    const ids = flattenSections(declared).map((sec) => sec.id);
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) dupes.add(id);
+      seen.add(id);
+    }
+    for (const id of dupes) {
+      issues.push(`[sections] screen '${screen.name}' declares duplicate section id '${id}' — ids must be unique within a screen (top-level + children)`);
+    }
+  }
+
+  // GAP-3 — sections-screen state model (S2_RATIFICATION.md #4): loading/error live at the
+  // SCREEN level, same as list — a type:"sections" screen's declared state model must declare
+  // both "loading" and "failure" so the shared `checks` guard (statePlacementFor) actually has
+  // something to render; a sections screen with a state model that omits either silently ships a
+  // grid/rail with no loading spinner or error recovery.
+  for (const screen of screens) {
+    if (screen.type !== "sections" || !screen.state) continue;
+    const stateModel = (flat.states ?? []).find((st: any) => st.name === screen.state);
+    if (!stateModel) continue; // no state artifact at all is reported by other gates
+    const statuses: string[] = stateModel.statuses ?? [];
+    const missing = ["loading", "failure"].filter((s) => !statuses.includes(s));
+    if (missing.length) {
+      issues.push(`[sections] screen '${screen.name}' (state '${screen.state}') is missing ${missing.join("/")} in its declared statuses — a sections screen must declare loading and failure so the shared loading/error checks have something to render`);
+    }
+  }
+
   // (c) belt-and-suspenders raw-IR scan against the RAW ir object (schema already hard-rejects
   // this at generation time — this independently re-verifies the IR this gate itself was handed).
   const ALLOWED_KEYS = new Set(["id", "type", "title", "children"]);
