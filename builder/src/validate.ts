@@ -5,9 +5,10 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor } from "./composition";
 import { screenPath } from "./routing";
 import { DART_SDK_FLOOR } from "./toolchain";
+import { unapprovedElements } from "./provenance";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -719,6 +720,120 @@ export function statesCheck(ir: any, outDir: string, files: string[]): string[] 
   return issues;
 }
 
+// S1 (SPIKE_S1_REPORT.md §14.5) — the `[visualIntent]` gate. Same centralized-decision posture as
+// [search]/[scroll]/[actions]/[states]: re-derives `visualFor` fresh for every screen (never a
+// parallel re-implementation), then:
+//   (a) cross-checks plan.json's recorded patterns.visual against the fresh re-derivation —
+//       INCLUDING the null case: a screen with no visualStyle sub-field set must have NO plan
+//       entry either;
+//   (b) scans every generated screen whose archetype/IR could carry a marker (hero-gap token,
+//       AppListCard radius token) — decided-but-absent AND present-but-undecided both FAIL;
+//   (c) reuses provenance.ts's unapprovedElements() (D4: one source of truth, never forked) so an
+//       unattested nested visualStyle value blocks this gate too, independent of index.ts's own
+//       generation-time throw — the negative control (SPIKE_S1_REPORT.md §14.7: inject
+//       visualStyle.hierarchy.requiresApproval:true post-approve → refused);
+//   (d) v1 closed-enum check: a raw IR declaring visualStyle.imagery/emphasis fails — types.ts's
+//       VisualStyleModel has no compile-time slot for either (D2/D3: imagery→S3, emphasis→S2), but
+//       a hand- or LLM-authored IR is untyped JSON at runtime and could still carry the key;
+//   (e) raw-literal guard: every `radius:` argument this screen emits must be an AppRadius.* token
+//       reference, never a bare number — proves the mapping never regresses into IR-side numbers
+//       (the one rule that cannot break — visualStyle only ever feeds the scoring/token layer).
+export function visualIntentCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // (c) reuse the single provenance source of truth — filter to visualStyle-scoped entries only
+  // (unapprovedElements also reports non-visualStyle unapproved elements, out of this gate's scope).
+  for (const u of unapprovedElements(flat)) {
+    if (u.includes(".visualStyle.")) issues.push(`[visualIntent] unapproved: ${u} — generation must refuse until human-attested`);
+  }
+
+  // (d) v1 closed enum — imagery/emphasis are S3/S2 fields, never admitted now (D2/D3).
+  for (const screen of screens) {
+    const vs = screen.visualStyle;
+    if (vs && typeof vs === "object" && (("imagery" in vs) || ("emphasis" in vs))) {
+      const bad = "imagery" in vs ? "imagery" : "emphasis";
+      issues.push(`[visualIntent] screen '${screen.name}' declares visualStyle.${bad} — not part of the v1 closed enum (D2/D3: imagery→S3, emphasis→S2)`);
+    }
+  }
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[visualIntent] plan.json missing in ${outDir} — cannot verify visual-intent decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, any> = plan.patterns?.visual ?? {};
+  const recordedPaths = new Set(Object.keys(recorded));
+  const expectedPaths = new Set<string>();
+
+  const specEqual = (a: any, b: any) =>
+    !!a && !!b && a.heroScale === b.heroScale && a.baseSpacing === b.baseSpacing && a.surfaceBias === b.surfaceBias &&
+    !!a.radiusScale && !!b.radiusScale && a.radiusScale.control === b.radiusScale.control &&
+    a.radiusScale.surface === b.radiusScale.surface && a.radiusScale.container === b.radiusScale.container;
+
+  // (a) plan.json vs fresh re-derivation — same "stale plan entry" posture as [states].
+  for (const screen of screens) {
+    const spec = visualFor(screen, flat);
+    const p = screenPath(screens, screen);
+    if (spec) {
+      expectedPaths.add(p);
+      if (!recordedPaths.has(p)) {
+        issues.push(`[visualIntent] '${p}' should declare visual intent (screen has a visualStyle sub-field) but plan.json's patterns.visual has no entry for it`);
+      } else if (!specEqual(spec, recorded[p])) {
+        issues.push(`[visualIntent] '${p}' plan.json entry ${JSON.stringify(recorded[p])} does not match the re-derived decision ${JSON.stringify(spec)}`);
+      }
+    } else if (recordedPaths.has(p)) {
+      issues.push(`[visualIntent] '${p}' has a plan.json patterns.visual entry but re-deriving visualFor against the current IR returns null — stale plan entry`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedPaths.has(p)) {
+      issues.push(`[visualIntent] plan.json declares visual intent for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // (b)+(e) generated-output markers: the hero-gap token (only when the archetype+IR actually
+  // render a hero block) and the AppListCard radius token, each an exact-expected-substring check
+  // (decided-but-absent AND present-but-undecided both fail by construction), plus a guard that
+  // every radius: argument is an AppRadius.* token, never a bare number.
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const spec = visualFor(screen, flat);
+    const comp = compositionFor(screen.type);
+
+    if (comp.hasHero && screen.hero) {
+      const heroScale = spec && spec.heroScale !== 1 ? spec.heroScale : 1;
+      const token = heroScale === 0 ? "AppSpacing.sm" : heroScale === 2 ? "AppSpacing.xl" : `${comp.heroGap}.0`;
+      const marker = `AppSpacing.md, AppSpacing.lg, AppSpacing.md, ${token}),`;
+      if (!src.includes(marker)) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) hero padding does not match the decided hierarchy (expected ${token})`);
+      }
+    }
+
+    const decidedRadius = spec && spec.radiusScale.surface ? spec.radiusScale.surface : null;
+    const radiusArgs = [...src.matchAll(/radius:\s*([^,)\s]+)/g)].map((m) => m[1] ?? "");
+    if (decidedRadius && !radiusArgs.includes(decidedRadius)) {
+      issues.push(`[visualIntent] '${p}' (${screen.name}) decided cornerRadius (${decidedRadius}) but no AppListCard radius: ${decidedRadius} marker found`);
+    } else if (!decidedRadius && radiusArgs.length) {
+      issues.push(`[visualIntent] '${p}' (${screen.name}) has no cornerRadius decided but the generated screen passes radius: ${radiusArgs[0]} anyway`);
+    }
+    for (const arg of radiusArgs) {
+      if (!arg.startsWith("AppRadius.")) {
+        issues.push(`[visualIntent] '${p}' (${screen.name}) emits a raw radius argument '${arg}' — must be an AppRadius.* token, never an IR-side number`);
+      }
+    }
+  }
+
+  return issues;
+}
+
 const TENANT_MARKERS = ["_inScope(", "_stampTenant(", "Session.instance.tenantId", "_items.where(_inScope)"];
 function tenantCheck(ir: any, files: string[]): string[] {
   const issues: string[] = [];
@@ -1053,6 +1168,7 @@ export interface ValidationResult {
   scroll: number;    // count of per-screen-scroll issues: plan/output drift, missing/unexpected scroll listener (P3)
   actions: number;   // count of per-screen-action issues: plan/output drift, missing/unexpected action, unconfirmed delete, save FAB (P4)
   states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
+  visualIntent: number; // count of visual-intent issues: plan/output drift, unapproved nested visualStyle value, v1-closed-enum violation, raw radius literal (S1)
   lockfile: number;  // count of missing pubspec.lock (ERROR only; floor-differs is a warning, logged but not counted — S-HERMETIC)
   timestamps: number; // count of header-band build-time date/timestamp stamps (S-HERMETIC)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
@@ -1114,7 +1230,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
-    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, planDeterminism: 0,
+    exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, planDeterminism: 0,
     theme: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
@@ -1334,6 +1450,14 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...statesIssues);
   const states = statesIssues.length;
 
+  // Per-screen visual intent (S1): plan.json's recorded hierarchy/cornerRadius/personality
+  // decisions must match a fresh re-derivation (same visualFor), every screen's output must agree
+  // (hero-gap token, AppListCard radius token, never a raw literal), the v1 closed enum is
+  // enforced (no imagery/emphasis), and no unattested nested visualStyle value survives (D4).
+  const visualIntentIssues = visualIntentCheck(ir, outDir, files);
+  issues.push(...visualIntentIssues);
+  const visualIntent = visualIntentIssues.length;
+
   // Lockfile governance (S-HERMETIC 14.1): missing pubspec.lock is an ERROR (counted below);
   // floor-differs is a WARNING, logged into issues but never counted toward `lockfile`.
   const lockfileResult = lockfileCheck(outDir);
@@ -1349,7 +1473,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, outbox, platform, shell, search,
-    scroll, actions, states, lockfile, timestamps,
+    scroll, actions, states, visualIntent, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -1405,9 +1529,10 @@ function main() {
   console.log(`[scroll] ${r.scroll === 0 ? "PASS" : "FAIL (" + r.scroll + ")"}`);
   console.log(`[actions] ${r.actions === 0 ? "PASS" : "FAIL (" + r.actions + ")"}`);
   console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
+  console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
