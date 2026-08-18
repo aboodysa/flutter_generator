@@ -809,11 +809,20 @@
         "radiusScale": {
           "control": "AppRadius.roundedControl",
           "surface": "AppRadius.roundedSurface",
-          "container": "AppRadius.roundedContainer"
+          "container": "AppRadius.roundedContainer",
+          "search": "AppRadius.roundedSearch",
+          "fab": "AppRadius.roundedFab"
         },
-        "baseSpacing": "AppSpacing.md",
+        "spacing": {
+          "screen": "AppSpacing.md",
+          "section": "AppSpacing.md",
+          "itemGap": "AppSpacing.md",
+          "cardInset": "AppSpacing.md",
+          "fabInset": "AppSpacing.md"
+        },
         "heroScale": 1,
-        "surfaceBias": "card"
+        "surfaceBias": "card",
+        "titleWeight": ""
       }
     }
   }

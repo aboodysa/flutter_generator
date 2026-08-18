@@ -55,7 +55,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     controller: _searchController,
                     hintText: 'Search Tasks',
                     leading: const Icon(Icons.search),
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))),
                   ),
                 ),
 
@@ -93,7 +93,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                               title: Text(item.title),
                               subtitle: Text('${((item.dueDate?.toIso8601String() ?? '').split('T').first)} · ${item.priority.name}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push('/task/${item.id}'), radius: AppRadius.roundedSurface,
+                              onTap: () => context.push('/task/${item.id}'), radius: AppRadius.roundedSurface, contentPadding: EdgeInsets.all(AppSpacing.md),
                             ),
                           );
                         },
@@ -107,10 +107,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
         },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: Padding(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: FloatingActionButton(
         tooltip: 'New Task',
         onPressed: () => context.push('/task/new'),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedFab)),
+      ),
       ),
     );
   }

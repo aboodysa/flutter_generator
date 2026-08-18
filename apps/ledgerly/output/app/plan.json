@@ -1607,11 +1607,20 @@
         "radiusScale": {
           "control": "AppRadius.softControl",
           "surface": "AppRadius.softSurface",
-          "container": "AppRadius.softContainer"
+          "container": "AppRadius.softContainer",
+          "search": "AppRadius.softSearch",
+          "fab": "AppRadius.softFab"
         },
-        "baseSpacing": "AppSpacing.lg",
+        "spacing": {
+          "screen": "AppSpacing.lg",
+          "section": "AppSpacing.lg",
+          "itemGap": "AppSpacing.lg",
+          "cardInset": "AppSpacing.lg",
+          "fabInset": "AppSpacing.lg"
+        },
         "heroScale": 1,
-        "surfaceBias": "card"
+        "surfaceBias": "card",
+        "titleWeight": ""
       }
     }
   }

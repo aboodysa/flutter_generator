@@ -109,6 +109,7 @@ class AppListCard extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.radius,
+    this.contentPadding,
   });
   final bool card;
   final Widget title;
@@ -117,6 +118,7 @@ class AppListCard extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final double? radius;
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +128,7 @@ class AppListCard extends StatelessWidget {
       subtitle: subtitle,
       trailing: trailing,
       onTap: onTap,
+      contentPadding: contentPadding,
     );
     if (!card) return tile;
     return Card(

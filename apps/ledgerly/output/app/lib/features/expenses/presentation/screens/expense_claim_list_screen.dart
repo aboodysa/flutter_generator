@@ -71,12 +71,12 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
                   child: SearchBar(
                     controller: _searchController,
                     hintText: 'Search Expense Claims',
                     leading: const Icon(Icons.search),
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.softSearch))),
                   ),
                 ),
 
@@ -101,7 +101,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                       thumbVisibility: true,
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                         itemCount: filtered.length,
                         itemBuilder: (_, i) {
                           final item = filtered[i];
@@ -114,7 +114,7 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                               title: Text(item.name),
                               subtitle: Text('${item.amount.format()} · ${item.status.name}'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push('/expense-claim/${item.id}'), radius: AppRadius.softSurface,
+                              onTap: () => context.push('/expense-claim/${item.id}'), radius: AppRadius.softSurface, contentPadding: EdgeInsets.all(AppSpacing.lg),
                             ),
                           );
                         },
@@ -128,10 +128,13 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
         },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: Padding(
+        padding: EdgeInsets.all(AppSpacing.lg),
+        child: FloatingActionButton(
         tooltip: '${AppStrings.of(context).newLabel} ExpenseClaim',
         onPressed: () => context.push('/expense-claim/new'),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.softFab)),
+      ),
       ),
     );
   }

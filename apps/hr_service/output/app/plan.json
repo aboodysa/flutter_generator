@@ -845,11 +845,20 @@
         "radiusScale": {
           "control": "AppRadius.sharpControl",
           "surface": "AppRadius.sharpSurface",
-          "container": "AppRadius.sharpContainer"
+          "container": "AppRadius.sharpContainer",
+          "search": "AppRadius.sharpSearch",
+          "fab": "AppRadius.sharpFab"
         },
-        "baseSpacing": "AppSpacing.sm",
+        "spacing": {
+          "screen": "AppSpacing.sm",
+          "section": "AppSpacing.sm",
+          "itemGap": "AppSpacing.sm",
+          "cardInset": "AppSpacing.sm",
+          "fabInset": "AppSpacing.sm"
+        },
         "heroScale": 2,
-        "surfaceBias": "inherit"
+        "surfaceBias": "inherit",
+        "titleWeight": "AppType.titleWeightStrong"
       }
     }
   }

@@ -24,7 +24,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
   Widget build(BuildContext context) {
     final id = GoRouterState.of(context).pathParameters['id'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Leave Request details'), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
+      appBar: AppBar(title: Text('Leave Request details', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: AppType.titleWeightStrong)), backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
       actions: [
         IconButton(tooltip: AppStrings.of(context).edit, icon: const Icon(Icons.edit), onPressed: () => context.push('/leave-request/${id}/edit')),
         PopupMenuButton<String>(
@@ -73,7 +73,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.xl),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.xl),
           child: Text('Leave request', style: Theme.of(context).textTheme.headlineMedium),
         ),
               Text(item.name, style: Theme.of(context).textTheme.headlineMedium),
@@ -118,9 +118,9 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                 Text((item.exported ? 'yes' : 'no'), style: Theme.of(context).textTheme.bodyMedium),
               ]),
               const SizedBox(height: AppSpacing.sm),
-              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall), radius: AppRadius.sharpSurface),
+              AppListCard(card: true, title: Text('Id', style: Theme.of(context).textTheme.labelSmall), trailing: Text(item.id, style: Theme.of(context).textTheme.labelSmall), radius: AppRadius.sharpSurface, contentPadding: EdgeInsets.all(AppSpacing.sm)),
               const SizedBox(height: AppSpacing.sm),
-              AppListCard(card: true, title: Text('View Approvals'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/approval?leaveRequestId=${id}'), radius: AppRadius.sharpSurface),
+              AppListCard(card: true, title: Text('View Approvals'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/approval?leaveRequestId=${id}'), radius: AppRadius.sharpSurface, contentPadding: EdgeInsets.all(AppSpacing.sm)),
               ],
             );
         },

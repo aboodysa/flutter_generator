@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
+      appBar: AppBar(title: Text('Products', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: AppType.titleWeightStrong))),
       body: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
         if (state.status == HomeStatus.loading) return const LoadingState();
@@ -39,7 +39,7 @@ class HomeScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: SizedBox(
                         width: AppTokens.cardWidth,
-                        child: AppListCard(card: true, title: Text(item.title), subtitle: Text(item.price.format()), radius: AppRadius.roundedSurface),
+                        child: AppListCard(card: true, title: Text(item.title), subtitle: Text(item.price.format()), radius: AppRadius.roundedSurface, contentPadding: EdgeInsets.all(AppSpacing.md)),
                       ),
                     );
                   },
@@ -80,10 +80,13 @@ class HomeScreen extends StatelessWidget {
             );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: Padding(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: FloatingActionButton(
         tooltip: 'Cart',
         onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty'))),
-        child: const Icon(Icons.shopping_cart),
+        child: const Icon(Icons.shopping_cart), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedFab)),
+      ),
       ),
     );
   }
