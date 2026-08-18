@@ -41,6 +41,24 @@ function approve(irPath: string): ShellResult {
   return sh(`npx ts-node --transpile-only builder/src/approve.ts ${irPath}`);
 }
 
+/**
+ * Canonical folder hash: sorted `find . -type f` + per-file sha256, folded into one digest.
+ * Run with `cwd: dir` (not REPO_ROOT) so the `find .`-relative paths that get hashed are stable
+ * across two differently-named temp directories with byte-identical content.
+ */
+function canonicalHash(dir: string): string {
+  const out = execSync('find . -type f -print | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256', {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+  return out.trim().split(/\s+/)[0]!;
+}
+
+function sha256File(filePath: string): string {
+  const out = execSync(`shasum -a 256 ${filePath}`, { encoding: 'utf8' });
+  return out.trim().split(/\s+/)[0]!;
+}
+
 interface VisualSpec {
   radiusScale: { control: string; surface: string; container: string };
   baseSpacing: string;
@@ -242,4 +260,67 @@ describe('S1 Item 4 — trust boundary (negative control)', () => {
     const output = rejected.stdout + rejected.stderr;
     expect(output).toMatch(/additional propert/i);
   });
+});
+
+describe('S1 Item 5 — determinism (byte-identical regeneration)', () => {
+  // hr_service proves S1's own fragment is deterministic; todo.ir.json (no visualStyle at all)
+  // proves the absent-fragment path is still byte-identical — the other half of the additivity
+  // guarantee (D2: "absent = today's output byte-identical").
+  const CASES: Array<{ label: string; irPath: string }> = [
+    { label: 'hr_service (visualStyle present)', irPath: resolve(REPO_ROOT, 'apps/hr_service/input/hr_service.ir.json') },
+    { label: 'todo (legacy, no visualStyle)', irPath: resolve(REPO_ROOT, 'builder/samples/todo.ir.json') },
+  ];
+
+  for (const { label, irPath } of CASES) {
+    const irSha = sha256File(irPath);
+
+    test(
+      `${label}: two independent regenerations are byte-identical (input IR sha256=${irSha})`,
+      () => {
+        const workDir = mkdtempSync(join(tmpdir(), 's1-determinism-'));
+        try {
+          const dirA = join(workDir, 'A');
+          const dirB = join(workDir, 'B');
+          expect(generate(irPath, dirA).status).toBe(0);
+          expect(generate(irPath, dirB).status).toBe(0);
+
+          const hashA = canonicalHash(dirA);
+          const hashB = canonicalHash(dirB);
+          // Same key ("hash") on both sides so a mismatch's jest diff still shows the stable
+          // input-IR sha256 alongside the two divergent canonical hashes.
+          expect({ irSha, hash: hashA }).toEqual({ irSha, hash: hashB });
+
+          const diffResult = sh(`diff -r ${dirA} ${dirB}`);
+          expect(diffResult.status).toBe(0);
+          expect(diffResult.stdout.trim()).toBe('');
+        } finally {
+          rmSync(workDir, { recursive: true, force: true });
+        }
+      },
+      30_000,
+    );
+  }
+
+  test(
+    'validate.ts on a fresh regeneration prints [plan-determinism] PASS and [visualIntent] PASS',
+    () => {
+      const workDir = mkdtempSync(join(tmpdir(), 's1-determinism-validate-'));
+      try {
+        const irPath = resolve(REPO_ROOT, 'apps/hr_service/input/hr_service.ir.json');
+        const outDir = join(workDir, 'out');
+        expect(generate(irPath, outDir).status).toBe(0);
+
+        // [lockfile] is expected to FAIL here (a throwaway temp dir never ran `flutter pub get`,
+        // so it has no pubspec.lock) — this test only asserts the 3 determinism/visual gates the
+        // brief scopes, not the full validator suite.
+        const r = validate(irPath, outDir);
+        expect(r.stdout).toMatch(/\[determinism\] PASS/);
+        expect(r.stdout).toMatch(/\[plan-determinism\] PASS/);
+        expect(r.stdout).toMatch(/\[visualIntent\] PASS/);
+      } finally {
+        rmSync(workDir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });
