@@ -224,7 +224,34 @@ export function generateTheme(f: FeatureModel): string {
   static const roundedContainer = container;
   static const pillControl = 16.0;
   static const pillSurface = 24.0;
-  static const pillContainer = 999.0;`
+  static const pillContainer = 999.0;
+  // FIX-1 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): search field + FAB are their OWN role — a screen's
+  // most-looked-at control (search) and its floating one (FAB) never reuse \`control\`, so a
+  // future component-role addition never collides with the list-row radius.
+  static const sharpSearch = 4.0;
+  static const softSearch = 8.0;
+  static const roundedSearch = 12.0;
+  static const pillSearch = 999.0;
+  static const sharpFab = 8.0;
+  static const softFab = 12.0;
+  static const roundedFab = 16.0;
+  static const pillFab = 999.0;`
+    : "";
+  // FIX-2/FIX-4 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): hierarchy's measurable typography effect — a
+  // dedicated AppType token class (not folded into AppRadius/AppSpacing, a genuinely different
+  // token kind: FontWeight, not a double). Same hasVisual conditional-emission gate as the radius
+  // scale groups above, so a no-visualStyle app's theme.dart stays byte-identical.
+  const typeScaleGroup = hasVisual
+    ? `
+
+// FIX-2/FIX-4 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): hierarchy's typography scale — composition.ts's
+// visualFor() selects titleWeightSoft/titleWeightStrong by heroScale (0/2); heroScale:1
+// (balanced/undeclared) selects neither, so the AppBar title stays its exact pre-fix
+// \`const Text(...)\` — the negative control that heroScale=1 changes nothing.
+abstract final class AppType {
+  static const titleWeightSoft = FontWeight.w400;
+  static const titleWeightStrong = FontWeight.w700;
+}`
     : "";
   return `${hdr("ThemeGenerator", "theme.v1")}
 import 'package:flutter/material.dart';
@@ -265,7 +292,7 @@ abstract final class AppRadius {
   static const control = 12.0;
   static const surface = 16.0;
   static const container = 24.0;${radiusScaleGroups}
-}
+}${typeScaleGroup}
 
 ThemeData buildTheme() => ThemeData(
   colorScheme: ColorScheme.fromSeed(

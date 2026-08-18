@@ -212,6 +212,15 @@ export function generateComponents(f: FeatureModel): string {
   const hasVisual = [...visualTargets(f).values()].some((v) => v.radiusScale.control !== "");
   const radiusParam = hasVisual ? "\n    this.radius," : "";
   const radiusField = hasVisual ? "\n  final double? radius;" : "";
+  // FIX-3 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): AppListCard gains an optional contentPadding override
+  // ONLY when this app has at least one screen with a personality-decided cardInset — same
+  // conditional-emission gate as `radius` above, kept separate (a screen can set cornerRadius
+  // without personality, or vice versa) so an app that only ever sets one of the two doesn't carry
+  // the other's dead parameter.
+  const hasSpacingVisual = [...visualTargets(f).values()].some((v) => v.spacing.cardInset !== "");
+  const contentPaddingParam = hasSpacingVisual ? "\n    this.contentPadding," : "";
+  const contentPaddingField = hasSpacingVisual ? "\n  final EdgeInsetsGeometry? contentPadding;" : "";
+  const contentPaddingArg = hasSpacingVisual ? "\n      contentPadding: contentPadding," : "";
   const cardBuild = hasVisual
     ? `    if (!card) return tile;
     return Card(
@@ -449,14 +458,14 @@ class AppListCard extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.trailing,
-    this.onTap,${radiusParam}
+    this.onTap,${radiusParam}${contentPaddingParam}
   });
   final bool card;
   final Widget title;
   final Widget? subtitle;
   final Widget? leading;
   final Widget? trailing;
-  final VoidCallback? onTap;${radiusField}
+  final VoidCallback? onTap;${radiusField}${contentPaddingField}
 
   @override
   Widget build(BuildContext context) {
@@ -465,7 +474,7 @@ class AppListCard extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       trailing: trailing,
-      onTap: onTap,
+      onTap: onTap,${contentPaddingArg}
     );
 ${cardBuild}
   }

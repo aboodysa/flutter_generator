@@ -395,22 +395,36 @@ export function statePlacementTargets(ir: FeatureModel): Map<string, StatePlacem
  * this mapping (D2/D3) — not silently ignored, but never admitted as a v1 field in the first place.
  */
 export interface VisualSpec {
-  radiusScale: { control: string; surface: string; container: string }; // AppRadius.* token names (never numbers)
-  baseSpacing: string; // an AppSpacing.* token name, or "" = no itemGap override (personality unset)
+  // FIX-1 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): component-role radius tokens, not one generic value
+  // applied indiscriminately — search/fab are their OWN role (never reuse `control`) so a search
+  // field and a FAB can carry a different corner treatment than a list row, matching the review's
+  // "radius needs semantic ownership" finding. AppRadius.* token names, never numbers.
+  radiusScale: { control: string; surface: string; container: string; search: string; fab: string };
+  // FIX-3: every layout relationship this archetype has, all AppSpacing.* token names (or "" = no
+  // override for that ONE relationship, personality unset/that field not part of the row).
+  spacing: { screen: string; section: string; itemGap: string; cardInset: string; fabInset: string };
   heroScale: 0 | 1 | 2; // hierarchy: soft=0 (de-emphasized), balanced=1 (default preserve), strong=2
   surfaceBias: "plain" | "card" | "inherit"; // personality; "inherit" = archetype default (no override)
+  // FIX-2/FIX-4: hierarchy's measurable typography effect (an AppType.* FontWeight token name, or
+  // "" = no override) — lives on hierarchy, not personality: "strong" is both the hero-hierarchy
+  // signal AND the typography signal, which is what makes heroScale:2 observable (screen.ts applies
+  // it to the one element every archetype always renders — the AppBar title).
+  titleWeight: string;
 }
 
 // D2 §14.2: cornerRadius.rounded is an explicit alias for today's default scale (AppRadius.control/
 // surface/container) — a screen that sets ONLY cornerRadius:"rounded" renders the same radius
 // numbers as no visualStyle at all. sharp/soft/pill are the report's declared rows (§14.2).
+// FIX-1: search/fab rows added (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md) — roundedSearch/roundedFab are
+// NOT byte-identical to the pre-fix Material default (a real, intentional visual change once a
+// screen opts into cornerRadius; a screen with none stays untouched via NO_RADIUS_OVERRIDE below).
 const RADIUS_SCALE: Record<VisualCornerRadius, VisualSpec["radiusScale"]> = {
-  sharp:   { control: "AppRadius.sharpControl",   surface: "AppRadius.sharpSurface",   container: "AppRadius.sharpContainer" },
-  soft:    { control: "AppRadius.softControl",    surface: "AppRadius.softSurface",    container: "AppRadius.softContainer" },
-  rounded: { control: "AppRadius.roundedControl", surface: "AppRadius.roundedSurface", container: "AppRadius.roundedContainer" },
-  pill:    { control: "AppRadius.pillControl",    surface: "AppRadius.pillSurface",    container: "AppRadius.pillContainer" },
+  sharp:   { control: "AppRadius.sharpControl",   surface: "AppRadius.sharpSurface",   container: "AppRadius.sharpContainer",   search: "AppRadius.sharpSearch",   fab: "AppRadius.sharpFab" },
+  soft:    { control: "AppRadius.softControl",    surface: "AppRadius.softSurface",    container: "AppRadius.softContainer",    search: "AppRadius.softSearch",    fab: "AppRadius.softFab" },
+  rounded: { control: "AppRadius.roundedControl", surface: "AppRadius.roundedSurface", container: "AppRadius.roundedContainer", search: "AppRadius.roundedSearch", fab: "AppRadius.roundedFab" },
+  pill:    { control: "AppRadius.pillControl",    surface: "AppRadius.pillSurface",    container: "AppRadius.pillContainer",    search: "AppRadius.pillSearch",    fab: "AppRadius.pillFab" },
 };
-const NO_RADIUS_OVERRIDE: VisualSpec["radiusScale"] = { control: "", surface: "", container: "" };
+const NO_RADIUS_OVERRIDE: VisualSpec["radiusScale"] = { control: "", surface: "", container: "", search: "", fab: "" };
 
 // hierarchy → heroScale ordinal (like DENSITY, scoring.ts:48-52). balanced=1 is the "default
 // preserve" row — a screen with no hierarchy set (but cornerRadius/personality set) gets 1, so
@@ -418,18 +432,28 @@ const NO_RADIUS_OVERRIDE: VisualSpec["radiusScale"] = { control: "", surface: ""
 const HERO_SCALE: Record<VisualHierarchy, VisualSpec["heroScale"]> = { soft: 0, balanced: 1, strong: 2 };
 const DEFAULT_HERO_SCALE: VisualSpec["heroScale"] = 1;
 
-// personality → {baseSpacing, surfaceBias} fixed row (§14.2, §16 open question). All 5 v1 enum
+// FIX-2/FIX-4: heroScale → titleWeight (an AppType.* FontWeight token, or "" for balanced/default
+// — the negative control: heroScale=1 must change nothing). Keyed on the ORDINAL (not the raw
+// VisualHierarchy string) since heroScale is already the single source both screen.ts's heroGap
+// bias and this typography bias read from — one decision, two observable effects.
+const TITLE_WEIGHT: Record<VisualSpec["heroScale"], string> = { 0: "AppType.titleWeightSoft", 1: "", 2: "AppType.titleWeightStrong" };
+
+// personality → {spacing, surfaceBias} fixed row (§14.2, §16 open question). All 5 v1 enum
 // values ship a declared row here (D2 admits the full personality enum for v1 — only imagery/
 // emphasis are deferred fields, not a partial personality set); each row is distinct from the
 // null-set default so no admitted value is an unscored no-op (G6.1).
-const PERSONALITY_ROW: Record<VisualPersonality, { baseSpacing: string; surfaceBias: VisualSpec["surfaceBias"] }> = {
-  professional: { baseSpacing: "AppSpacing.sm", surfaceBias: "inherit" },
-  friendly:     { baseSpacing: "AppSpacing.md", surfaceBias: "card" },
-  premium:      { baseSpacing: "AppSpacing.lg", surfaceBias: "card" },
-  playful:      { baseSpacing: "AppSpacing.lg", surfaceBias: "plain" },
-  minimal:      { baseSpacing: "AppSpacing.xs", surfaceBias: "plain" },
+// FIX-3 (S1_TOKEN_RIGOR_BRIEF_CLAUDE.md): `spacing` replaces the old single `baseSpacing` field —
+// every layout relationship this personality has an opinion on (screen padding, section gap, item
+// gap, card inset, FAB inset) resolves from the SAME scale step, not just the item gap.
+const PERSONALITY_ROW: Record<VisualPersonality, { spacing: VisualSpec["spacing"]; surfaceBias: VisualSpec["surfaceBias"] }> = {
+  professional: { spacing: { screen: "AppSpacing.sm", section: "AppSpacing.sm", itemGap: "AppSpacing.sm", cardInset: "AppSpacing.sm", fabInset: "AppSpacing.sm" }, surfaceBias: "inherit" },
+  friendly:     { spacing: { screen: "AppSpacing.md", section: "AppSpacing.md", itemGap: "AppSpacing.md", cardInset: "AppSpacing.md", fabInset: "AppSpacing.md" }, surfaceBias: "card" },
+  premium:      { spacing: { screen: "AppSpacing.lg", section: "AppSpacing.lg", itemGap: "AppSpacing.lg", cardInset: "AppSpacing.lg", fabInset: "AppSpacing.lg" }, surfaceBias: "card" },
+  playful:      { spacing: { screen: "AppSpacing.lg", section: "AppSpacing.lg", itemGap: "AppSpacing.lg", cardInset: "AppSpacing.lg", fabInset: "AppSpacing.lg" }, surfaceBias: "plain" },
+  minimal:      { spacing: { screen: "AppSpacing.xs", section: "AppSpacing.xs", itemGap: "AppSpacing.xs", cardInset: "AppSpacing.xs", fabInset: "AppSpacing.xs" }, surfaceBias: "plain" },
 };
-const DEFAULT_PERSONALITY_ROW = { baseSpacing: "", surfaceBias: "inherit" as VisualSpec["surfaceBias"] };
+const NO_SPACING_OVERRIDE: VisualSpec["spacing"] = { screen: "", section: "", itemGap: "", cardInset: "", fabInset: "" };
+const DEFAULT_PERSONALITY_ROW = { spacing: NO_SPACING_OVERRIDE, surfaceBias: "inherit" as VisualSpec["surfaceBias"] };
 
 // visualFor: closed-enum → fixed table, per screen. `null` (no map entry) means the screen declares
 // no visualStyle sub-field at all — screen.ts then renders exactly as it did pre-S1 (byte-identical).
@@ -441,8 +465,8 @@ export function visualFor(s: ScreenModel, _ir: FeatureModel): VisualSpec | null 
   if (!vs || (!vs.hierarchy && !vs.cornerRadius && !vs.personality)) return null;
   const radiusScale = vs.cornerRadius ? RADIUS_SCALE[vs.cornerRadius.value] : NO_RADIUS_OVERRIDE;
   const heroScale = vs.hierarchy ? HERO_SCALE[vs.hierarchy.value] : DEFAULT_HERO_SCALE;
-  const { baseSpacing, surfaceBias } = vs.personality ? PERSONALITY_ROW[vs.personality.value] : DEFAULT_PERSONALITY_ROW;
-  return { radiusScale, baseSpacing, heroScale, surfaceBias };
+  const { spacing, surfaceBias } = vs.personality ? PERSONALITY_ROW[vs.personality.value] : DEFAULT_PERSONALITY_ROW;
+  return { radiusScale, spacing, heroScale, surfaceBias, titleWeight: TITLE_WEIGHT[heroScale] };
 }
 
 // Runs visualFor across every screen in one IR (single- or already-merged multi-feature — same
