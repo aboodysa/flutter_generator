@@ -21,7 +21,8 @@
       "enum": [
         "list",
         "detail",
-        "wizard"
+        "wizard",
+        "sections"
       ]
     },
     "state": {
@@ -100,6 +101,38 @@
     "hero": {
       "type": "string",
       "description": "S1: optional field name or literal headline rendered as the screen's focal point (only visible when the archetype's composition.ts entry has hasHero:true)."
+    },
+    "sections": {
+      "type": "array",
+      "description": "S2 (SPIKE_S2_REPORT.md §14.1): declarative section-list layout — only meaningful when type=='sections' (validate.ts's [sections] gate enforces the pairing). Order IS the hierarchy. No columns/width/height/aspectRatio/padding/x/y anywhere — additionalProperties:false closes each section object to exactly {id, type, title?, children?}.",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "enum": ["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "section", "divider", "floatingCart"]
+          },
+          "title": { "type": "string" },
+          "children": {
+            "type": "array",
+            "description": "Only meaningful on type=='section' — depth-1, leaves only (no nested children).",
+            "items": {
+              "type": "object",
+              "required": ["id", "type"],
+              "properties": {
+                "id": { "type": "string" },
+                "type": {
+                  "enum": ["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "divider", "floatingCart"]
+                },
+                "title": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "visualStyle": {
       "type": "object",

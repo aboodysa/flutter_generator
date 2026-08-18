@@ -267,7 +267,7 @@ export interface RepositoryImplModel {
 export interface ScreenModel {
   name: string; // e.g. TransactionListScreen
   entity: string; // entity shown
-  type: string; // composition archetype id: "list" | "detail" | "wizard" | "dashboard" | ... (open set, see composition.ts)
+  type: string; // composition archetype id: "list" | "detail" | "wizard" | "sections" | ... (open set, see composition.ts)
   state: string; // state/cubit name
   hero?: string; // optional: field name or headline to render as the screen's focal point
   steps?: WizardStep[]; // P8-W1: only meaningful when type === "wizard" (composition archetype "wizard")
@@ -282,6 +282,41 @@ export interface ScreenModel {
   // rule that cannot break, per the S1 brief). Additive — absent = today's output byte-identical.
   // `AppAttributes.density` stays app-level (D1) and is NOT duplicated here.
   visualStyle?: VisualStyleModel;
+  // S2 (SPIKE_S2_REPORT.md §14.1): declarative section-list layout — only meaningful when
+  // type === "sections" (composition archetype "sections", validate.ts's [sections] gate enforces
+  // the pairing; a "sections" screen with no sections, or sections on any other archetype, is a
+  // gate ERROR, never a silent fallback). Order IS the hierarchy — sections render in declared
+  // sequence, never coordinates/columns/width/height/x/y (composition.ts's sectionsFor decides the
+  // per-type component mapping; screen.ts applies it verbatim).
+  sections?: SectionModel[];
+}
+
+// S2 (SPIKE_S2_REPORT.md §14.1, D1): closed v1 section-type vocabulary — any other value is a
+// schema hard-reject (screen.schema.json), never a warn-and-fallback (a closed vocabulary must
+// hard-abort on an unknown value, or the schema teeth silently rot — see the spike's rejected
+// alternatives §15). `emphasis`/`targetId` are deliberately NOT admitted anywhere in this shape
+// (D5 — the hero's prominence is its type + position + heroScale, no separate focal-point field).
+export type SectionType =
+  | "header"
+  | "search"
+  | "hero"
+  | "promoBanner"
+  | "productGrid"
+  | "horizontalCards"
+  | "sectionHeader"
+  | "section"
+  | "divider"
+  | "floatingCart";
+
+// `children` is allowed ONLY on `type: "section"` (a grouping container), one level deep, leaves
+// only (no recursion) — keeps the renderer a simple depth-1 table (SPIKE_S2_REPORT.md §14.1). No
+// width/height/columns/aspectRatio/padding/x/y anywhere — every extent the renderer emits is a
+// generator-side AppTokens.*/AppRadius.*/AppSpacing.* token, never an IR-side literal.
+export interface SectionModel {
+  id: string;
+  type: SectionType;
+  title?: string;
+  children?: SectionModel[];
 }
 
 // S1 (SPIKE_S1_REPORT.md §14.1): v1 closed enums — `imagery` is deferred to S3 (no consumer before
