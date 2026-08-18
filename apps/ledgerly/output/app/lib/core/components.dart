@@ -23,6 +23,7 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: onPressed != null,
       label: semanticLabel ?? label,
       child: FilledButton(onPressed: onPressed, child: Text(label)),
     );

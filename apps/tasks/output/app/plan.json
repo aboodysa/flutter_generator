@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 54,
+  "artifactCount": 58,
   "entries": [
     {
       "artifact": "enum:TaskStatus",
@@ -557,6 +557,50 @@
       "schema": "test",
       "layer": "test",
       "file": "test/viewport_squeeze_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:TaskListScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/task_list_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:TaskDetailScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/task_detail_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:FollowUpListScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/follow_up_list_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:FollowUpDetailScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/follow_up_detail_screen_a11y_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
