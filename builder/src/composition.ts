@@ -4,7 +4,7 @@
  * and surface treatment. Adding a new archetype = one entry here (data), no dispatch rewrite.
  * The screen generator consults this registry; unknown archetypes fall back to `list`.
  */
-import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec } from "./types";
+import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec, VisualHierarchy, VisualCornerRadius, VisualPersonality } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
 import { findRepoForEntity, crudFormTargets, isAudited, resolveExport, findWizardScreen } from "./operations";
@@ -373,6 +373,81 @@ export function statePlacementTargets(ir: FeatureModel): Map<string, StatePlacem
   const out = new Map<string, StatePlacementSpec>();
   for (const screen of ir.screens ?? []) {
     const spec = statePlacementFor(screen, ir);
+    if (spec) out.set(screen.name, spec);
+  }
+  return out;
+}
+
+/**
+ * S1 (SPIKE_S1_REPORT.md §13/§14, D1/D2/D4) — visual-intent scoring selector. Same single-owner
+ * posture as P4's actionsFor/P5's statePlacementFor: this is the ONE place `ScreenModel.visualStyle`
+ * is translated into a deterministic `VisualSpec`; screen.ts only ever applies the decided deltas
+ * verbatim, never re-derives them from the enum values. The one rule that cannot break (S1 brief):
+ * visualStyle NEVER selects a widget/asset directly — it only biases this composition-layer spec
+ * (radius token set, hero weight, spacing/surface bias), which screen.ts was already consuming
+ * (comp.heroGap/itemGap/surface) before this slice.
+ *
+ * `imagery` (S3) and `emphasis` (S2) are deliberately absent from both the enum set (types.ts) and
+ * this mapping (D2/D3) — not silently ignored, but never admitted as a v1 field in the first place.
+ */
+export interface VisualSpec {
+  radiusScale: { control: string; surface: string; container: string }; // AppRadius.* token names (never numbers)
+  baseSpacing: string; // an AppSpacing.* token name, or "" = no itemGap override (personality unset)
+  heroScale: 0 | 1 | 2; // hierarchy: soft=0 (de-emphasized), balanced=1 (default preserve), strong=2
+  surfaceBias: "plain" | "card" | "inherit"; // personality; "inherit" = archetype default (no override)
+}
+
+// D2 §14.2: cornerRadius.rounded is an explicit alias for today's default scale (AppRadius.control/
+// surface/container) — a screen that sets ONLY cornerRadius:"rounded" renders the same radius
+// numbers as no visualStyle at all. sharp/soft/pill are the report's declared rows (§14.2).
+const RADIUS_SCALE: Record<VisualCornerRadius, VisualSpec["radiusScale"]> = {
+  sharp:   { control: "AppRadius.sharpControl",   surface: "AppRadius.sharpSurface",   container: "AppRadius.sharpContainer" },
+  soft:    { control: "AppRadius.softControl",    surface: "AppRadius.softSurface",    container: "AppRadius.softContainer" },
+  rounded: { control: "AppRadius.roundedControl", surface: "AppRadius.roundedSurface", container: "AppRadius.roundedContainer" },
+  pill:    { control: "AppRadius.pillControl",    surface: "AppRadius.pillSurface",    container: "AppRadius.pillContainer" },
+};
+const NO_RADIUS_OVERRIDE: VisualSpec["radiusScale"] = { control: "", surface: "", container: "" };
+
+// hierarchy → heroScale ordinal (like DENSITY, scoring.ts:48-52). balanced=1 is the "default
+// preserve" row — a screen with no hierarchy set (but cornerRadius/personality set) gets 1, so
+// screen.ts's heroGap override is a no-op unless hierarchy is explicitly declared.
+const HERO_SCALE: Record<VisualHierarchy, VisualSpec["heroScale"]> = { soft: 0, balanced: 1, strong: 2 };
+const DEFAULT_HERO_SCALE: VisualSpec["heroScale"] = 1;
+
+// personality → {baseSpacing, surfaceBias} fixed row (§14.2, §16 open question). All 5 v1 enum
+// values ship a declared row here (D2 admits the full personality enum for v1 — only imagery/
+// emphasis are deferred fields, not a partial personality set); each row is distinct from the
+// null-set default so no admitted value is an unscored no-op (G6.1).
+const PERSONALITY_ROW: Record<VisualPersonality, { baseSpacing: string; surfaceBias: VisualSpec["surfaceBias"] }> = {
+  professional: { baseSpacing: "AppSpacing.sm", surfaceBias: "inherit" },
+  friendly:     { baseSpacing: "AppSpacing.md", surfaceBias: "card" },
+  premium:      { baseSpacing: "AppSpacing.lg", surfaceBias: "card" },
+  playful:      { baseSpacing: "AppSpacing.lg", surfaceBias: "plain" },
+  minimal:      { baseSpacing: "AppSpacing.xs", surfaceBias: "plain" },
+};
+const DEFAULT_PERSONALITY_ROW = { baseSpacing: "", surfaceBias: "inherit" as VisualSpec["surfaceBias"] };
+
+// visualFor: closed-enum → fixed table, per screen. `null` (no map entry) means the screen declares
+// no visualStyle sub-field at all — screen.ts then renders exactly as it did pre-S1 (byte-identical).
+// A screen with at least one sub-field set gets a full VisualSpec; the fields it did NOT set resolve
+// to their documented no-op default (NO_RADIUS_OVERRIDE / DEFAULT_HERO_SCALE / DEFAULT_PERSONALITY_ROW)
+// rather than being silently omitted, so screen.ts never has to guess which half of the spec is live.
+export function visualFor(s: ScreenModel, _ir: FeatureModel): VisualSpec | null {
+  const vs = s.visualStyle;
+  if (!vs || (!vs.hierarchy && !vs.cornerRadius && !vs.personality)) return null;
+  const radiusScale = vs.cornerRadius ? RADIUS_SCALE[vs.cornerRadius.value] : NO_RADIUS_OVERRIDE;
+  const heroScale = vs.hierarchy ? HERO_SCALE[vs.hierarchy.value] : DEFAULT_HERO_SCALE;
+  const { baseSpacing, surfaceBias } = vs.personality ? PERSONALITY_ROW[vs.personality.value] : DEFAULT_PERSONALITY_ROW;
+  return { radiusScale, baseSpacing, heroScale, surfaceBias };
+}
+
+// Runs visualFor across every screen in one IR (single- or already-merged multi-feature — same
+// posture as statePlacementTargets). Keyed by screen NAME (screen.ts's lookup); index.ts re-keys by
+// screenPath() for plan.json `patterns.visual`.
+export function visualTargets(ir: FeatureModel): Map<string, VisualSpec> {
+  const out = new Map<string, VisualSpec>();
+  for (const screen of ir.screens ?? []) {
+    const spec = visualFor(screen, ir);
     if (spec) out.set(screen.name, spec);
   }
   return out;
