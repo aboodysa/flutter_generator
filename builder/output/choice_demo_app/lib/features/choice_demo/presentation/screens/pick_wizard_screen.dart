@@ -42,15 +42,28 @@ class PickWizardScreen extends StatelessWidget {
                     child: switch (state.currentStep) {
                       0 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Wrap(key: const ValueKey('field-answer'), spacing: AppSpacing.sm, children: AnswerOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<PickWizardCubit>().setAnswer(v))).toList()),
+                        if (state.answer != null)
+                        Builder(builder: (context) {
+                          final stepVerdicts = evaluatePickPolicy(state.draft);
+                          final soFarVerdicts = stepVerdicts.where((v) => const {'AnswerCorrect'}.contains(v.ruleId)).toList();
+                          final soFarPoints = soFarVerdicts.fold<int>(0, (sum, v) => sum + (const {'AnswerCorrect': 5}[v.ruleId] ?? 0));
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            stepVerdicts.any((v) => v.ruleId == 'AnswerCorrect') ? const AppChip(label: 'Correct! +5 stars', tone: AppChipTone.success) : const AppChip(label: 'Not quite — the answer was b', tone: AppChipTone.danger),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text('${soFarVerdicts.length} correct · $soFarPoints ⭐ so far', style: Theme.of(context).textTheme.bodyMedium),
+                          ]);
+                        }),
                       ]),
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Builder(builder: (context) {
                           final gamifiedVerdicts = evaluatePickPolicy(state.draft).where((v) => const {'AnswerCorrect'}.contains(v.ruleId)).toList();
                           final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const {'AnswerCorrect': 5}[v.ruleId] ?? 0));
                           final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
+                          final gamifiedScoreText = '${gamifiedVerdicts.length} correct × 5 ⭐ = $gamifiedPoints ⭐';
                           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('$gamifiedStars  (${gamifiedVerdicts.length}/1)', style: Theme.of(context).textTheme.headlineMedium),
-                            Text('Score: $gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            Text(gamifiedScoreText, style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
                           gamifiedVerdicts.any((v) => v.ruleId == 'AnswerCorrect') ? const AppChip(label: 'Correct! +5 stars', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),

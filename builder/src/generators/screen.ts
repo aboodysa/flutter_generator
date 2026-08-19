@@ -217,18 +217,69 @@ function gamifiedResultBlock(entityName: string, rules: RuleModel[]): string {
       return `                          gamifiedVerdicts.any((v) => v.ruleId == '${r.name}') ? const AppChip(label: '${msg}', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),`;
     })
     .join("\n");
+  // V1.3: "Score: N ⭐" was a bare magic number — replace with the actual arithmetic. Points are
+  // known per-rule at codegen time, so whether they're uniform (kids_quiz: 5/5/5) is a codegen-
+  // time decision, not a runtime branch: uniform gets the natural "N correct × M ⭐ = T ⭐"
+  // reading; non-uniform (a future app could declare different per-rule points) falls back to an
+  // explicit per-verdict sum ("5 ⭐ + 3 ⭐ = 8 ⭐") — still fully derived, never a second number
+  // invented independently of the same gamifiedPoints total both forms end in.
+  const pointValues = rules.map((r) => r.points ?? 0);
+  const uniform = pointValues.every((p) => p === pointValues[0]);
+  // Dart-quoting note: the outer expression is single-quoted; the non-uniform branch's nested
+  // per-verdict map callback uses DOUBLE quotes specifically so it can sit inside the outer
+  // single-quoted string without an unescaped-apostrophe collision.
+  const scoreExpr = uniform
+    ? `'\${gamifiedVerdicts.length} correct × ${pointValues[0]} ⭐ = \$gamifiedPoints ⭐'`
+    : `gamifiedVerdicts.isEmpty ? '0 correct = 0 ⭐' : '\${gamifiedVerdicts.map((v) => "\${(const ${pointsMap})[v.ruleId] ?? 0} ⭐").join(" + ")} = \$gamifiedPoints ⭐'`;
   return `Builder(builder: (context) {
                           final gamifiedVerdicts = ${evalCall}.where((v) => const ${idSet}.contains(v.ruleId)).toList();
                           final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const ${pointsMap}[v.ruleId] ?? 0));
                           final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
+                          final gamifiedScoreText = ${scoreExpr};
                           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('$gamifiedStars  (\${gamifiedVerdicts.length}/${rules.length})', style: Theme.of(context).textTheme.headlineMedium),
-                            Text('Score: \$gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            Text(gamifiedScoreText, style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
 ${marks}
                             ]),
                             const SizedBox(height: AppSpacing.sm),
+                          ]);
+                        })`;
+}
+
+// V1.3: live per-step feedback — a question step with >=1 gamified rule over its OWN field(s)
+// gets an immediate correct/wrong mark once picked, plus a running score line covering every
+// gamified rule answered up to and including this step (`soFarRules`, step-ordered like
+// `stepRules`). Same evaluate<Entity>Policy(state.draft) source of truth as the result page
+// (gamifiedResultBlock) — never a second, hand-rolled correctness check. Gated on every one of
+// this step's own gamified fields being non-null (unanswered = no feedback yet, matches the
+// owner's "as soon as a chip is tapped" ask, not before). The wrong-answer chip reveals the
+// correct RAW enum value (e.g. "b") from the rule's own condition — the only thing the generator
+// can derive deterministically; there is no structural link from a wizard's own field back to a
+// human-readable answer label anywhere in the IR (documented in kids_quiz's brief.md).
+function gamifiedStepFeedbackBlock(entityName: string, stepRules: RuleModel[], soFarRules: RuleModel[]): string {
+  const evalCall = `evaluate${entityName}Policy(state.draft)`;
+  const soFarIdSet = `{${soFarRules.map((r) => `'${r.name}'`).join(", ")}}`;
+  const soFarPointsMap = `{${soFarRules.map((r) => `'${r.name}': ${r.points ?? 0}`).join(", ")}}`;
+  const gateFields = Array.from(new Set(stepRules.map((r) => r.conditions[0]?.field).filter((f): f is string => !!f)));
+  const gate = gateFields.map((f) => `state.${f} != null`).join(" && ");
+  const marks = stepRules
+    .map((r) => {
+      const correctMsg = (r.message ?? "Correct!").replace(/'/g, "\\'");
+      const wrongValue = (r.conditions[0]?.value ?? "").replace(/'/g, "\\'");
+      return `                            stepVerdicts.any((v) => v.ruleId == '${r.name}') ? const AppChip(label: '${correctMsg}', tone: AppChipTone.success) : const AppChip(label: 'Not quite — the answer was ${wrongValue}', tone: AppChipTone.danger),`;
+    })
+    .join("\n");
+  return `if (${gate})\n                        Builder(builder: (context) {
+                          final stepVerdicts = ${evalCall};
+                          final soFarVerdicts = stepVerdicts.where((v) => const ${soFarIdSet}.contains(v.ruleId)).toList();
+                          final soFarPoints = soFarVerdicts.fold<int>(0, (sum, v) => sum + (const ${soFarPointsMap}[v.ruleId] ?? 0));
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const SizedBox(height: AppSpacing.sm),
+${marks}
+                            const SizedBox(height: AppSpacing.xs),
+                            Text('\${soFarVerdicts.length} correct · \$soFarPoints ⭐ so far', style: Theme.of(context).textTheme.bodyMedium),
                           ]);
                         })`;
 }
@@ -770,7 +821,15 @@ ${rowsBlock}${splitBlock}${childRows}
       const summaryLines = collectedSoFar.map((f) => `                        ${wizardFieldSummaryLine(f, fieldDef(f))},`).join("\n");
       if (flds.length) {
         const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f), wizardRoleCtx, wizardFocusNames.has(f))},`).join("\n");
-        const body = summaryLines ? `${summaryLines}\n${widgets}` : widgets;
+        // V1.3: this step's own gamified rule(s) — a live correct/wrong mark + running score,
+        // shown once every field it needs is answered. Empty for any step whose field(s) aren't a
+        // gamified rule's condition target (every step in every wizard without gamifiedRules —
+        // work_auth included — so this is a no-op there).
+        const stepRules = gamifiedRules.filter((r) => flds.includes(r.conditions[0]?.field ?? ""));
+        const feedbackLine = (stepRules.length && entity)
+          ? `\n                        ${gamifiedStepFeedbackBlock(entity.name, stepRules, gamifiedRules.filter((r) => [...collectedSoFar, ...flds].includes(r.conditions[0]?.field ?? "")))},`
+          : "";
+        const body = (summaryLines ? `${summaryLines}\n${widgets}` : widgets) + feedbackLine;
         return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
       }
       const isGamifiedFinalStep = index === steps.length - 1 && gamifiedRules.length > 0 && entity;

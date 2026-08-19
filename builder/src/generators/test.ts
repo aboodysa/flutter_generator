@@ -805,27 +805,25 @@ export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManag
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
   const isTextField = (f: Field) => f.type === "String" || f.type === "int" || f.type === "double";
 
-  const cases: string[] = [];
-  for (const s of wizardScreens) {
-    const entity = feature.entities.find((e) => e.name === s.entity);
-    if (!entity) continue;
-    const rules = gamifiedWizardRules(feature, s, entity);
-    if (!rules.length) continue;
-    const steps: WizardStep[] = s.steps ?? [];
+  // V1.3: builds the tap/type sequence to reach a wizard's final step given a `chosen` map of
+  // field -> value (the same shape policyTriggerSteps-style walkthroughs already use). Returns
+  // one {step, action} pair per REACHABLE step (a `when`-gated step whose condition doesn't hold
+  // against `chosen` is simply absent, exactly like the runtime cubit would skip it) so callers
+  // can splice an assertion after a SPECIFIC step, not just after the whole sequence.
+  // V1.3: `fill` (the field interaction(s) that land on that step) and `advance` (the Next/Finish
+  // tap that LEAVES it) are kept as two separate strings per reached step — a caller asserting
+  // "does this step show its own feedback" needs to run that assertion strictly BETWEEN the two,
+  // never after `advance` has already navigated past the step being checked.
+  const buildWalkthrough = (
+    steps: WizardStep[],
+    entity: EntityModel,
+    chosen: Record<string, string>,
+  ): { steps: WizardStep[]; fill: string[]; advance: string[] } | null => {
     const fieldDef = (name: string) => entity.fields.find((f) => f.name === name);
     const roleCtx = { entityNames: (feature.entities ?? []).map((e) => e.name) };
-
-    // The correct value for every gamified rule's own field — this is what makes the walkthrough
-    // deterministically a perfect run. Any step field NOT covered by a gamified rule gets a plain
-    // placeholder (text) or its own default/first enum value (choice/dropdown) instead.
-    const chosen: Record<string, string> = {};
-    for (const r of rules) {
-      const c = r.conditions[0];
-      if (c && c.operator === "==") chosen[c.field] = c.value;
-    }
-
-    let undriveable = false;
-    const stepActions: string[] = [];
+    const reached: WizardStep[] = [];
+    const fill: string[] = [];
+    const advance: string[] = [];
     for (const st of steps) {
       if (st.when) {
         const holds = typeof st.when === "string"
@@ -834,18 +832,17 @@ export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManag
               return named ? ruleHoldsAgainst(named, chosen) : false;
             })()
           : (st.when.op === "==" ? chosen[st.when.field] === st.when.value : false);
-        if (!holds) continue; // this step won't be reached on the all-correct path — don't drive it
+        if (!holds) continue; // this step isn't reached on this particular `chosen` path
       }
       const flds = stepFields(st);
       const fieldWidgets: string[] = [];
       for (const fname of flds) {
         const f = fieldDef(fname);
-        if (!f) { undriveable = true; break; }
-        if (f.type === "DateTime" || f.type === "bool") { undriveable = true; break; }
+        if (!f || f.type === "DateTime" || f.type === "bool") return null;
         if (f.type === "enum") {
           const enumType = f.of ?? capitalize(f.name);
           const value = chosen[fname] ?? (f.default !== undefined ? String(f.default) : undefined);
-          if (!value) { undriveable = true; break; }
+          if (!value) return null;
           const role = fieldRole(f, roleCtx);
           if (role === "choice" || role === "status" || role === "priority") {
             fieldWidgets.push(`    await tester.tap(find.widgetWithText(ChoiceChip, '${value}'));\n    await tester.pumpAndSettle();`);
@@ -855,17 +852,36 @@ export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManag
         } else if (isTextField(f)) {
           fieldWidgets.push(`    await tester.enterText(find.byType(TextFormField).first, 'Test');\n    await tester.pumpAndSettle();`);
         } else {
-          undriveable = true;
-          break;
+          return null;
         }
       }
-      if (undriveable) break;
-      const advanceLabel = st === steps[steps.length - 1] ? "" : `\n    await tester.tap(find.text('Next').hitTestable());\n    await tester.pumpAndSettle();`;
-      stepActions.push(`${fieldWidgets.join("\n")}${advanceLabel}`);
+      reached.push(st);
+      fill.push(fieldWidgets.join("\n"));
+      advance.push(st === steps[steps.length - 1] ? "" : `    await tester.tap(find.text('Next').hitTestable());\n    await tester.pumpAndSettle();`);
     }
-    if (undriveable) continue;
+    return { steps: reached, fill, advance };
+  };
 
+  const cases: string[] = [];
+  for (const s of wizardScreens) {
+    const entity = feature.entities.find((e) => e.name === s.entity);
+    if (!entity) continue;
+    const rules = gamifiedWizardRules(feature, s, entity);
+    if (!rules.length) continue;
+    const steps: WizardStep[] = s.steps ?? [];
     const route = screenPath(screens, s).replace(":id", "x");
+
+    // The correct value for every gamified rule's own field — this is what makes the walkthrough
+    // deterministically a perfect run. Any step field NOT covered by a gamified rule gets a plain
+    // placeholder (text) or its own default/first enum value (choice/dropdown) instead.
+    const perfectChosen: Record<string, string> = {};
+    for (const r of rules) {
+      const c = r.conditions[0];
+      if (c && c.operator === "==") perfectChosen[c.field] = c.value;
+    }
+    const perfectWalk = buildWalkthrough(steps, entity, perfectChosen);
+    if (!perfectWalk) continue;
+
     // Two+ gamified rules can share the exact same message (kids_quiz's three "Correct! +5 ⭐"
     // marks) — asserting per UNIQUE message with the right occurrence COUNT (not one findsOneWidget
     // per rule) is what makes this correct when messages repeat, not just when they're all distinct.
@@ -877,16 +893,74 @@ export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManag
     const markAsserts = Array.from(messageCounts.entries())
       .map(([msg, count]) => `    expect(find.text('${msg.replace(/'/g, "\\'")}'), findsNWidgets(${count}), reason: 'every rule sharing this exact message must each show their own fired mark');`)
       .join("\n");
+    // V1.3: the result page's explainable-score text — for a PERFECT run every rule fires, so the
+    // expected string is fully known at codegen time (mirrors screen.ts's gamifiedResultBlock
+    // uniform/non-uniform choice exactly, so this assertion only ever matches the real template).
+    const pointValues = rules.map((r) => r.points ?? 0);
+    const uniform = pointValues.every((p) => p === pointValues[0]);
+    const totalPoints = pointValues.reduce((a, b) => a + b, 0);
+    const perfectScoreText = uniform
+      ? `${rules.length} correct × ${pointValues[0]} ⭐ = ${totalPoints} ⭐`
+      : `${pointValues.map((p) => `${p} ⭐`).join(" + ")} = ${totalPoints} ⭐`;
 
     cases.push(`  testWidgets('${s.name}: a perfect run shows the full score, star count, and every rule\\'s mark on the result step', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('${route}');
     await tester.pumpAndSettle();
-${stepActions.join("\n")}
+${perfectWalk.steps.map((_, i) => `${perfectWalk.fill[i]}\n${perfectWalk.advance[i]}`).join("\n")}
     expect(find.textContaining('(${rules.length}/${rules.length})'), findsOneWidget, reason: 'a perfect run must show every gamified rule fired');
+    expect(find.text('${perfectScoreText.replace(/'/g, "\\'")}'), findsOneWidget, reason: 'the result score must show its own arithmetic, not a bare number');
 ${markAsserts}
   });`);
+
+    // V1.3: a SECOND walkthrough proving live per-step feedback — flips the FIRST gamified rule's
+    // own field to an INCORRECT value (any other declared value of that same enum; falls back to
+    // skipping this case entirely if the enum has no such alternative — never a wrong guess) and
+    // asserts, immediately after THAT step's own tap (before advancing further), that the
+    // "Not quite" chip + correct-answer reveal + a "0 correct so far" running score all render —
+    // this is the exact "as soon as a chip is tapped" behavior gamifiedStepFeedbackBlock adds.
+    const firstRule = rules[0]!;
+    const firstCond = firstRule.conditions[0];
+    const firstField = firstCond ? entity.fields.find((f) => f.name === firstCond.field) : undefined;
+    const firstEnum = firstField ? (feature.enums ?? []).find((e) => e.name === (firstField.of ?? capitalize(firstField.name))) : undefined;
+    const wrongValue = firstEnum?.values.find((v: string) => v !== firstCond?.value);
+    if (firstCond && firstField && wrongValue) {
+      const wrongChosen: Record<string, string> = { ...perfectChosen, [firstCond.field]: wrongValue };
+      const wrongWalk = buildWalkthrough(steps, entity, wrongChosen);
+      const firstStepIdx = wrongWalk?.steps.findIndex((st) => stepFields(st).includes(firstCond.field)) ?? -1;
+      if (wrongWalk && firstStepIdx !== -1) {
+        // Steps BEFORE the flipped one are driven in full (fill + advance); the flipped step
+        // itself is driven up to its OWN fill only — its advance (the Next tap that would leave
+        // it) is deferred past the assertion, so the assertion runs while still ON that step.
+        const before = wrongWalk.steps.slice(0, firstStepIdx).map((_, i) => `${wrongWalk.fill[i]}\n${wrongWalk.advance[i]}`).join("\n");
+        const actionsUpToFirst = [before, wrongWalk.fill[firstStepIdx]].filter(Boolean).join("\n");
+        const after = wrongWalk.steps.slice(firstStepIdx + 1).map((_, i) => {
+          const idx = firstStepIdx + 1 + i;
+          return `${wrongWalk.fill[idx]}\n${wrongWalk.advance[idx]}`;
+        }).join("\n");
+        const actionsAfterFirst = [wrongWalk.advance[firstStepIdx], after].filter(Boolean).join("\n");
+        const wrongPointValues = rules.map((r) => r.points ?? 0);
+        const wrongUniform = wrongPointValues.every((p) => p === wrongPointValues[0]);
+        // All rules but the first are still correct on this path, so N-1 fire.
+        const partialCount = rules.length - 1;
+        const partialPoints = wrongPointValues.slice(1).reduce((a, b) => a + b, 0);
+        const partialScoreText = wrongUniform
+          ? `${partialCount} correct × ${wrongPointValues[0]} ⭐ = ${partialPoints} ⭐`
+          : `${wrongPointValues.slice(1).map((p) => `${p} ⭐`).join(" + ")} = ${partialPoints} ⭐`;
+        cases.push(`  testWidgets('${s.name}: a wrong pick shows the correct answer and a running score live, on the step itself', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${route}');
+    await tester.pumpAndSettle();
+${actionsUpToFirst}
+    expect(find.text('Not quite — the answer was ${firstCond.value.replace(/'/g, "\\'")}'), findsOneWidget, reason: 'a wrong pick must reveal the correct answer immediately, on the step itself');
+    expect(find.textContaining('0 correct'), findsOneWidget, reason: 'the running score must reflect zero correct so far right after the wrong pick');
+${actionsAfterFirst}
+    expect(find.text('${partialScoreText.replace(/'/g, "\\'")}'), findsOneWidget, reason: 'a partial run must still show its own correct arithmetic on the result page');
+  });`);
+      }
+    }
   }
   if (!cases.length) return null;
 
