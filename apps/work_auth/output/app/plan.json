@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 55,
+  "artifactCount": 56,
   "entries": [
     {
       "artifact": "enum:WorkAuthStatus",
@@ -572,6 +572,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:wizardFocus",
+      "generator": "WizardFocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/wizard_focus_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",

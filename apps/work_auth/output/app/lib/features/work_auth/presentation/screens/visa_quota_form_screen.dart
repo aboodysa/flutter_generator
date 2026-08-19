@@ -54,6 +54,9 @@ class _VisaQuotaFormScreenBodyState extends State<_VisaQuotaFormScreenBody> {
   final _actual = TextEditingController();
 
   final _nameFocus = FocusNode();
+  final _limitFocus = FocusNode();
+  final _committedFocus = FocusNode();
+  final _actualFocus = FocusNode();
 
 
 
@@ -75,6 +78,9 @@ class _VisaQuotaFormScreenBodyState extends State<_VisaQuotaFormScreenBody> {
     _committed.dispose();
     _actual.dispose();
     _nameFocus.dispose();
+    _limitFocus.dispose();
+    _committedFocus.dispose();
+    _actualFocus.dispose();
 
 
     super.dispose();
@@ -87,9 +93,9 @@ class _VisaQuotaFormScreenBodyState extends State<_VisaQuotaFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _name, focusNode: _nameFocus, onTap: () => _nameFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Name')),
-        TextField(controller: _limit, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Limit', suffixText: 'VSA')),
-        TextField(controller: _committed, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Committed', suffixText: 'VSA')),
-        TextField(controller: _actual, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Actual', suffixText: 'VSA')),
+        TextField(controller: _limit, focusNode: _limitFocus, onTap: () => _limitFocus.requestFocus(), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Limit', suffixText: 'VSA')),
+        TextField(controller: _committed, focusNode: _committedFocus, onTap: () => _committedFocus.requestFocus(), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Committed', suffixText: 'VSA')),
+        TextField(controller: _actual, focusNode: _actualFocus, onTap: () => _actualFocus.requestFocus(), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Actual', suffixText: 'VSA')),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(
             label: widget.id == null ? 'Create' : 'Save',

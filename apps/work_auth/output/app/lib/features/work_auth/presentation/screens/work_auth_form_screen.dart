@@ -55,6 +55,9 @@ class _WorkAuthFormScreenBodyState extends State<_WorkAuthFormScreenBody> {
   final _durationDays = TextEditingController();
   WorkAuthStatus _status = WorkAuthStatus.values.first;
   final _nameFocus = FocusNode();
+  final _countryFocus = FocusNode();
+  final _jobTitleFocus = FocusNode();
+  final _durationDaysFocus = FocusNode();
 
 
 
@@ -79,6 +82,9 @@ class _WorkAuthFormScreenBodyState extends State<_WorkAuthFormScreenBody> {
     _startDate.dispose();
     _durationDays.dispose();
     _nameFocus.dispose();
+    _countryFocus.dispose();
+    _jobTitleFocus.dispose();
+    _durationDaysFocus.dispose();
 
 
     super.dispose();
@@ -91,13 +97,13 @@ class _WorkAuthFormScreenBodyState extends State<_WorkAuthFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _name, focusNode: _nameFocus, onTap: () => _nameFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Name')),
-        TextField(controller: _country, decoration: const InputDecoration(labelText: 'Country')),
-        TextField(controller: _jobTitle, decoration: const InputDecoration(labelText: 'Job Title')),
+        TextField(controller: _country, focusNode: _countryFocus, onTap: () => _countryFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Country')),
+        TextField(controller: _jobTitle, focusNode: _jobTitleFocus, onTap: () => _jobTitleFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Job Title')),
         TextField(controller: _startDate, readOnly: true, decoration: const InputDecoration(labelText: 'Start Date', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_startDate.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _startDate.text = picked.toIso8601String().split('T').first);
         }),
-        TextField(controller: _durationDays, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Duration Days')),
+        TextField(controller: _durationDays, focusNode: _durationDaysFocus, onTap: () => _durationDaysFocus.requestFocus(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Duration Days')),
         Wrap(spacing: AppSpacing.sm, children: WorkAuthStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(

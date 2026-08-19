@@ -9,8 +9,26 @@ import 'package:rasheed_replica_work_auth/features/work_auth/domain/entities/wor
 
 
 
-class WorkAuthWizardScreen extends StatelessWidget {
+class WorkAuthWizardScreen extends StatefulWidget {
   const WorkAuthWizardScreen({super.key});
+
+  @override
+  State<WorkAuthWizardScreen> createState() => _WorkAuthWizardScreenState();
+}
+
+class _WorkAuthWizardScreenState extends State<WorkAuthWizardScreen> {
+  final _nameFocus = FocusNode();
+  final _countryFocus = FocusNode();
+  final _jobTitleFocus = FocusNode();
+  final _durationDaysFocus = FocusNode();
+  @override
+  void dispose() {
+    _nameFocus.dispose();
+    _countryFocus.dispose();
+    _jobTitleFocus.dispose();
+    _durationDaysFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,10 +60,10 @@ class WorkAuthWizardScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                     child: switch (state.currentStep) {
                       0 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        TextFormField(key: const ValueKey('field-name'), initialValue: state.name ?? '', decoration: const InputDecoration(labelText: 'Name'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setName(v)),
-                        TextFormField(key: const ValueKey('field-country'), initialValue: state.country ?? '', decoration: const InputDecoration(labelText: 'Country'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setCountry(v)),
-                        TextFormField(key: const ValueKey('field-jobTitle'), initialValue: state.jobTitle ?? '', decoration: const InputDecoration(labelText: 'Job Title'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setJobTitle(v)),
-                        TextFormField(key: const ValueKey('field-durationDays'), initialValue: state.durationDays?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Duration Days'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setDurationDays(int.tryParse(v))),
+                        TextFormField(key: const ValueKey('field-name'), focusNode: _nameFocus, onTap: () => _nameFocus.requestFocus(), initialValue: state.name ?? '', decoration: const InputDecoration(labelText: 'Name'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setName(v)),
+                        TextFormField(key: const ValueKey('field-country'), focusNode: _countryFocus, onTap: () => _countryFocus.requestFocus(), initialValue: state.country ?? '', decoration: const InputDecoration(labelText: 'Country'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setCountry(v)),
+                        TextFormField(key: const ValueKey('field-jobTitle'), focusNode: _jobTitleFocus, onTap: () => _jobTitleFocus.requestFocus(), initialValue: state.jobTitle ?? '', decoration: const InputDecoration(labelText: 'Job Title'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setJobTitle(v)),
+                        TextFormField(key: const ValueKey('field-durationDays'), focusNode: _durationDaysFocus, onTap: () => _durationDaysFocus.requestFocus(), initialValue: state.durationDays?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Duration Days'), onChanged: (v) => context.read<WorkAuthWizardCubit>().setDurationDays(int.tryParse(v))),
                       ]),
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Name: ${(state.name?.toString() ?? '—')}'),
