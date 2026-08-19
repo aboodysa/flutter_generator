@@ -63,17 +63,53 @@ class _QuizRunWizardScreenState extends State<QuizRunWizardScreen> {
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Wrap(key: const ValueKey('field-q1Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q1Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ1Answer(v))).toList()),
+                        if (state.q1Answer != null)
+                        Builder(builder: (context) {
+                          final stepVerdicts = evaluateQuizRunPolicy(state.draft);
+                          final soFarVerdicts = stepVerdicts.where((v) => const {'Question1Correct'}.contains(v.ruleId)).toList();
+                          final soFarPoints = soFarVerdicts.fold<int>(0, (sum, v) => sum + (const {'Question1Correct': 5}[v.ruleId] ?? 0));
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            stepVerdicts.any((v) => v.ruleId == 'Question1Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: 'Not quite — the answer was b', tone: AppChipTone.danger),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text('${soFarVerdicts.length} correct · $soFarPoints ⭐ so far', style: Theme.of(context).textTheme.bodyMedium),
+                          ]);
+                        }),
                       ]),
                       2 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
                         Wrap(key: const ValueKey('field-q2Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q2Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ2Answer(v))).toList()),
+                        if (state.q2Answer != null)
+                        Builder(builder: (context) {
+                          final stepVerdicts = evaluateQuizRunPolicy(state.draft);
+                          final soFarVerdicts = stepVerdicts.where((v) => const {'Question1Correct', 'Question2Correct'}.contains(v.ruleId)).toList();
+                          final soFarPoints = soFarVerdicts.fold<int>(0, (sum, v) => sum + (const {'Question1Correct': 5, 'Question2Correct': 5}[v.ruleId] ?? 0));
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            stepVerdicts.any((v) => v.ruleId == 'Question2Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: 'Not quite — the answer was a', tone: AppChipTone.danger),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text('${soFarVerdicts.length} correct · $soFarPoints ⭐ so far', style: Theme.of(context).textTheme.bodyMedium),
+                          ]);
+                        }),
                       ]),
                       3 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
                         Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),
                         Wrap(key: const ValueKey('field-q3Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q3Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ3Answer(v))).toList()),
+                        if (state.q3Answer != null)
+                        Builder(builder: (context) {
+                          final stepVerdicts = evaluateQuizRunPolicy(state.draft);
+                          final soFarVerdicts = stepVerdicts.where((v) => const {'Question1Correct', 'Question2Correct', 'Question3Correct'}.contains(v.ruleId)).toList();
+                          final soFarPoints = soFarVerdicts.fold<int>(0, (sum, v) => sum + (const {'Question1Correct': 5, 'Question2Correct': 5, 'Question3Correct': 5}[v.ruleId] ?? 0));
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            stepVerdicts.any((v) => v.ruleId == 'Question3Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: 'Not quite — the answer was b', tone: AppChipTone.danger),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text('${soFarVerdicts.length} correct · $soFarPoints ⭐ so far', style: Theme.of(context).textTheme.bodyMedium),
+                          ]);
+                        }),
                       ]),
                       4 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
@@ -86,9 +122,10 @@ class _QuizRunWizardScreenState extends State<QuizRunWizardScreen> {
                           final gamifiedVerdicts = evaluateQuizRunPolicy(state.draft).where((v) => const {'Question1Correct', 'Question2Correct', 'Question3Correct'}.contains(v.ruleId)).toList();
                           final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const {'Question1Correct': 5, 'Question2Correct': 5, 'Question3Correct': 5}[v.ruleId] ?? 0));
                           final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
+                          final gamifiedScoreText = '${gamifiedVerdicts.length} correct × 5 ⭐ = $gamifiedPoints ⭐';
                           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('$gamifiedStars  (${gamifiedVerdicts.length}/3)', style: Theme.of(context).textTheme.headlineMedium),
-                            Text('Score: $gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            Text(gamifiedScoreText, style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
                           gamifiedVerdicts.any((v) => v.ruleId == 'Question1Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
