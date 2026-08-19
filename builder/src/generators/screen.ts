@@ -467,8 +467,16 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
           // "respect all of it") — same searchShapeArg the list branch's own SearchBar applies, so
           // a sections home's search field is just as sharp/pill as a list screen's under the same
           // cornerRadius decision.
+          // RCA-002 (owner, iPhone Safari: "i can not type search term" — keyboard never opens):
+          // same gesture-bound FocusNode.requestFocus() bypass crud_form.ts:88-110 wires for the
+          // create form's first field — iOS Safari only opens the keyboard when `.focus()` runs
+          // synchronously inside the tap's own handler, and Flutter web's lazy DOM `<input>` proxy
+          // creation pushes `.focus()` outside that window on the first tap otherwise. NO autofocus
+          // (RCA-005 found autofocus makes this worse — see crud_form.ts's doc comment). Only ever
+          // emitted when searchEnabled (the `_searchFocus` field this references only exists on
+          // that branch, same guard `_searchController` already needs).
           return searchEnabled
-            ? `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v)${searchShapeArg})),`
+            ? `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, focusNode: _searchFocus, onTap: () => _searchFocus.requestFocus(), hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v)${searchShapeArg})),`
             : `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search)${searchShapeArg})),`;
         case "hero":
         case "promoBanner":
@@ -880,6 +888,8 @@ ${contentCases}
                   padding: const EdgeInsets.fromLTRB(${screenGapExpr}, ${screenGapExpr}, ${screenGapExpr}, 0),
                   child: SearchBar(
                     controller: _searchController,
+                    focusNode: _searchFocus,
+                    onTap: () => _searchFocus.requestFocus(),
                     hintText: 'Search ${appBarTitle}',
                     leading: const Icon(Icons.search),
                     onChanged: (v) => setState(() => _query = v)${searchShapeArg},
@@ -1248,11 +1258,13 @@ ${body}
 
 class _${s.name}State extends State<${s.name}> {
 ${searchEnabled ? `  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
 ` : ""}${scrollEnabled ? `  bool _scrolled = false;
 ` : ""}${searchEnabled ? `  @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
