@@ -124,7 +124,11 @@ describe('RCA-001 — real-generator-backed: keemart HomeScreen (sections + decl
     expect(src).toContain("onChanged: (v) => setState(() => _query = v)");
     expect(src).toContain('final filtered = query.isEmpty ? state.products : state.products.where((item) => (item.title).toLowerCase().contains(query)).toList();');
     expect(src).toContain('itemCount: filtered.length');
-    expect(src).toContain('No results for "\\$_query"');
+    // KEYBOARD-ALL Task B: the sections branch must interpolate the typed query, list-branch
+    // parity — it previously emitted the escaped-literal `\$_query` (P2 commit 99da57b bug),
+    // which rendered the LITERAL text "No results for $_query" instead of what was typed.
+    expect(src).toContain('No results for "$_query"');
+    expect(src).not.toContain('No results for "\\$_query"');
   });
 
   test(

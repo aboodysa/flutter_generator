@@ -494,7 +494,7 @@ ${indent}  key: ${sectionKey(section.id)},
 ${indent}  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
 ${indent}  child: state.${collection}.isEmpty
 ${indent}      ? ${sectionsEmptyExpr}
-${indent}      : ${searchEnabled ? `filtered.isEmpty && query.isNotEmpty\n${indent}          ? EmptyState(message: 'No results for "\\$_query"')\n${indent}          : ` : ""}GridView.builder(
+${indent}      : ${searchEnabled ? `filtered.isEmpty && query.isNotEmpty\n${indent}          ? EmptyState(message: 'No results for "\$_query"')\n${indent}          : ` : ""}GridView.builder(
 ${indent}    shrinkWrap: true,
 ${indent}    physics: const NeverScrollableScrollPhysics(),
 ${indent}    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
