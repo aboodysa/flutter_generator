@@ -1,146 +1,114 @@
-# HANDOFF — VISUAL LANE S1 ✅ / S6 ✅ / S2 ⏳ (round: 2026-08-18)
+# HANDOFF — VISUAL LANE S1 ✅ / S2 ✅ / S6 ✅ / S3 ✅ (round: 2026-08-19)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) is v1 COMPLETE. Now executing the **visual lane
-S1–S7** (`VISUAL_GENERATION_REVIEW.md`) with two implement lanes: Claude Code (Mac, `s-hermetic`)
-for implementation, remote opencode (tracematrix `germany3`, DeepSeek Flash Free) for read-only
-spikes. Zen session orchestrates/verifies only.
+S-HERMETIC → S-CTX → P3–P5 baseline v1 COMPLETE. **Visual lane S1, S2, S6, and S3 all done**.
+Next on the roadmap: S4 (asset library+manifest), S7 never (stub). Two pending owner calls gate the
+next dispatches (see bottom). Lanes: Claude Code (Mac `s-hermetic`, freshly cleared) for
+implementation; remote opencode (tracematrix `germany3`, DeepSeek Flash Free) for read-only spikes
+(fresh session, cwd must be `/root/fg-p5`).
 
-## This round: S1 done+approved+token-rigor, S6 done, S2 done, S3 in flight
+## This round (2026-08-18/19)
 
-### S1 — VisualIntent fragment, **APPROVED + token-rigor hardening**
+### S2.1 sections hardening — DONE (Claude, 3 commits)
 
-- Owner's ChatGPT review of the showcase (`S1_SHOWCASE_REVIEW.md`) found the token system
-  under-specified. Fixes ADOPTED via `S1_TOKEN_RIGOR_BRIEF_CLAUDE.md` (Claude, 5 commits
-  `1b0fc86`→`7997a46`):
-  - `VisualSpec.radiusScale` grows component-role `{control,surface,container,search,fab}` — search
-    field + FAB now follow the cornerRadius rules (FIX-1, never reuse `control`).
-  - `spacing` is a full matrix `{screen,section,itemGap,cardInset,fabInset}` all `AppSpacing.*`
-    (FIX-3); `titleWeight` (AppType.*, keyed on hierarchy) makes `heroScale:2` observable as a
-    title-weight change, heroScale=1 byte-identical (FIX-2/4).
-  - `[visualIntent]` gate extended to flag enum-branching in generated components (FIX-6); contact
-    sheet rebuilt with corrected caption labels (FIX-5).
-  - Proof: search/FAB radius in B, pill search in C visible in goldens; A-vs-B and A-vs-C
-    pixel-diffs quantified.
-- Original S1 (approved): evidence v3 `8c13198`, tests `061cf7e`/`d31f73c`/`16b00bd`/`19332d6`,
-  `test/s1_visual_intent.test.ts` 20/20.
+- `9bed666` — hero-cardinality ≤1, duplicate-section-id, state-model gate checks (`[sections]` gate
+  `validate.ts:1097-1215`).
+- `098d9a8` — renderer `ValueKey('section-<id>')` per section + inline `EmptyState` for empty
+  productGrid.
+- `d88d146` — `AppHeroBanner` heading semantics (a11y).
+- `d4e5498` — keemart regen sync (golden: home_screen.png only).
+- Ratification: `S2_RATIFICATION.md` (8b19a5f) closed A1 (emphasis-drop CONFIRMED, never shipped) +
+  B1 (sections archetype CONFIRMED). Second review's 4 structural gaps → S2.1 brief → landed.
 
-### S2 — sections archetype, **IMPLEMENTED** (Claude, 5 commits `d69c5d4`→`b561269`, defaults A1/B1)
+### S6 slice 3 — DONE (Claude, vacuous-then-flipped by S3)
 
-- Vocabulary (`SectionType` closed enum, `ScreenModel.sections?`, schema `additionalProperties:false`
-  + `"sections"` type), `sectionsFor`/`sectionsTargets` selector, fourth `comp.layout==="sections"`
-  renderer branch, `AppHeroBanner`/`AppProductCard` (+`AppTokens.gridExtent/cardWidth`), `[sections]`
-  gate, keemart grocery-home proof app (7 sections: header/search/hero/horizontalCards/section/
-  divider/floatingCart). Determinism + negative controls (columns→abort, list-with-sections→FAIL).
-- **Pending owner ratify:** contract decisions doc `S2_CONTRACT_DECISIONS.md` (emphasis drop A1 /
-  archetype `"sections"` B1) — shipped with defaults, override possible.
+- `3d8653d` — `[asset-ref]` + `[aspect-ratio]` gates built **vacuous** (inert until S3).
+- Flipped ON by S3 (`14c4e19`) — now load-bearing against `patterns.assets`.
 
-- Spike `bb68a9e` → impl (7 commits `c848640`→`f030dd4`) → goldens/QA `a6f7a51` → evidence v3
-  `8c13198` → regression tests `061cf7e`,`d31f73c`,`16b00bd`,`19332d6` → **owner Verdict: APPROVED**
-  (5/5 on evidence v3; caveat was standalone PNGs, delivered).
-- `ScreenModel.visualStyle` optional `{hierarchy, cornerRadius, personality}`; each value is a
-  `VisualStyleValue<T>` with provenance; `visualFor()` (composition.ts) → `plan.json
-  patterns.visual`; `[visualIntent]` gate (`validate.ts:741`) re-derives + closed-enums +
-  blocks unattested nested visualStyle. AppColors theme remains app-level; `userSelections
-  .visualFor` no longer authored by hand.
-- Proof screens: tasks TaskListScreen = friendly/rounded; hr_service LeaveRequestDetailScreen =
-  professional/sharp/strong (hero "Leave request"); ledgerly ExpenseClaimListScreen = premium/soft.
-- Tests: `test/s1_visual_intent.test.ts` 20/20 (token-agreement 6, provenance 9, trust-boundary 2,
-  determinism 3). Determinism canon: `find|sort|xargs shasum|shasum` (naïve unsorted differs).
+### S3 asset-ladder spike + implementation — DONE
 
-### S6 — no-vision-judge coverage, **D2 implemented (slices 1-4)**
+- **Spike** (germany3): `SPIKE_S3_REPORT.md` (0f86d7c), 469 lines, net **SPLIT** — D1 vocab MODIFY,
+  D2 procedural ADOPT, D3 icon ADOPT, D4 library DEFER→S4, D5 trust ADOPT. No AI path exists; v1
+  needs no manifest (procedural assets emit no file).
+- **Explainer for owner**: `S3_SPIKE_EXPLAINER.md` (18f4deb) sent to Telegram as sendDocument.
+- **Implementation** (Claude, zen-verified):
+  - `cdf0606` — `assetFor(screen, ir): AssetSpec|null` selector + `AssetSpec` type + `patterns.assets`
+    plan slot + `ctx.assets` wiring + renderer verbatim consumption (§14.1/14.3/14.4).
+  - `14c4e19` — `[assets]` gate (re-derive+diff, closed-kind enum, provenance) + flipped S6 slice-3
+    `[asset-ref]`/`[aspect-ratio]` ON.
+  - `e5e1005` — `test/s3_assets.test.ts` (22 new tests) incl. negative controls (out-of-enum kind
+    FAIL, raster tokenRef FAIL, raw aspect-ratio literal FAIL) + determinism byte-identical.
+  - Verified: typecheck clean, jest s1 20/20, **npm test 85/85 (10 suites)**, keemart
+    `[assets]`/`[asset-ref]`/`[aspect-ratio]` PASS, keemart flutter 9/9 incl squeeze 320/390/1400,
+    golden unchanged.
+- §14.2 (imagery enum flip) SKIPPED pending owner call (assumed B/closed).
 
-- Spike `182af5c` (D1 ADOPT all §18 defects deterministic; D2 ADOPT validator list; D3 CONFIRM
-  golden-diff; D4 CONFIRM S1 interplay). §18 REJECT of LLM-visual-judge stands.
-- Impl (Claude): `d8a46f6` `[contrast]` WCAG gate (real luminance on theme tokens; found+fixed 2
-  genuine pre-existing chip failures); `871fab1` darken AppColors.success/warning/danger/info;
-  `da811fc` per-screen viewport-squeeze generator (320/390/1400, assertions-only, caught+fixed a
-  real 2.5px overflow on 3 detail screens); `facc2fe` `[literals]` raw spacing/typography scan all
-  screens (token-routed itemGap/heroGap, zero golden churn). Gates PASS all apps; jest 20/20; npm
-  test 63/63; typecheck clean.
-- Deferred: slice 3 `[asset-ref]`/`[aspect-ratio]` (S3 not in tree — gated on S3); slice 5
-  A11yTestGenerator → queued as its own fresh objective (context policy).
+### Keemart screens delivered (owner request: "أحتاج الشاشات")
 
-### Ops: context policy + orchestrator framework (ChatGPT review adopted)
+- Regenerated keemart from current generator + `flutter test --update-goldens` (home_screen.png).
+- Exposed on tailnet additively: `/keemart` → `http://127.0.0.1:8083` (`tailscale serve --set-path`),
+  existing `/api` `/tasks` `/hr_service` mounts preserved, `/` config intact (its 8080 mall server
+  is down — pre-existing).
+- **CDP-verified live**: AX 71 nodes (hero heading "Ready For School", Products, Cart,
+  Add-to-cart); **zero overflows @320/390/768/1280**; no console/network errors.
+- Golden + live-390 screenshot + URL sent to Telegram.
+- NOTE: this zen model cannot read images — structural verification only; visual fidelity is the
+  owner's iPhone/Telegram gate.
 
-- `CONTEXT_POLICY.md` + OPERATING_PRINCIPLES 11-12 (`6937718`): each objective = independent fresh
-  session; context is a pipeline resource; artifacts are durable state; progress observable WITHOUT
-  context accumulation (L1/L2/L3 levels).
-- `tools/orchestrator/` (`a738763`+helpers): report.sh (L0-L3, 6 tags), run_loop.sh
-  (objective.md-driven guard→dispatch→poll→verify→escalate/recover→COMPLETE), poll.sh, tgsend.sh,
-  pdf_build.sh, genapp.sh, dispatch_kill_fresh.sh, capture_golden.sh.
-- `tools/orchestrator-kit/` (new, uncommitted): portable project-agnostic template extracted from
-  the above — generic `core/` + owner/machine `adapters/` reading `config.env` + reference
-  `examples/`. Copy into any project to run objective-driven loops.
-- Lessons `cf44427`, principles `549f37f` (now 12).
+### work_auth cleanup — DONE (Claude, zen-verified)
 
-## Ground truth table
+- `13005a7` — work_auth `[determinism]/[plan-determinism]/[contrast]/[literals]` FAILs were **stale
+  generated output**, not a generator bug. Fresh regen → `VALIDATION PASSED` (all 35 gates),
+  byte-identical ×2.
+- Discovered REAL pre-existing defect: `WorkAuthWizardScreen` overflows **20px @320×480** in the
+  viewport-squeeze test. RCA: `apps/work_auth/output/rca/RCA-workauth-wizard-overflow-320.md`
+  (9611cd6). Proposed generator fix: wrap wizard step body in its own `SingleChildScrollView`.
+  **Pending owner approve/defer.**
 
-| Area | State |
+### Remote-lane incidents (both RCA'd, `RCA-S3-REMOTE-STALE.md` b59c6f6)
+
+1. Remote repo silently stuck at `d937b02` — ff-merge aborted on untracked `SPIKE_S2_REPORT.md`
+   collision; fetch shown as success. Prevention: post-pull `git rev-parse HEAD`==origin assert +
+   empty status; untracked files stay outside the repo tree.
+2. S3 spike launched with cwd `/flutter_generator` (stale NON-git copy) instead of `/root/fg-p5` —
+   researched stale code. Box holds 3 repo copies. Prevention: lane dispatch MUST `cd /root/fg-p5`
+   explicitly and state it in the prime prompt.
+
+## Ground truth
+
+| Item | Value |
 |---|---|
-| Frozen roadmap (S-CTX→P3→P4→P5/D2→S-HERMETIC) | ✅ v1 COMPLETE |
-| S1 VisualIntent (P0) | ✅ **APPROVED + token-rigor hardening** |
-| S6 no-vision-judge (P0) | ✅ spike closed; D2 slices 1,2,4,5 done; slice 3 deferred to S3 |
-| S2 section-layout IR (P0) | ✅ **IMPLEMENTED** (keemart proof app); contract ratification pending |
-| S3 asset ladder (P1) | ⏳ **spike in flight** on germany3 (fresh session) |
-| S4 asset manifest (P1) | After S3 |
-| S5 banner-composition (P2) | After S3 |
-| S7 AI asset gen | Post-v1 / Phase 4 (trust boundary) |
-| S-DEEPLINK | Backlog / owner call |
+| HEAD | `18f4deb` (explainer); impl HEAD `e5e1005`+`14c4e19`+`cdf0606` |
+| npm test | 85/85 (10 suites) — 63 base + 22 S3 |
+| jest s1_visual_intent | 20/20 |
+| keemart validate | ALL PASS incl `[assets]`,`[asset-ref]`,`[aspect-ratio]` |
+| keemart flutter | 9/9 incl squeeze 320/390/1400, golden unchanged |
+| Remotes | tracematrix `/root/fg-p5` (live repo, use ONLY this), germany3 fresh-idle |
+| Tailnet | `/keemart`@8083, `/tasks`@8081, `/hr_service`@8082, `/api`@3000. `/`@8080 down (pre-existing) |
 
-## Verdicts & review record
+## Pending owner calls
 
-- S1: owner APPROVED (evidence v3, 5/5, standalone PNGs delivered). Review checklist lives in
-  `S1_PROOF_SCREENS.html` review-instructions section.
-- S6: D1-D4 closed (see `SPIKE_S6_REPORT.md` §13). Slice 3 needs S3 in tree.
-- Display-side open item: same-screen showcase (TaskListScreen @ A_rounded/B_sharp/C_pill) contact
-  sheet has a caption-render TODO (ImageMagick convert font issue → use `magick` + pinned
-  `/System/Library/Fonts/*.ttf`); artifacts at `/Users/username/temp/opencode/s1_showcase/`.
+1. **S3 §14.2 imagery flip**: A=flip `imagery` enum ON (none|commercial|illustrative|photographic)
+   or B=keep closed (assumed B so far). Small isolated additive step either way.
+2. **work_auth wizard overflow**: approve the generator fix (wizard step inner
+   `SingleChildScrollView`) or defer.
 
-## Verification commands
-```bash
-npm run typecheck:builder
-npx ts-node --transpile-only builder/src/index.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
-npx ts-node --transpile-only builder/src/validate.ts apps/<app>/input/<app>.ir.json apps/<app>/output/app
-npx jest test/s1_visual_intent.test.ts          # S1 regression, 20/20
-npm test                                        # full builder suite, 63/63
-cd apps/<app>/output/app && flutter pub get && flutter analyze && flutter test
-```
+## Next steps
 
-## Next steps (in order)
+1. Owner answers calls → if A, tiny imagery-flip brief to Claude (§14.2); if approve, wizard-scroll
+   brief.
+2. Poll the committed test suite (`npm test`) is the verification gate for any future slice.
+3. S4 (asset library+manifest) is the next roadmap slice after the owner's calls — new spike brief
+   (remote) when picked up, cwd pinned to `/root/fg-p5`.
 
-1. **S3 spike → close**: poll germany3 (fresh S3 session, dispatch sent), scp `SPIKE_S3_REPORT.md`
-   when present, review decisions, commit + push → Telegram → S3 impl brief for Claude (incl. S6
-   slice-3 `[asset-ref]`/`[aspect-ratio]` gates flipping ON).
-2. **Owner ratify S2 contract decisions** (`S2_CONTRACT_DECISIONS.md`): emphasis drop + archetype
-   name — shipped with defaults; document override if any.
-3. **S2 verification pass**: keemart flutter analyze/test + CDP probe at 320/390/1400 (per AGENTS
-   rule 15) once the S3 lane frees; send goldens to owner.
-4. **S4 asset manifest** (spike → impl), then **S5 banner-composition**.
-5. Keep looping S3→S4→S5 (+ S7 later). Each spike closes decisions with ONE verb (SPIKE_PROTOCOL),
-   implementation goes to Claude first (remote as fallback), zen verifies. CONTEXT_POLICY every
-   lane: fresh session per objective (germany3 now fresh for S3; s-hermetic cleared post-S1/S2).
+## Key files
 
-## Rules
-
-Additive-only; small commits; never bypass oracle/approval; SOLID; 0% LLM in deterministic core;
-backward-compat via stash+regen+diff; zen = orchestrator (Claude-first implementer, remote opencode
-fallback); spikes on remote agents per SPIKE_PROTOCOL; CONTEXT_POLICY applies to every lane;
-report everything to owner on Telegram (goldens as photos, files as sendDocument, text in separate
-short messages); keep HANDOFF lean (archive to context_history with dated header).
-
-## Lanes
-
-- **s-hermetic** (Claude Code 2.1.210, Mac): **S2 sections-archetype implementation RUNNING**
-  (dispatched brief `S2_SECTION_IMPL_BRIEF_CLAUDE.md`; was parked after S6-slice-5 landed).
-- **germany3** (remote tracematrix, DeepSeek Flash Free): idle after S2 spike re-run — report
-  recovered + transferred (already at HEAD, byte-identical). Keep fresh for the next spike.
-- Mac git origin HEAD: `d937b02` (S6 slice 5 A11yTestGenerator + same-screen showcase landed+push
-  past old 6937718). Remote /root/fg-p5: synced to origin/master (verified). ⚠ tracematrix flaps
-  (OOM, 1vcpu n8n) — re-dispatch tolerates refusals with backoff.
-- `tools/orchestrator-kit/` (new): portable project-agnostic kit + USAGE.md/pdf (md2html.js
-  pipeline). Verified in-tree (run_loop monitor ran a real round loop to [COMPLETE]); sent to
-  owner as documents. Commit this round.
+- `SPIKE_S3_REPORT.md`, `S3_SPIKE_EXPLAINER.md`, `S3_IMPL_BRIEF_CLAUDE.md`
+- `S2_RATIFICATION.md`, `S2_HARDENING_BRIEF_CLAUDE.md`
+- `RCA-S3-REMOTE-STALE.md`, `apps/work_auth/output/rca/RCA-workauth-wizard-overflow-320.md`
+- `test/s3_assets.test.ts` (22 tests), `builder/src/composition.ts` (assetFor), `validate.ts`
+  (`[assets]`, `[asset-ref]`, `[aspect-ratio]`)
+- `apps/keemart/` (sections+assets proof), `apps/work_auth/` (clean now)
