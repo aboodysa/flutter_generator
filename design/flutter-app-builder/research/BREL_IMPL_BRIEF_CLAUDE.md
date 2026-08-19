@@ -32,10 +32,14 @@ rename existing fields, do NOT remove `autoApprove`, do NOT migrate existing IRs
    - Extend `RuleOperator` additively with: `startsWith`, `endsWith`, `matches`, `in`, `notIn`,
      `isNull`, `isNotNull`, `isEmpty`, `isNotEmpty`.
    - Add an optional, additive expression form for `or`/`not`/`fn` WITHOUT breaking existing
-     `conditions[]` rules. Recommended shape (you may refine, keep it deterministic):
-     `RuleModel` gains optional `expression?: RuleExpression` where
-     `RuleExpression = { and?: RuleExpression[] } | { or?: RuleExpression[] } | { not?: RuleExpression } | { fn: string; args: string[]; op?: RuleOperator; value?: string } | AtomicCondition`.
-     A rule may carry `conditions[]` OR `expression` (not both) — existing rules keep `conditions`.
+     `conditions[]` rules. A rule may carry `conditions[]` OR `expression` (not both) — existing
+     rules keep `conditions`.
+   - **Canonical AST shape (ADOPT from `BREL_CHATGPT_ADDENDUM.md`):** use the nested
+     `Comparison(left, op, right)` form internally, where `left`/`right` are `ValueExpression`
+     (`field` | `literal` | `function`). Example:
+     `{ "left": { "fn": "daysSince", "args": [{ "field": "endDate" }] }, "op": ">", "right": { "value": 0 } }`.
+     Accept the flat `{fn,args,op,value}` form on input; **normalize to nested** as the canonical
+     AST. This scales to `sum`/`length` later without special-casing.
    - Keep `PolicySeverity` unchanged (do NOT drop `autoApprove`).
 
 2. **`builder/src/business_rule_agent.ts`** — teach the parser to accept the optional `expression`
