@@ -1,6 +1,6 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
-import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, firstFocusBypassField, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity, hasLocale } from "../operations";
+import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, textInputBypassFields, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity, hasLocale } from "../operations";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -87,14 +87,15 @@ function initStateLine(f: Field, roleCtx?: FieldRoleContext, scopedEntity?: bool
 // re-issue the platform-level `.focus()` call the tap would otherwise trigger. Net effect:
 // autofocus can make the real bug WORSE, not better.
 //
-// Fix: remove autofocus entirely. The first real (non-readOnly) text field instead gets an
-// explicit `FocusNode` plus `onTap: () => node.requestFocus()` — a call WE control, fired
-// synchronously inside the tap's own gesture handler, exactly what iOS requires. Because the
-// field starts genuinely unfocused (no autofocus), this tap is always a real focus transition,
-// never a no-op — it drives both the DOM proxy creation AND the gesture-bound `.focus()` in one
-// synchronous step. Applies to both create and edit now (autofocus was create-only via
-// `widget.id == null`; this bypass doesn't need that guard — it only ever fires from an actual
-// tap, so there's no "stealing focus on mount" risk to avoid on edit).
+// Fix: remove autofocus entirely. EVERY real (non-readOnly) text field — not just the first —
+// instead gets its own explicit `FocusNode` plus `onTap: () => node.requestFocus()` — a call WE
+// control, fired synchronously inside that field's own tap gesture handler, exactly what iOS
+// requires (RCA-002-ALL: the owner hit the same silent-keyboard failure on fields past the
+// first). Because each field starts genuinely unfocused (no autofocus), its tap is always a real
+// focus transition, never a no-op — it drives both the DOM proxy creation AND the gesture-bound
+// `.focus()` in one synchronous step. Applies to both create and edit now (autofocus was
+// create-only via `widget.id == null`; this bypass doesn't need that guard — it only ever fires
+// from an actual tap, so there's no "stealing focus on mount" risk to avoid on edit).
 //
 // Rejected alternatives (RCA style):
 // - Keep autofocus AND add the tap-driven request: doesn't remove the actual suspect (autofocus
@@ -453,8 +454,12 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
     entityNames: ((ctx?.ir?.entities ?? []) as Array<{ name: string }>).map((e) => e.name),
   };
 
-  // Keyboard bypass target (create AND edit — see fieldWidget's own doc comment for why).
-  const firstFocusable = firstFocusBypassField(entity, identityField);
+  // Keyboard bypass targets (create AND edit — see fieldWidget's own doc comment for why). Every
+  // controller-backed text-input field (String/int/double/Money) gets its own FocusNode, not just
+  // the first — RCA-002-ALL: iOS Safari drops the keyboard on ANY field whose .focus() doesn't run
+  // synchronously inside THAT field's own tap, not only the form's first field.
+  const focusFields = textInputBypassFields(entity, identityField);
+  const focusFieldNames = new Set(focusFields.map((f) => f.name));
   // G6: only entities that actually carry a `<Parent>Id` field need the `queryParams` plumbing at
   // all — everything else stays exactly as before (no unused widget field, no dead parameter).
   const relationFields = editable.filter((f) => fieldRole(f, roleCtx) === "relation");
@@ -465,11 +470,11 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
 
   const controllerFields = editable.filter(usesController).map(controllerDecl).join("\n");
   const stateFields = editable.filter((f) => !usesController(f)).map(stateVarDecl).join("\n");
-  const focusNodeField = firstFocusable ? focusNodeDecl(firstFocusable) : "";
+  const focusNodeFields = focusFields.map(focusNodeDecl).join("\n");
   const initLines = editable.map((f) => initStateLine(f, roleCtx, scopedEntity)).filter((l): l is string => !!l).join("\n");
   const disposeLines = [
     ...editable.filter(usesController).map((f) => `    _${f.name}.dispose();`),
-    ...(firstFocusable ? [`    _${firstFocusable.name}Focus.dispose();`] : []),
+    ...focusFields.map((f) => `    _${f.name}Focus.dispose();`),
   ].join("\n");
 
   // L2: fields a policy rule's condition actually reads need a live setState on change (see
@@ -477,7 +482,7 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   const policyRules = ctx?.ir ? policyRulesForEntity(ctx.ir, target.entity) : [];
   const policyTriggerFieldNames = new Set(policyRules.flatMap((r) => r.conditions.map((c) => c.field)));
 
-  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, f === firstFocusable, policyTriggerFieldNames.has(f.name))).join("\n");
+  const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, focusFieldNames.has(f.name), policyTriggerFieldNames.has(f.name))).join("\n");
 
   const ctorArgs = [
     `        ${identityField}: widget.id ?? ${newIdExpr(identityType)},`,
@@ -521,7 +526,7 @@ ${queryParamsField}  final Future<void> Function(${entity.name}) onSubmit;
 class _${screenName}BodyState extends State<${bodyClass}> {
 ${controllerFields}
 ${stateFields}
-${focusNodeField}
+${focusNodeFields}
 ${policy.stateFields}
 ${split.stateFields}
 

@@ -1,7 +1,7 @@
 import { ScreenModel, EntityModel, Field, WizardStep, SectionModel } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor, ActionKind, ActionSpec } from "../composition";
-import { crudFormTargets, stepFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
+import { crudFormTargets, stepFields, wizardTextInputFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -128,22 +128,28 @@ function listFilterExpr(fk: Field | undefined, collection: string): string {
 // per field so Flutter remounts it on step change) since the value lives in wizard state, not
 // local widget state; onChanged writes straight back via the field's generated `set<Field>`
 // mutator (state.ts).
-function wizardFieldInput(fieldName: string, field: Field | undefined, setterCall: (valueExpr: string) => string, roleCtx?: FieldRoleContext): string {
+function wizardFieldInput(fieldName: string, field: Field | undefined, setterCall: (valueExpr: string) => string, roleCtx?: FieldRoleContext, focusBypassTarget?: boolean): string {
   const label = fieldLabel(fieldName);
   const key = `const ValueKey('field-${fieldName}')`;
   if (!field) return `Text('${label} — unknown field')`;
+  // RCA-002-ALL: same gesture-bound FocusNode.requestFocus() bypass crud_form.ts wires for CRUD
+  // text fields (never autofocus — see crud_form.ts's own doc comment for the full RCA), applied
+  // to every wizard TextFormField (String/int/double/Money). The wizard is controller-less (see
+  // file header comment), but a FocusNode is independent of TextEditingController — declared in
+  // the screen's State, disposed alongside it.
+  const focusBypass = focusBypassTarget ? `focusNode: _${fieldName}Focus, onTap: () => _${fieldName}Focus.requestFocus(), ` : "";
   // P7-L1: decimal text -> Money(minorUnits: ..., currency: ...), never a raw double state field.
   if (isMoneyField(field)) {
     const parse = `(v.isEmpty ? null : Money(minorUnits: ((double.tryParse(v) ?? 0.0) * 100).round(), currency: '${field.currency}'))`;
-    return `TextFormField(key: ${key}, initialValue: state.${field.name} != null ? (state.${field.name}!.minorUnits / 100).toStringAsFixed(2) : '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${field.currency}'), onChanged: (v) => ${setterCall(parse)})`;
+    return `TextFormField(key: ${key}, ${focusBypass}initialValue: state.${field.name} != null ? (state.${field.name}!.minorUnits / 100).toStringAsFixed(2) : '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}', suffixText: '${field.currency}'), onChanged: (v) => ${setterCall(parse)})`;
   }
   switch (field.type) {
     case "String":
-      return `TextFormField(key: ${key}, initialValue: state.${field.name} ?? '', decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("v")})`;
+      return `TextFormField(key: ${key}, ${focusBypass}initialValue: state.${field.name} ?? '', decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("v")})`;
     case "int":
-      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("int.tryParse(v)")})`;
+      return `TextFormField(key: ${key}, ${focusBypass}initialValue: state.${field.name}?.toString() ?? '', keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("int.tryParse(v)")})`;
     case "double":
-      return `TextFormField(key: ${key}, initialValue: state.${field.name}?.toString() ?? '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("double.tryParse(v)")})`;
+      return `TextFormField(key: ${key}, ${focusBypass}initialValue: state.${field.name}?.toString() ?? '', keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '${label}'), onChanged: (v) => ${setterCall("double.tryParse(v)")})`;
     // G2: a real date picker. The wizard's fields are deliberately controller-less (value lives
     // in wizard state, see file header comment) — so instead of a static per-field key, the key
     // embeds the current value, forcing Flutter to discard+recreate the field (fresh
@@ -359,6 +365,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
 
   let body: string;
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
+  let wizardFocusFields: Field[] = []; // RCA-002-ALL: this wizard's text-input step fields (String/int/double/Money) that need a per-field FocusNode bypass declared on the screen's State — empty for any non-wizard screen or a wizard with no text-input fields.
   let splitStateImport = ""; // MF4: the split child's Cubit/State import (see splitBlock below) — empty for any detail screen with no split group.
   // MF5: BudgetLine import — only when THIS screen's entity resolves to the app's budget entity.
   const budgetImport = isBudgetEntity
@@ -677,13 +684,18 @@ ${rowsBlock}${splitBlock}${childRows}
   } else if (comp.layout === "wizard") {
     // P8-W1/W2/W3/W4: step header (progress + title) + current step's field(s) + Next/Back/
     // Finish footer, gated by state.canAdvance and state.isLastStep (state.ts — the latter is
-    // dynamic once branching is involved, never a compile-time index). No local widget state —
-    // each field's value lives in wizard state (via TextFormField.initialValue, keyed per field)
-    // so it survives rebuilds without a StatefulWidget.
+    // dynamic once branching is involved, never a compile-time index). Each field's VALUE still
+    // lives in wizard state (via TextFormField.initialValue, keyed per field), not local widget
+    // state — but RCA-002-ALL's per-field FocusNode (needed purely for the iOS Safari keyboard
+    // bypass, see wizardFieldInput's own doc comment) DOES need to live in the screen's State,
+    // which is why a wizard with any text-input field becomes a StatefulWidget below
+    // (needsLocalState) even though it has no other local UI state.
     const steps: WizardStep[] = s.steps ?? [];
     const fieldDef = (name: string) => (entity ? entity.fields.find((f) => f.name === name) : undefined);
     const setterCall = (fieldName: string) => (valueExpr: string) => readMutator(`set${capitalize(fieldName)}`, valueExpr);
     const wizardRoleCtx = entity ? roleContextFor(entity, ctx) : undefined;
+    wizardFocusFields = wizardTextInputFields(s, entity);
+    const wizardFocusNames = new Set(wizardFocusFields.map((f) => f.name));
 
     const titleCases = steps
       .map((st, i) => `                      ${i} => '${st.title.replace(/'/g, "\\'")}',`)
@@ -702,7 +714,7 @@ ${rowsBlock}${splitBlock}${childRows}
       const collectedSoFar = Array.from(new Set(steps.slice(0, index).flatMap(stepFields)));
       const summaryLines = collectedSoFar.map((f) => `                        ${wizardFieldSummaryLine(f, fieldDef(f))},`).join("\n");
       if (flds.length) {
-        const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f), wizardRoleCtx)},`).join("\n");
+        const widgets = flds.map((f) => `                        ${wizardFieldInput(f, fieldDef(f), setterCall(f), wizardRoleCtx, wizardFocusNames.has(f))},`).join("\n");
         const body = summaryLines ? `${summaryLines}\n${widgets}` : widgets;
         return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
       }
@@ -1190,29 +1202,19 @@ ${searchBarBlock}${heroBlock}
   // become a ConsumerStatefulWidget (`ref` is a getter on ConsumerState) and bloc list/detail
   // screens a plain StatefulWidget, so the riverpod sample renders the same listener — no latent
   // [scroll] gate gap.
-  const needsLocalState = scrollEnabled || searchEnabled;
+  // RCA-002-ALL: a wizard screen with any text-input step field needs its FocusNode bypass state
+  // to live somewhere — same "IR state ≠ scroll/UI state"-style carve-out P3/P2 already
+  // established, just for a per-field FocusNode instead of a query string or scroll flag.
+  const wizardFocusEnabled = wizardFocusFields.length > 0;
+  const wizardFocusDecls = wizardFocusFields.map((f) => `  final _${f.name}Focus = FocusNode();\n`).join("");
+  const wizardFocusDispose = wizardFocusFields.map((f) => `    _${f.name}Focus.dispose();\n`).join("");
+  const needsLocalState = scrollEnabled || searchEnabled || wizardFocusEnabled;
+  const needsRiverpodState = scrollEnabled || wizardFocusEnabled;
   const scrollAppBarSuffix = scrollEnabled
     ? `, backgroundColor: _scrolled ? Theme.of(context).colorScheme.surfaceContainerHighest : null`
     : "";
-
-  const widgetBody = sm === "riverpod"
-    ? scrollEnabled
-      ? `class ${s.name} extends ConsumerStatefulWidget {
-  const ${s.name}({super.key});
-
-  @override
-  ConsumerState<${s.name}> createState() => _${s.name}State();
-}
-
-class _${s.name}State extends ConsumerState<${s.name}> {
-  bool _scrolled = false;
-
-  @override
-  Widget build(BuildContext context) {
-${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
-    return Scaffold(
-      appBar: AppBar(title: ${titleTextExpr}${scrollAppBarSuffix}${appBarActions}),
-      body: NotificationListener<ScrollNotification>(
+  const riverpodBodyWrap = scrollEnabled
+    ? `NotificationListener<ScrollNotification>(
         onNotification: (n) {
           if (n is ScrollUpdateNotification) {
             final beingScrolled = n.metrics.extentBefore > 0;
@@ -1224,7 +1226,34 @@ ${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.sta
 ${checks}
 ${body}
         }),
-      )${fab},
+      )`
+    : `Builder(builder: (_) {
+${checks}
+${body}
+      })`;
+
+  const widgetBody = sm === "riverpod"
+    ? needsRiverpodState
+      ? `class ${s.name} extends ConsumerStatefulWidget {
+  const ${s.name}({super.key});
+
+  @override
+  ConsumerState<${s.name}> createState() => _${s.name}State();
+}
+
+class _${s.name}State extends ConsumerState<${s.name}> {
+${wizardFocusDecls}${scrollEnabled ? `  bool _scrolled = false;
+` : ""}${wizardFocusEnabled ? `  @override
+  void dispose() {
+${wizardFocusDispose}    super.dispose();
+  }
+
+` : ""}  @override
+  Widget build(BuildContext context) {
+${preBuild}    final state = ref.watch(${s.state.charAt(0).toLowerCase()}${s.state.slice(1)}Provider);
+    return Scaffold(
+      appBar: AppBar(title: ${titleTextExpr}${scrollAppBarSuffix}${appBarActions}),
+      body: ${riverpodBodyWrap}${fab},
     );
   }
 }`
@@ -1245,10 +1274,11 @@ ${body}
 }`
     : needsLocalState
       // P2/P3: search needs local widget state (the query string) that lives OUTSIDE the Cubit/
-      // business state, and P3's scroll needs a local `_scrolled` flag (contract §3/P5's "IR
-      // state ≠ scroll/UI state" principle — the only reason these screens become a
-      // StatefulWidget instead of the usual StatelessWidget). Everything else (Scaffold/AppBar/
-      // BlocBuilder/fab) is unchanged.
+      // business state, P3's scroll needs a local `_scrolled` flag, and RCA-002-ALL's wizard
+      // FocusNode bypass needs somewhere to live too (contract §3/P5's "IR state ≠ scroll/UI
+      // state" principle covers all three — none of them belong in the Cubit/Notifier). This is
+      // the only reason these screens become a StatefulWidget instead of the usual
+      // StatelessWidget; everything else (Scaffold/AppBar/BlocBuilder/fab) is unchanged.
       ? `class ${s.name} extends StatefulWidget {
   const ${s.name}({super.key});
 
@@ -1260,12 +1290,12 @@ class _${s.name}State extends State<${s.name}> {
 ${searchEnabled ? `  final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
   String _query = '';
-` : ""}${scrollEnabled ? `  bool _scrolled = false;
-` : ""}${searchEnabled ? `  @override
+` : ""}${wizardFocusDecls}${scrollEnabled ? `  bool _scrolled = false;
+` : ""}${(searchEnabled || wizardFocusEnabled) ? `  @override
   void dispose() {
-    _searchController.dispose();
+${searchEnabled ? `    _searchController.dispose();
     _searchFocus.dispose();
-    super.dispose();
+` : ""}${wizardFocusDispose}    super.dispose();
   }
 
 ` : ""}  @override

@@ -176,15 +176,59 @@ export function firstCrudTextField(entity: EntityModel, identityField: string): 
   return crudEditableFields(entity, identityField).find((f) => CRUD_TEXT_FIELD_TYPES.has(f.type) && f.type !== "DateTime");
 }
 
-// Bug A / RCA-005 / keyboard-bypass follow-up: the field crud_form.ts wires a gesture-bound
-// FocusNode.requestFocus() bypass onto — the first editable field that renders a REAL
-// (non-readOnly) keyboard-invoking TextField, on BOTH create and edit routes. DateTime is
-// excluded even though it's controller-backed: G2 made it `readOnly: true` (opens a date picker
-// on tap), so it never needs a keyboard at all. Shared with test.ts's generated focus regression
-// test so both agree on which field is expected to carry the bypass without drifting.
+// Bug A / RCA-002-ALL: every editable field crud_form.ts wires a gesture-bound
+// FocusNode.requestFocus() bypass onto — EVERY field that renders a REAL (non-readOnly)
+// keyboard-invoking TextField (String/int/double/Money — Money's underlying `type` is "double"),
+// on BOTH create and edit routes. DateTime is excluded even though it's controller-backed: G2
+// made it `readOnly: true` (opens a date picker on tap), so it never needs a keyboard at all;
+// bool/enum render as Checkbox/Dropdown/ChoiceChip, never a text keyboard. Shared with test.ts's
+// generated focus regression test so both agree on which fields carry the bypass without
+// drifting.
+const TEXT_KEYBOARD_TYPES = new Set(["String", "int", "double", "DateTime"]);
+export function textInputBypassFields(entity: EntityModel, identityField: string): Field[] {
+  return crudEditableFields(entity, identityField).filter((f) => TEXT_KEYBOARD_TYPES.has(f.type) && f.type !== "DateTime");
+}
+
+// Back-compat accessor for call sites that only ever cared about the first bypass target (e.g.
+// FocusTestGenerator's "does this entity have ANY focusable field" gate) — the first element of
+// textInputBypassFields, or undefined when the entity has none.
 export function firstFocusBypassField(entity: EntityModel, identityField: string): Field | undefined {
-  const CONTROLLER_TYPES = new Set(["String", "int", "double", "DateTime"]);
-  return crudEditableFields(entity, identityField).find((f) => CONTROLLER_TYPES.has(f.type) && f.type !== "DateTime");
+  return textInputBypassFields(entity, identityField)[0];
+}
+
+// The ordered subset of crudEditableFields that render as a `TextField` in crud_form.ts's
+// fieldWidget at all — String/int/double/Money (bypass-eligible) AND DateTime (readOnly, no
+// bypass — opens a date picker instead). Shared with test.ts's generateFocusTest so it can locate
+// each bypass field's position among `find.byType(TextField)` matches without re-deriving
+// crud_form.ts's own field-type-to-widget mapping.
+export function crudTextFieldWidgets(entity: EntityModel, identityField: string): Field[] {
+  return crudEditableFields(entity, identityField).filter((f) => TEXT_KEYBOARD_TYPES.has(f.type));
+}
+
+// P8-W1/RCA-002-ALL: the wizard analog of textInputBypassFields — every text-input field
+// (String/int/double/Money) collected across ALL of a wizard screen's steps, deduped by name (a
+// field can be referenced by only one step, but stepFields is per-step so this collects across
+// the whole flow the same way screen.ts's own allStepFieldNames does). DateTime/bool/enum
+// excluded for the same reasons as the CRUD form. `entity` may be undefined for a malformed
+// screen with no resolvable entity — returns empty rather than throwing.
+function wizardStepFields(screen: ScreenModel, entity: EntityModel): Field[] {
+  const names = Array.from(new Set((screen.steps ?? []).flatMap(stepFields)));
+  return names.map((n) => entity.fields.find((f) => f.name === n)).filter((f): f is Field => !!f);
+}
+
+export function wizardTextInputFields(screen: ScreenModel, entity: EntityModel | undefined): Field[] {
+  if (!entity) return [];
+  return wizardStepFields(screen, entity).filter((f) => TEXT_KEYBOARD_TYPES.has(f.type) && f.type !== "DateTime");
+}
+
+// The wizard analog of crudTextFieldWidgets — every field across the given screen's steps that
+// renders as a `TextFormField` in screen.ts's wizardFieldInput at all (String/int/double/Money,
+// bypass-eligible, AND DateTime, readOnly/no bypass). Shared with test.ts's
+// generateWizardFocusTest so it can assert the exact TextFormField count on a step without
+// re-deriving wizardFieldInput's own field-type-to-widget mapping.
+export function wizardTextFieldWidgets(screen: ScreenModel, entity: EntityModel | undefined): Field[] {
+  if (!entity) return [];
+  return wizardStepFields(screen, entity).filter((f) => TEXT_KEYBOARD_TYPES.has(f.type));
 }
 
 // UIX Slice C: deterministic field-role inference — the single source of truth every layout
