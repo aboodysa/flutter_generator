@@ -307,6 +307,23 @@ export function policyEntities(ir: FeatureModel): string[] {
   return Array.from(new Set((ir.businessRules ?? []).filter(isPolicyRule).map((r) => r.entity)));
 }
 
+// V1.2: the subset of `entity`'s policy rules a WIZARD's own final step can render a per-question
+// score/verdict for — a policy rule whose (single, flat-form) condition targets a field this
+// wizard screen actually collects across its steps (stepFields), e.g. a quiz answer. A policy
+// rule over a field the wizard never collects (kids_quiz's RunCompleted, gated on `status`, which
+// is deliberately NOT a wizard step field) is correctly excluded — it stays a CRUD-form-only
+// verdict, never shown on the wizard result step. Ordered by the step the condition's field is
+// first collected in, matching the order a player actually answers them (screen.ts's
+// gamifiedResultBlock and state.ts's needsDraft/draft getter are the two consumers).
+export function gamifiedWizardRules(ir: FeatureModel, screen: ScreenModel, entity: EntityModel): RuleModel[] {
+  const steps: WizardStep[] = screen.steps ?? [];
+  const stepIndexOf = (fieldName: string | undefined): number =>
+    fieldName === undefined ? -1 : steps.findIndex((st) => stepFields(st).includes(fieldName));
+  return policyRulesForEntity(ir, entity.name)
+    .filter((r) => stepIndexOf(r.conditions[0]?.field) !== -1)
+    .sort((a, b) => stepIndexOf(a.conditions[0]?.field) - stepIndexOf(b.conditions[0]?.field));
+}
+
 // MF4 split/allocation — a "split group" is inferred purely from naming convention, no new IR
 // schema surface: a child entity Y (≠ parent X) carrying BOTH the existing FK convention
 // (`camelize(X) + "Id"`, the exact field childLinks/childForeignKey already key off) AND a field

@@ -1,6 +1,6 @@
 import { StateModel, StateField, EntityModel, ScreenModel, WizardStep } from "../types";
 import { importsFromTypes, variantSampleArgs, sampleArgFor, collectionField, camelize, capitalize, fieldDartType, newIdExpr, GenContext } from "../dart";
-import { crudOperations, findRepoForEntity, findWizardScreen, stepFields, isMoneyField } from "../operations";
+import { crudOperations, findRepoForEntity, findWizardScreen, stepFields, isMoneyField, gamifiedWizardRules } from "../operations";
 
 // P5/D2 Slice 2: exported so composition.ts's statePlacementFor derives loading/error against the
 // SAME default statuses this file falls back to — a single source, never a second literal copy.
@@ -319,17 +319,30 @@ function generateWizardState(s: StateModel, wizardScreen: ScreenModel, ctx?: Gen
     return `    ${f.name}: ${f.name},`;
   };
 
+  // V1.2: a wizard final step's gamified score summary (screen.ts's gamifiedResultBlock) needs
+  // the same "full entity from whatever's been filled" construction _draft already does, to
+  // evaluate the entity's policy rules against the in-progress answers — reuses this instead of
+  // re-deriving a second draft-construction expression.
+  const gamifiedRules = entityModel && ctx?.ir ? gamifiedWizardRules(ctx.ir, wizardScreen, entityModel) : [];
+
   // _draft: a full entity from whatever's been filled + a type-correct placeholder (sampleArgFor)
   // for every other field, so `validate`/`when` rules always run against a real, constructible
   // instance. Needed whenever ANY step's advance-gate or visibility is rule-driven (a string
-  // `when` names a RuleModel, same as `validate`).
-  const needsDraft = steps.some((st) => st.validate || typeof st.when === "string");
+  // `when` names a RuleModel, same as `validate`) OR the final step needs to evaluate policy rules
+  // against the in-progress answers (gamifiedRules).
+  const needsDraft = steps.some((st) => st.validate || typeof st.when === "string") || gamifiedRules.length > 0;
   const draftArgs = (entityModel?.fields ?? [])
     .map((f) => (stepFieldNames.includes(f.name)
       ? `      ${f.name}: ${f.name} ?? ${sampleArgFor(f, enums, valueObjects)},`
       : `      ${f.name}: ${sampleArgFor(f, enums, valueObjects)},`))
     .join("\n");
   const draftGetter = needsDraft && entityModel ? `\n  ${entity} get _draft => ${entity}(\n${draftArgs}\n      );\n` : "";
+  // V1.2: `_draft` is library-private (only state.ts's OWN generated methods — stepGuard/whenExpr
+  // — may read it); the wizard SCREEN file (a separate generated library) needs its own,
+  // deliberately public, accessor to evaluate policy rules for the gamified result block. Emitted
+  // only when gamifiedRules is non-empty, so every wizard without them (work_auth, ...) is
+  // byte-identical — no new public surface on a state class that has no gamified rules.
+  const publicDraftGetter = gamifiedRules.length > 0 && entityModel ? `\n  ${entity} get draft => _draft;\n` : "";
 
   const stepGuard = (st: WizardStep): string => {
     const flds = stepFields(st);
@@ -412,7 +425,7 @@ ${fields.map(copyWithParam).join("\n")}
   }) => ${stateClass}(
 ${fields.map(copyWithAssign).join("\n")}
   );
-${draftGetter}${canAdvanceGetter}${visibilityMembers}
+${draftGetter}${publicDraftGetter}${canAdvanceGetter}${visibilityMembers}
   @override
   List<Object?> get props => [${fields.map((f) => f.name).join(", ")}];
 }`;

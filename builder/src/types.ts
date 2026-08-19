@@ -426,6 +426,11 @@ export interface RuleModel {
   rows?: DecisionTableRow[]; // decision-table form (additive, optional — §19)
   severity?: PolicySeverity; // L2, flat-form rules only — see PolicySeverity doc above
   message?: string; // L2 — plain-language verdict message shown to the user; required when severity is set ([verdict] gate)
+  // V1.2: points this rule contributes when it fires — additive, absent = 0 (today's behavior for
+  // every rule that never sets it). Only consumed by a wizard final step's gamified score summary
+  // (operations.ts's gamifiedWizardRules + screen.ts's gamifiedResultBlock) — a policy rule that
+  // isn't reachable from a wizard's own step-collected fields never reads this.
+  points?: number;
 }
 
 export interface DecisionTableRow {

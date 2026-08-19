@@ -1,5 +1,5 @@
-import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, crudTextFieldWidgets, textInputBypassFields, wizardTextInputFields, wizardTextFieldWidgets, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets } from "../operations";
+import { FeatureModel, Field, RuleModel, StateManagementProvider, WizardStep } from "../types";
+import { crudFormTargets, isMoneyField, firstCrudTextField, crudTextFieldWidgets, textInputBypassFields, wizardTextInputFields, wizardTextFieldWidgets, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets, gamifiedWizardRules, stepFields } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -759,6 +759,134 @@ ${tapAsserts}
   const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
 
   return `// [generated] generator=WizardFocusTestGenerator template=wizard_focus_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+${diImport}
+${session.import}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+// V1.2: does `rule`'s condition set hold against the codegen-time chosen field values? Only "=="
+// is evaluated (the only operator a gamified/choice condition ever uses) — a condition on any
+// other operator, or a field this walkthrough never set a value for, is treated as not holding
+// (conservative: the generated test then skips a step it can't prove reachable, rather than
+// asserting a wrong guess). Shared by the `when`-gated step-visibility check below.
+function ruleHoldsAgainst(rule: RuleModel, chosen: Record<string, string>): boolean {
+  return rule.conditions.every((c) => c.operator === "==" && chosen[c.field] === c.value);
+}
+
+/**
+ * WizardGamifiedTestGenerator — structural, deterministic, 0% LLM (V1.2 regression guard).
+ * For every wizard screen with >=1 gamifiedWizardRules (operations.ts), drives a full "every
+ * answer correct" walkthrough — the same maximum-score path the brief's own worked example
+ * ("3/3 → ⭐⭐⭐") describes — and asserts the final step renders the star count, the summed
+ * points, and every rule's fired (success-tone) mark. Chooses the CORRECT value for every
+ * gamified rule's condition field (so the run is deterministically a perfect one), a neutral
+ * placeholder for any other step field, and evaluates simple `when` gates (a named rule or an
+ * inline `{field, op:"==", value}`) against those same chosen values so a conditional step (e.g.
+ * a "perfect run" bonus step) is walked only when it will actually be reachable — never a silent
+ * wrong guess (a step whose gate isn't `==`-only, or a step field type this walkthrough can't
+ * drive — DateTime, bool — degrades the whole screen to "skipped", not a wrong assertion).
+ */
+export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const screens = feature.screens ?? [];
+  const wizardScreens = screens.filter((s) => s.type === "wizard" && (s.steps ?? []).length && isTargetReachable(feature, s.entity));
+  if (!wizardScreens.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const session = authSession(feature, pkg, "    ");
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+  const isTextField = (f: Field) => f.type === "String" || f.type === "int" || f.type === "double";
+
+  const cases: string[] = [];
+  for (const s of wizardScreens) {
+    const entity = feature.entities.find((e) => e.name === s.entity);
+    if (!entity) continue;
+    const rules = gamifiedWizardRules(feature, s, entity);
+    if (!rules.length) continue;
+    const steps: WizardStep[] = s.steps ?? [];
+    const fieldDef = (name: string) => entity.fields.find((f) => f.name === name);
+    const roleCtx = { entityNames: (feature.entities ?? []).map((e) => e.name) };
+
+    // The correct value for every gamified rule's own field — this is what makes the walkthrough
+    // deterministically a perfect run. Any step field NOT covered by a gamified rule gets a plain
+    // placeholder (text) or its own default/first enum value (choice/dropdown) instead.
+    const chosen: Record<string, string> = {};
+    for (const r of rules) {
+      const c = r.conditions[0];
+      if (c && c.operator === "==") chosen[c.field] = c.value;
+    }
+
+    let undriveable = false;
+    const stepActions: string[] = [];
+    for (const st of steps) {
+      if (st.when) {
+        const holds = typeof st.when === "string"
+          ? (() => {
+              const named = (feature.businessRules ?? []).find((r) => r.name === st.when);
+              return named ? ruleHoldsAgainst(named, chosen) : false;
+            })()
+          : (st.when.op === "==" ? chosen[st.when.field] === st.when.value : false);
+        if (!holds) continue; // this step won't be reached on the all-correct path — don't drive it
+      }
+      const flds = stepFields(st);
+      const fieldWidgets: string[] = [];
+      for (const fname of flds) {
+        const f = fieldDef(fname);
+        if (!f) { undriveable = true; break; }
+        if (f.type === "DateTime" || f.type === "bool") { undriveable = true; break; }
+        if (f.type === "enum") {
+          const enumType = f.of ?? capitalize(f.name);
+          const value = chosen[fname] ?? (f.default !== undefined ? String(f.default) : undefined);
+          if (!value) { undriveable = true; break; }
+          const role = fieldRole(f, roleCtx);
+          if (role === "choice" || role === "status" || role === "priority") {
+            fieldWidgets.push(`    await tester.tap(find.widgetWithText(ChoiceChip, '${value}'));\n    await tester.pumpAndSettle();`);
+          } else {
+            fieldWidgets.push(`    await tester.tap(find.byType(DropdownButton<${enumType}>));\n    await tester.pumpAndSettle();\n    await tester.tap(find.widgetWithText(DropdownMenuItem<${enumType}>, '${value}').last, warnIfMissed: false);\n    await tester.pumpAndSettle();`);
+          }
+        } else if (isTextField(f)) {
+          fieldWidgets.push(`    await tester.enterText(find.byType(TextFormField).first, 'Test');\n    await tester.pumpAndSettle();`);
+        } else {
+          undriveable = true;
+          break;
+        }
+      }
+      if (undriveable) break;
+      const advanceLabel = st === steps[steps.length - 1] ? "" : `\n    await tester.tap(find.text('Next').hitTestable());\n    await tester.pumpAndSettle();`;
+      stepActions.push(`${fieldWidgets.join("\n")}${advanceLabel}`);
+    }
+    if (undriveable) continue;
+
+    const route = screenPath(screens, s).replace(":id", "x");
+    const idSet = `{${rules.map((r) => `'${r.name}'`).join(", ")}}`;
+    const marks = rules.map((r) => `'${(r.message ?? "").replace(/'/g, "\\'")}'`).join(", ");
+
+    cases.push(`  testWidgets('${s.name}: a perfect run shows the full score, star count, and every rule\\'s mark on the result step', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${route}');
+    await tester.pumpAndSettle();
+${stepActions.join("\n")}
+    expect(find.textContaining('(${rules.length}/${rules.length})'), findsOneWidget, reason: 'a perfect run must show every gamified rule fired');
+    for (final message in [${marks}]) {
+      expect(find.text(message), findsOneWidget, reason: 'each fired rule\\'s own message must be shown as a success-tone mark');
+    }
+  });`);
+  }
+  if (!cases.length) return null;
+
+  const getItReset = sm === "bloc" ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
+
+  return `// [generated] generator=WizardGamifiedTestGenerator template=wizard_gamified_test.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';

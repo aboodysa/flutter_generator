@@ -1,7 +1,7 @@
-import { ScreenModel, EntityModel, Field, WizardStep, SectionModel } from "../types";
+import { ScreenModel, EntityModel, Field, WizardStep, SectionModel, RuleModel } from "../types";
 import { GenContext, nullable, kebab, collectionField, fieldLabel, camelize, capitalize, entityPluralTitle, importsFromTypes } from "../dart";
 import { compositionFor, ActionKind, ActionSpec } from "../composition";
-import { crudFormTargets, stepFields, wizardTextInputFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets } from "../operations";
+import { crudFormTargets, stepFields, wizardTextInputFields, isMoneyField, fieldRole, FieldRole, FieldRoleContext, splitGroupFor, resolveBudget, resolveExport, exportableFields, hasLocale, quickDecisionTargets, gamifiedWizardRules } from "../operations";
 
 /**
  * ScreenGenerator — structural, deterministic, 0% LLM.
@@ -199,6 +199,40 @@ function wizardFieldSummaryLine(fieldName: string, field: Field | undefined): st
   return `Text('${label}: \${${display}}')`;
 }
 
+// V1.2: a wizard final step's gamified score summary — only ever called when
+// operations.ts's gamifiedWizardRules returned >=1 rule for this screen (screen.ts's stepContent
+// gates the call), so `rules` is always non-empty here. Evaluates the SAME evaluate<Entity>Policy
+// engine crud_form.ts's policy panel already uses, against `state.draft` (state.ts's public
+// draft getter, emitted only alongside gamifiedRules) — never a second, hand-rolled scoring path.
+// Per-rule marks reuse AppChip/tone (success for a fired rule, neutral for one that didn't) —
+// same token-driven, Ahem-safe posture as every other generated widget; stars are literal '⭐'
+// text per the owner's decision, not an icon/image.
+function gamifiedResultBlock(entityName: string, rules: RuleModel[]): string {
+  const evalCall = `evaluate${entityName}Policy(state.draft)`;
+  const idSet = `{${rules.map((r) => `'${r.name}'`).join(", ")}}`;
+  const pointsMap = `{${rules.map((r) => `'${r.name}': ${r.points ?? 0}`).join(", ")}}`;
+  const marks = rules
+    .map((r) => {
+      const msg = (r.message ?? "Correct!").replace(/'/g, "\\'");
+      return `                          _verdicts.any((v) => v.ruleId == '${r.name}') ? const AppChip(label: '${msg}', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),`;
+    })
+    .join("\n");
+  return `Builder(builder: (context) {
+                          final _verdicts = ${evalCall}.where((v) => const ${idSet}.contains(v.ruleId)).toList();
+                          final _points = _verdicts.fold<int>(0, (sum, v) => sum + (const ${pointsMap}[v.ruleId] ?? 0));
+                          final _stars = List.filled(_verdicts.length, '⭐').join();
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('$_stars  (\${_verdicts.length}/${rules.length})', style: Theme.of(context).textTheme.headlineMedium),
+                            Text('Score: \$_points ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
+${marks}
+                            ]),
+                            const SizedBox(height: AppSpacing.sm),
+                          ]);
+                        })`;
+}
+
 export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   const stateClass = `${s.state}State`;
   const statusEnum = `${s.state}Status`;
@@ -374,6 +408,7 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   let wizardTypeImports = ""; // enum types explicitly named in a wizard's field widgets (DropdownButton<Enum>) — screen.ts otherwise never writes a bare type name that needs its own import.
   let wizardFocusFields: Field[] = []; // RCA-002-ALL: this wizard's text-input step fields (String/int/double/Money) that need a per-field FocusNode bypass declared on the screen's State — empty for any non-wizard screen or a wizard with no text-input fields.
   let splitStateImport = ""; // MF4: the split child's Cubit/State import (see splitBlock below) — empty for any detail screen with no split group.
+  let policyImport = ""; // V1.2: evaluate<Entity>Policy import — only when this wizard's final step renders the gamified score block (gamifiedRules non-empty).
   // MF5: BudgetLine import — only when THIS screen's entity resolves to the app's budget entity.
   const budgetImport = isBudgetEntity
     ? (ctx?.symbols.get("BudgetLine")
@@ -704,13 +739,26 @@ ${rowsBlock}${splitBlock}${childRows}
     wizardFocusFields = wizardTextInputFields(s, entity);
     const wizardFocusNames = new Set(wizardFocusFields.map((f) => f.name));
 
+    // V1.2: the subset of this entity's policy rules the FINAL step can render a per-question
+    // score/verdict for (operations.ts's gamifiedWizardRules) — empty for every wizard whose
+    // entity has no policy rules reachable from its own step-collected fields (work_auth, every
+    // other currently-committed wizard), so the gamified branch below never fires for them.
+    const gamifiedRules: RuleModel[] = entity && ctx?.ir ? gamifiedWizardRules(ctx.ir, s, entity) : [];
+    if (gamifiedRules.length && entity) {
+      policyImport = ctx?.symbols.get(`evaluate${entity.name}Policy`)
+        ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(`evaluate${entity.name}Policy`)}';\n`
+        : `import '../policy/${kebab(entity.name).replace(/-/g, "_")}_policy.dart';\n`;
+    }
+
     const titleCases = steps
       .map((st, i) => `                      ${i} => '${st.title.replace(/'/g, "\\'")}',`)
       .join("\n");
     // A field-collecting step renders its input(s) (one or many — P8-W4); an info/review step
     // renders a read-only summary of every field collected by EARLIER steps (generic — this is
     // what makes a plain "review this before continuing" step useful without any per-app logic
-    // in the generator).
+    // in the generator). V1.2: the LAST such review step additionally gets the gamified score
+    // block (gamifiedResultBlock), prepended above the generic summary, when gamifiedRules is
+    // non-empty — every other wizard's final step is unaffected (gamifiedRules is empty).
     const stepContent = (st: WizardStep, index: number): string => {
       const flds = stepFields(st);
       // Every step shows a read-only summary of whatever earlier steps collected, ABOVE its own
@@ -725,8 +773,11 @@ ${rowsBlock}${splitBlock}${childRows}
         const body = summaryLines ? `${summaryLines}\n${widgets}` : widgets;
         return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
       }
-      if (!collectedSoFar.length) return `Text('${st.title.replace(/'/g, "\\'")}')`;
-      return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${summaryLines}\n                      ])`;
+      const isGamifiedFinalStep = index === steps.length - 1 && gamifiedRules.length > 0 && entity;
+      const gamifiedLine = isGamifiedFinalStep ? `                        ${gamifiedResultBlock(entity!.name, gamifiedRules)},` : "";
+      if (!collectedSoFar.length && !gamifiedLine) return `Text('${st.title.replace(/'/g, "\\'")}')`;
+      const body = gamifiedLine ? (summaryLines ? `${gamifiedLine}\n${summaryLines}` : gamifiedLine) : summaryLines;
+      return `Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [\n${body}\n                      ])`;
     };
     const contentCases = steps
       .map((st, i) => `                      ${i} => ${stepContent(st, i)},`)
@@ -1365,7 +1416,7 @@ ${themeImport}
 ${stateImport}
 ${wizardTypeImports}
 ${splitStateImport}
-${budgetImport}${exportImport}${l10nImport}
+${policyImport}${budgetImport}${exportImport}${l10nImport}
 
 ${widgetBody}
 `;

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 41,
+  "artifactCount": 44,
   "entries": [
     {
       "artifact": "enum:AnswerOption",
@@ -154,6 +154,19 @@
       "class": "semantic"
     },
     {
+      "artifact": "rule:AnswerCorrect",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/choice_demo/domain/rules/answer_correct.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Pick"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "model:Pick",
       "generator": "ModelGenerator",
       "schema": "model",
@@ -201,7 +214,8 @@
       "strategy": "default",
       "dependsOn": [
         "entity:Pick",
-        "rule:MoodHappy"
+        "rule:MoodHappy",
+        "rule:AnswerCorrect"
       ],
       "mode": "semantic",
       "class": "semantic"
@@ -416,6 +430,17 @@
       "class": "structural"
     },
     {
+      "artifact": "test:wizardGamified",
+      "generator": "WizardGamifiedTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/wizard_gamified_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "test:searchFocus",
       "generator": "SearchFocusTestGenerator",
       "schema": "test",
@@ -457,6 +482,19 @@
       "strategy": "default",
       "dependsOn": [
         "rule:MoodHappy"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:AnswerCorrect",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/answer_correct_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:AnswerCorrect"
       ],
       "mode": "semantic",
       "class": "semantic"

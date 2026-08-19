@@ -185,6 +185,10 @@
     },
     "message": {
       "type": "string"
+    },
+    "points": {
+      "type": "number",
+      "description": "V1.2: points this rule contributes when it fires — only consumed by a wizard final step's gamified score summary (a rule reachable from a wizard's own step-collected fields). Additive; absent = 0."
     }
   },
   "additionalProperties": false

@@ -27,4 +27,18 @@ void main() {
     expect(find.textContaining('Feeling happy today!'), findsOneWidget);
     expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a warn verdict must never block Save');
   });
+
+  testWidgets('Pick: AnswerCorrect (warn) shows a message but allows Save', (tester) async {
+    setupDependencies();
+    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('/pick/new');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'b'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Correct! +5 stars'), findsOneWidget);
+    expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a warn verdict must never block Save');
+  });
 }

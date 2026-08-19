@@ -34,6 +34,15 @@ class PickWizardState extends Equatable {
     errorMessage: errorMessage,
   );
 
+  Pick get _draft => Pick(
+      id: 'x',
+      label: 'x',
+      answer: answer ?? AnswerOption.values.first,
+      mood: MoodOption.values.first,
+      );
+
+  Pick get draft => _draft;
+
   bool get canAdvance => switch (currentStep) {
       0 => answer != null,
       1 => true,

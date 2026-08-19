@@ -76,6 +76,21 @@
       "confidenceSource": "human-attested",
       "confidence": 1,
       "requiresApproval": false
+    },
+    {
+      "name": "AnswerCorrect",
+      "entity": "Pick",
+      "result": "true",
+      "conditions": [
+        { "field": "answer", "operator": "==", "value": "b" }
+      ],
+      "severity": "warn",
+      "message": "Correct! +5 stars",
+      "points": 5,
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
     }
   ],
   "repositories": [

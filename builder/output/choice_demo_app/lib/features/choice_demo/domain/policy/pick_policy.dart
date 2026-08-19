@@ -3,6 +3,7 @@
 import 'package:rasheed_replica_choice_demo/features/choice_demo/domain/entities/pick.dart';
 import 'package:rasheed_replica_choice_demo/core/policy.dart';
 import 'package:rasheed_replica_choice_demo/features/choice_demo/domain/rules/mood_happy.dart';
+import 'package:rasheed_replica_choice_demo/features/choice_demo/domain/rules/answer_correct.dart';
 
 /// L2: every severity'd rule declared for Pick, evaluated in full (never first-match).
 List<PolicyVerdict> evaluatePickPolicy(Pick e) {
@@ -12,6 +13,13 @@ List<PolicyVerdict> evaluatePickPolicy(Pick e) {
       ruleId: 'MoodHappy',
       severity: PolicySeverity.warn,
       message: 'Feeling happy today!',
+    ));
+  }
+  if (AnswerCorrect().evaluate(e)) {
+    verdicts.add(const PolicyVerdict(
+      ruleId: 'AnswerCorrect',
+      severity: PolicySeverity.warn,
+      message: 'Correct! +5 stars',
     ));
   }
   return verdicts;

@@ -7,6 +7,7 @@ import 'package:rasheed_replica_choice_demo/core/theme.dart';
 import 'package:rasheed_replica_choice_demo/features/choice_demo/presentation/state/pick_wizard.dart';
 import 'package:rasheed_replica_choice_demo/features/choice_demo/domain/entities/answer_option.dart';
 
+import 'package:rasheed_replica_choice_demo/features/choice_demo/domain/policy/pick_policy.dart';
 
 
 class PickWizardScreen extends StatelessWidget {
@@ -43,6 +44,20 @@ class PickWizardScreen extends StatelessWidget {
                         Wrap(key: const ValueKey('field-answer'), spacing: AppSpacing.sm, children: AnswerOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<PickWizardCubit>().setAnswer(v))).toList()),
                       ]),
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Builder(builder: (context) {
+                          final _verdicts = evaluatePickPolicy(state.draft).where((v) => const {'AnswerCorrect'}.contains(v.ruleId)).toList();
+                          final _points = _verdicts.fold<int>(0, (sum, v) => sum + (const {'AnswerCorrect': 5}[v.ruleId] ?? 0));
+                          final _stars = List.filled(_verdicts.length, '⭐').join();
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('$_stars  (${_verdicts.length}/1)', style: Theme.of(context).textTheme.headlineMedium),
+                            Text('Score: $_points ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
+                          _verdicts.any((v) => v.ruleId == 'AnswerCorrect') ? const AppChip(label: 'Correct! +5 stars', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
+                            ]),
+                            const SizedBox(height: AppSpacing.sm),
+                          ]);
+                        }),
                         Text('Answer: ${(state.answer?.name ?? '—')}'),
                       ]),
                       _ => const SizedBox(),

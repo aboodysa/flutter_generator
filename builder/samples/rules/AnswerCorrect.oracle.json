@@ -1,0 +1,9 @@
+{
+  "rule": "AnswerCorrect",
+  "entity": "Pick",
+  "cases": [
+    { "input": { "id": "p-1", "label": "First", "answer": "b", "mood": "happy" }, "expected": true },
+    { "input": { "id": "p-2", "label": "Second", "answer": "a", "mood": "happy" }, "expected": false },
+    { "input": { "id": "p-3", "label": "Third", "answer": "c", "mood": "sad" }, "expected": false }
+  ]
+}

@@ -25,7 +25,7 @@ import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
 import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec, sectionsTargets, SectionSpec, assetTargets, AssetSpec } from "./composition";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateWizardFocusTest, generateSearchFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateWizardFocusTest, generateSearchFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateWizardGamifiedTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
 import { generateA11yTest, a11yTestFileName } from "./generators/a11y_test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -370,6 +370,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:wizardFocus", generator: "WizardFocusTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // V1.2 regression guard — a wizard with gamified rules (operations.ts's gamifiedWizardRules)
+  // gets a generated "perfect run" walkthrough proving its final step actually renders the score/
+  // stars/marks (screen.ts's gamifiedResultBlock) — absent for every wizard without them.
+  const wizardGamifiedTest = generateWizardGamifiedTest(ir, arch.stateManagement);
+  if (wizardGamifiedTest) {
+    const f = path.join(testDir, "wizard_gamified_test.dart");
+    fs.writeFileSync(f, wizardGamifiedTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:wizardGamified", generator: "WizardGamifiedTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
