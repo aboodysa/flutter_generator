@@ -81,15 +81,18 @@ Required additive generator slice (L4.1) — small, mirrors the existing ar bran
 This is an **additive generator slice** for the implementer (Claude), NOT hand-editing a
 generated app.
 
-## Open decisions for owner
+## Open decisions for owner — ANSWERED 2026-08-19 (orchestrator, post-benchmark)
 
-1. **Quiz flow shape**: (a) list→detail learning mode (browse questions + answer, tap to check)
-   AND wizard for a timed quiz run; or (b) wizard-only run. Default: (a) both, wizard for
-   "Play Quiz".
-2. **Points vs stars**: plain int points, or star emoji in verdict messages (stars render fine —
-   real text, not Ahem).
-3. **Demo seed data**: sample questions per category with real, human-readable content (the
-   generator's demo rows read off `title`), sample badges.
+1. **Quiz flow shape**: **(b) wizard-only run** — the stepped quiz IS a wizard: one question per
+   step (choice chips), final step = result (stars + badges earned). Rationale: benchmark showed
+   the wizard archetype is the proven (work_auth) and most polished; stepper progress + conditional
+   steps map directly. No separate browse/detail learning mode in v1.
+2. **Points vs stars**: **stars** — 1–3 stars per run + star counter on home/badges; verdict
+   messages carry real star text (e.g. "Correct! +5 ⭐"). Points stay as the internal numeric
+   accumulator that stars/badges derive from.
+3. **Demo seed data**: **general knowledge** — topics like Animals/Space/Body/Colors; neutral,
+   trilingual-friendly (en seed rows in v1; ar/fr chrome; per-locale seeds are an enhancement).
+   Seed badges (First Quiz, Streak x5, Perfect 10) human-readable from the title field.
 
 ## Execution plan (after benchmark lands)
 
