@@ -1116,6 +1116,20 @@ export function sectionsCheck(ir: any, outDir: string, files: string[]): string[
     }
   }
 
+  // V1.1: a floatingCart section's `target` must resolve to a real generated route — otherwise
+  // the FAB navigates to a go_router "Page Not Found", the exact dead-route class [sections] and
+  // screen.ts's own list-row dead-route guard already refuse to ship elsewhere.
+  const knownRoutes = new Set(screens.map((sc) => screenPath(screens, sc)));
+  for (const screen of screens) {
+    const declared = Array.isArray(screen.sections) ? screen.sections : [];
+    const flatCartSections = declared.flatMap((sec: any) => [sec, ...(Array.isArray(sec.children) ? sec.children : [])]).filter((sec: any) => sec.type === "floatingCart");
+    for (const cart of flatCartSections) {
+      if (cart.target !== undefined && !knownRoutes.has(cart.target)) {
+        issues.push(`[sections] screen '${screen.name}' floatingCart target '${cart.target}' does not match any generated screen's route (${[...knownRoutes].join(", ")})`);
+      }
+    }
+  }
+
   // S2.1 (S2_HARDENING_BRIEF_CLAUDE.md, S2_RATIFICATION.md gaps 1/2): flatten a screen's
   // sections[] (top-level + depth-1 children) into one array — shared by the hero-cardinality and
   // duplicate-id checks below, both of which must see nested hero/promoBanner and nested ids.
@@ -1170,7 +1184,7 @@ export function sectionsCheck(ir: any, outDir: string, files: string[]): string[
 
   // (c) belt-and-suspenders raw-IR scan against the RAW ir object (schema already hard-rejects
   // this at generation time — this independently re-verifies the IR this gate itself was handed).
-  const ALLOWED_KEYS = new Set(["id", "type", "title", "children"]);
+  const ALLOWED_KEYS = new Set(["id", "type", "title", "children", "target"]);
   const CLOSED_TYPES = new Set(["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "section", "divider", "floatingCart"]);
   const scanSection = (screenName: string, sec: any, depth: number) => {
     if (!sec || typeof sec !== "object") return;

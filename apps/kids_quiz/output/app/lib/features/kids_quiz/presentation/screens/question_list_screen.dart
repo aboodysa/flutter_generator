@@ -1,6 +1,7 @@
 // [generated] generator=ScreenGenerator template=screen_sections_bloc_search.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rasheed_replica_kids_quiz/core/components.dart';
 import 'package:rasheed_replica_kids_quiz/core/theme.dart';
@@ -8,6 +9,7 @@ import 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/
 
 
 
+import 'package:rasheed_replica_kids_quiz/core/app_strings.dart';
 
 class QuestionListScreen extends StatefulWidget {
   const QuestionListScreen({super.key});
@@ -102,6 +104,14 @@ class _QuestionListScreenState extends State<QuestionListScreen> {
               ],
             );
         },
+      ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.all(AppSpacing.lg),
+        child: FloatingActionButton.extended(
+        label: Text('Play Quiz'),
+        icon: const Icon(Icons.play_arrow),
+        onPressed: () => context.go('/quiz-run/wizard'), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedFab)),
+      ),
       ),
     );
   }

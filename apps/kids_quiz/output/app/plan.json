@@ -978,6 +978,12 @@
           {
             "id": "allQuestionsDivider",
             "type": "divider"
+          },
+          {
+            "id": "playFab",
+            "type": "floatingCart",
+            "title": "Play Quiz",
+            "target": "/quiz-run/wizard"
           }
         ]
       }

@@ -160,3 +160,41 @@ S-slice.
 - French seed content: per the design brief, v1 ships EN seed rows with ar/fr UI chrome only
   (`AppStrings`); per-locale seed content is future work, same scoping the design brief already
   called out.
+
+## v1.1 update (`KIDS_QUIZ_V11_IMPL_BRIEF_CLAUDE.md`) — findings #1–#3 above are now fixed
+
+`fieldRole()` gained a `"choice"` role (explicit `Field.role: "choice"` hint, checked before the
+status/priority/decision name-list — deliberately NOT a value-shape heuristic, since hr_service's
+committed `LeaveRequest.leaveType` is a real counter-example that would have broken byte-identical
+output). `q1Answer`/`q2Answer`/`q3Answer` now set the hint and render as neutral-toned
+`ChoiceChip`s in both the wizard steps AND the auto CRUD form (confirmed live: `grep ChoiceChip`
+on both generated screen files). `PolicyTestGenerator.policyTriggerSteps` now checks `fieldRole`
+first, so the dropdown-vs-chip choice is no longer generator-inconsistent (proven on a dedicated
+fixture, `builder/samples/choice_demo.ir.json`, since kids_quiz's own severity'd rule still
+targets the `status` field, not an answer field). The `A11yTestGenerator` "only checks step 1"
+limitation (gap #2) is unchanged (out of scope for v1.1 — the brief scoped this slice to the
+FieldRole fix, not the a11y test generator's step-walking), but gap #3 (DropdownButton never
+binding `isEnabled`) is now moot for every current field in this app, since none render as
+DropdownButton in a wizard/CRUD-form context anymore.
+
+Also added: a `floatingCart` section can now declare `target`+`title` (`types.ts`'s
+`SectionModel`, `screen.schema.json`) to become a real `FloatingActionButton.extended(...)`
+navigation affordance instead of the decorative "Add to cart" SnackBar — `validate.ts`'s
+`[sections]` gate additionally asserts the target resolves to a real generated route. Wired kids_
+quiz's home FAB to `title: "Play Quiz"`, `target: "/quiz-run/wizard"`.
+
+**New finding (v1.1, not fixed — out of scope, unrelated to the two authorized changes):**
+`flutter analyze` on the regenerated app shows one new `unused_import` warning —
+`lib/features/kids_quiz/presentation/screens/question_list_screen.dart` imports
+`core/app_strings.dart` but never calls `AppStrings.of(context)`. Root cause: `screen.ts`'s
+`appStringsUsed` flag is set unconditionally by `if (loc && fabApplies) appStringsUsed = true;`
+regardless of which FAB branch actually renders — the sections archetype's FAB (both the original
+decorative cart AND the new extended-navigation variant) never references `AppStrings`, unlike
+the list/detail archetype's FAB (`newLabel`, which genuinely does use `AppStrings.of(context)`
+when locale-aware). This is a pre-existing latent bug in that flag, not something the v1.1 change
+introduced — it was simply never observable before because no committed app combined
+`attributes.locale` with the `sections` archetype until kids_quiz. Still 0 `flutter analyze`
+errors (matches the "0 errors" bar every other app already ships at, warnings included).
+Recommend: scope `appStringsUsed = true` to the non-sections FAB branch only (or make the
+sections-FAB branches also locale-aware, translating "Play Quiz"/"Cart" through `AppStrings`,
+which would be the more complete fix but touches more surface than a one-line scope correction).

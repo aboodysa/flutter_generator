@@ -172,9 +172,9 @@ class _QuizRunFormScreenBodyState extends State<_QuizRunFormScreenBody> {
         children: [
         TextField(controller: _playerName, focusNode: _playerNameFocus, onTap: () => _playerNameFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Player Name')),
         DropdownButton<QuizCategory>(value: _category, items: QuizCategory.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _category = v ?? _category)),
-        DropdownButton<CorrectOption>(value: _q1Answer, items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _q1Answer = v ?? _q1Answer)),
-        DropdownButton<CorrectOption>(value: _q2Answer, items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _q2Answer = v ?? _q2Answer)),
-        DropdownButton<CorrectOption>(value: _q3Answer, items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _q3Answer = v ?? _q3Answer)),
+        Wrap(spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: _q1Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => setState(() => _q1Answer = v))).toList()),
+        Wrap(spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: _q2Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => setState(() => _q2Answer = v))).toList()),
+        Wrap(spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: _q3Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => setState(() => _q3Answer = v))).toList()),
         Wrap(spacing: AppSpacing.sm, children: RunStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
           _policyPanel(),
           const SizedBox(height: AppSpacing.md),

@@ -270,7 +270,12 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
   // here. Hoisted above the layout branch (rather than computed inside it) because the FAB decision
   // below (floatingCart) also needs it. `undefined` for any screen that declares no sections.
   const sectionsSpec = ctx?.sections?.get(s.name);
-  const hasFloatingCart = !!sectionsSpec?.sections.some((sec) => sec.type === "floatingCart" || sec.children?.some((c) => c.type === "floatingCart"));
+  const floatingCartSection = sectionsSpec?.sections.find((sec) => sec.type === "floatingCart") ?? sectionsSpec?.sections.flatMap((sec) => sec.children ?? []).find((c) => c.type === "floatingCart");
+  const hasFloatingCart = !!floatingCartSection;
+  // V1.1: a floatingCart section with a declared `target` route launches it instead of the
+  // decorative "Add to cart" SnackBar — e.g. a quiz app's home FAB navigating to its wizard.
+  // Absent `target` = today's cart FAB, byte-identical (every currently-committed sections screen).
+  const fabTarget = floatingCartSection?.target;
 
   // P2 (contract §4): the decided SearchSpec for THIS screen (composition.ts's searchTargets,
   // computed once per generateApp run) — consumed by name only, never re-derived here. Bloc-only
@@ -1180,11 +1185,17 @@ ${searchBarBlock}${heroBlock}
   // margin — "" (no personality declared) omits the wrapper, byte-identical placement.
   const fabWidget = (tooltip: string, onPressed: string, icon: string) =>
     `FloatingActionButton(\n        tooltip: ${tooltip},\n        onPressed: ${onPressed},\n        child: const Icon(${icon})${fabShapeArg},\n      )`;
+  // V1.1: a floatingCart section with a declared `target` becomes a real navigation affordance
+  // (extended FAB, its own label) instead of the plain icon-only decorative cart button.
+  const fabExtendedWidget = (label: string, onPressed: string, icon: string) =>
+    `FloatingActionButton.extended(\n        label: Text(${label}),\n        icon: const Icon(${icon}),\n        onPressed: ${onPressed}${fabShapeArg},\n      )`;
   const wrapFabInset = (widget: string) =>
     fabInsetExpr ? `Padding(\n        padding: EdgeInsets.all(${fabInsetExpr}),\n        child: ${widget},\n      )` : widget;
   const fab = fabApplies
     ? (comp.layout === "sections"
-        ? `,\n      floatingActionButton: ${wrapFabInset(fabWidget("'Cart'", "() => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')))", "Icons.shopping_cart"))}`
+        ? (fabTarget
+            ? `,\n      floatingActionButton: ${wrapFabInset(fabExtendedWidget(`'${(floatingCartSection?.title ?? "Play").replace(/'/g, "\\'")}'`, `() => context.go('${fabTarget}')`, "Icons.play_arrow"))}`
+            : `,\n      floatingActionButton: ${wrapFabInset(fabWidget("'Cart'", "() => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')))", "Icons.shopping_cart"))}`)
         : `,\n      floatingActionButton: ${wrapFabInset(fabWidget(newLabel, newFormOnPressed, "Icons.add"))}`)
     : "";
   // L4: AppStrings import — same leading-"\n"-folded-into-the-value trick as budgetImport/
@@ -1343,7 +1354,7 @@ ${body}
   // never references the router either (dead-route guard), and a sections screen navigates
   // nowhere in this slice (its add/cart affordances are SnackBar-only, no route.ts change per the
   // spike's routing-is-agnostic finding) — so it would otherwise get an unused_import.
-  const routerImport = comp.layout !== "wizard" && comp.layout !== "sections" && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
+  const routerImport = comp.layout !== "wizard" && (comp.layout !== "sections" || !!fabTarget) && !(comp.layout === "list" && !listHasNavTarget) ? `import 'package:go_router/go_router.dart';\n` : "";
 
   return `// [generated] generator=ScreenGenerator template=screen_${s.type}_${sm}${searchEnabled ? "_search" : ""}${scrollEnabled ? "_scroll" : ""}.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.

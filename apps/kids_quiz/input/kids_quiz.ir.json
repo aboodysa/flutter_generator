@@ -330,7 +330,8 @@
           "actor": "human:attested",
           "confidenceSource": "human-attested",
           "confidence": 1,
-          "requiresApproval": false
+          "requiresApproval": false,
+          "role": "choice"
         },
         {
           "name": "q2Answer",
@@ -342,7 +343,8 @@
           "actor": "human:attested",
           "confidenceSource": "human-attested",
           "confidence": 1,
-          "requiresApproval": false
+          "requiresApproval": false,
+          "role": "choice"
         },
         {
           "name": "q3Answer",
@@ -354,7 +356,8 @@
           "actor": "human:attested",
           "confidenceSource": "human-attested",
           "confidence": 1,
-          "requiresApproval": false
+          "requiresApproval": false,
+          "role": "choice"
         },
         {
           "name": "status",
@@ -648,6 +651,12 @@
         {
           "id": "allQuestionsDivider",
           "type": "divider"
+        },
+        {
+          "id": "playFab",
+          "type": "floatingCart",
+          "title": "Play Quiz",
+          "target": "/quiz-run/wizard"
         }
       ],
       "actor": "human:attested",

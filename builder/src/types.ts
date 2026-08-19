@@ -327,6 +327,10 @@ export interface SectionModel {
   type: SectionType;
   title?: string;
   children?: SectionModel[];
+  // V1.1: only meaningful on a `floatingCart` section — a route to navigate to (e.g.
+  // "/quiz-run/wizard") instead of the decorative "Add to cart" SnackBar. Additive — absent =
+  // today's cart FAB, byte-identical. `title` doubles as the FAB's extended label when set.
+  target?: string;
 }
 
 // S1 (SPIKE_S1_REPORT.md §14.1): v1 closed enums — `imagery` is deferred to S3 (no consumer before

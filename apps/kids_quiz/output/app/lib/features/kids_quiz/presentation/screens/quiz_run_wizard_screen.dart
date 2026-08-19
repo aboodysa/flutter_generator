@@ -61,18 +61,18 @@ class _QuizRunWizardScreenState extends State<QuizRunWizardScreen> {
                       ]),
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
-                        DropdownButton<CorrectOption>(key: const ValueKey('field-q1Answer'), value: state.q1Answer, hint: Text('Q1 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ1Answer(v)),
+                        Wrap(key: const ValueKey('field-q1Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q1Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ1Answer(v))).toList()),
                       ]),
                       2 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
-                        DropdownButton<CorrectOption>(key: const ValueKey('field-q2Answer'), value: state.q2Answer, hint: Text('Q2 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ2Answer(v)),
+                        Wrap(key: const ValueKey('field-q2Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q2Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ2Answer(v))).toList()),
                       ]),
                       3 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
                         Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),
-                        DropdownButton<CorrectOption>(key: const ValueKey('field-q3Answer'), value: state.q3Answer, hint: Text('Q3 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ3Answer(v)),
+                        Wrap(key: const ValueKey('field-q3Answer'), spacing: AppSpacing.sm, children: CorrectOption.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.q3Answer == v, selectedColor: AppChip.colorForTone(context, AppChipTone.neutral).withValues(alpha: 0.2), onSelected: (_) => context.read<QuizRunWizardCubit>().setQ3Answer(v))).toList()),
                       ]),
                       4 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),

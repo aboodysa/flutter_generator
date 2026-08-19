@@ -104,7 +104,7 @@
     },
     "sections": {
       "type": "array",
-      "description": "S2 (SPIKE_S2_REPORT.md §14.1): declarative section-list layout — only meaningful when type=='sections' (validate.ts's [sections] gate enforces the pairing). Order IS the hierarchy. No columns/width/height/aspectRatio/padding/x/y anywhere — additionalProperties:false closes each section object to exactly {id, type, title?, children?}.",
+      "description": "S2 (SPIKE_S2_REPORT.md §14.1): declarative section-list layout — only meaningful when type=='sections' (validate.ts's [sections] gate enforces the pairing). Order IS the hierarchy. No columns/width/height/aspectRatio/padding/x/y anywhere — additionalProperties:false closes each section object to exactly {id, type, title?, children?, target?}.",
       "items": {
         "type": "object",
         "required": ["id", "type"],
@@ -114,6 +114,10 @@
             "enum": ["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "section", "divider", "floatingCart"]
           },
           "title": { "type": "string" },
+          "target": {
+            "type": "string",
+            "description": "V1.1: only meaningful on type=='floatingCart' — a route to navigate to (e.g. \"/quiz-run/wizard\") instead of the decorative cart FAB. Absent = today's cart FAB, byte-identical. `title` becomes the FAB's extended label."
+          },
           "children": {
             "type": "array",
             "description": "Only meaningful on type=='section' — depth-1, leaves only (no nested children).",
@@ -125,7 +129,8 @@
                 "type": {
                   "enum": ["header", "search", "hero", "promoBanner", "productGrid", "horizontalCards", "sectionHeader", "divider", "floatingCart"]
                 },
-                "title": { "type": "string" }
+                "title": { "type": "string" },
+                "target": { "type": "string" }
               },
               "additionalProperties": false
             }
