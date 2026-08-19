@@ -1,5 +1,5 @@
 import { FeatureModel, Field, RuleModel, StateManagementProvider } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassField, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets } from "../operations";
+import { crudFormTargets, isMoneyField, firstCrudTextField, crudTextFieldWidgets, textInputBypassFields, wizardTextInputFields, wizardTextFieldWidgets, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -607,21 +607,23 @@ ${chipTapStep}    await tester.tap(find.text('Create'));
 
 /**
  * FocusTestGenerator — structural, deterministic, 0% LLM (RCA-005 / Bug A regression guard,
- * updated for the keyboard-bypass follow-up — the owner still saw no keyboard on a real iOS
- * device with autofocus alone, so the fix is now a gesture-bound `FocusNode.requestFocus()`
- * wired to the first field's `onTap`, not `autofocus`; see crud_form.ts's own doc comment for
- * the full RCA).
+ * updated for RCA-002-ALL — the owner hit the same silent-keyboard failure on fields past the
+ * first, so the fix is now a gesture-bound `FocusNode.requestFocus()` wired to EVERY text-input
+ * field's own `onTap`, not just the first, and never `autofocus`; see crud_form.ts's own doc
+ * comment for the full RCA).
  * For every entity with a synthesized CRUD form, drives the real app straight to that entity's
  * create AND edit routes via `appRouter.go(...)` (bypassing UI navigation — a route can be
  * several hops deep, e.g. a child entity reached only through a parent's detail screen, so
  * tapping through would make this test's shape depend on each app's specific navigation graph;
  * the edit route's `orElse: () => state.<collection>.first` fallback — see screen.ts's detail
- * body — means a made-up id still renders a real, fully-wired form). Asserts the bypass target
- * field (operations.ts's firstFocusBypassField — the SAME field crud_form.ts itself wires)
+ * body — means a made-up id still renders a real, fully-wired form). Asserts EVERY bypass target
+ * field (operations.ts's textInputBypassFields — the SAME fields crud_form.ts itself wires)
  * carries a non-null `focusNode`/`onTap` (the structural check: a generator that reverted to bare
- * `autofocus` or dropped the bypass entirely has neither), AND that tapping it genuinely
- * transitions the FocusNode to focused (the behavioral check — proves the wiring actually works,
- * not just exists).
+ * `autofocus`, dropped the bypass entirely, or only wired the first field again has neither/too
+ * few), AND that tapping EACH one genuinely transitions its own FocusNode to focused (the
+ * behavioral check — proves the wiring actually works per-field, not just exists on field one).
+ * Also asserts the bypass-carrying TextField count matches exactly — proving DateTime (readOnly,
+ * no keyboard) never picks up a stray FocusNode it doesn't need.
  */
 export function generateFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
   // MF2: only exercise targets the first persona can actually reach — a boot test navigates the
@@ -634,30 +636,45 @@ export function generateFocusTest(feature: FeatureModel, sm: StateManagementProv
   const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
   const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
 
-  const focusCase = (entityName: string, route: string, label: string) => `  testWidgets('${entityName}: ${label} form wires a focus-bypass FocusNode on its first field', (tester) async {
+  const focusCase = (entityName: string, route: string, label: string, bypassCount: number, bypassIndices: number[]) => {
+    const tapAsserts = bypassIndices
+      .map((idx) => `    await tester.tap(find.byType(TextField).at(${idx}));
+    await tester.pump();
+    expect(fields[${idx}].focusNode!.hasFocus, isTrue, reason: 'tapping text-input field ${idx} must actually transition it to focused');`)
+      .join("\n");
+    return `  testWidgets('${entityName}: ${label} form wires a focus-bypass FocusNode on every text-input field', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
     appRouter.go('${route}');
     await tester.pumpAndSettle();
-    final field = tester.widget<TextField>(find.byType(TextField).first);
-    expect(field.focusNode, isNotNull, reason: 'first field needs an explicit FocusNode for the gesture-bound requestFocus bypass (iOS Safari keyboard fix)');
-    expect(field.onTap, isNotNull, reason: 'onTap must call requestFocus() synchronously inside the tap gesture');
-    await tester.tap(find.byType(TextField).first);
-    await tester.pump();
-    expect(field.focusNode!.hasFocus, isTrue, reason: 'tapping the field must actually transition it to focused');
+    final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+    final bypassFields = fields.where((f) => f.focusNode != null).toList();
+    expect(bypassFields.length, ${bypassCount}, reason: 'every text-input field (String/int/double/Money) needs its own FocusNode bypass, and DateTime must stay readOnly with none');
+    for (final f in bypassFields) {
+      expect(f.onTap, isNotNull, reason: 'onTap must call requestFocus() synchronously inside that field\\'s own tap gesture');
+    }
+${tapAsserts}
   });`;
+  };
 
   const cases = targets.flatMap((t) => {
     const entity = feature.entities.find((e) => e.name === t.entity);
     const identityField = entity?.identity?.field ?? "id";
-    // An entity whose only editable fields are DateTime has no bypass target at all (G2 made
-    // DateTime read-only) — skip rather than assert a property that was never meant to be set.
-    const hasFocusable = entity ? !!firstFocusBypassField(entity, identityField) : false;
-    if (!hasFocusable) return [];
+    if (!entity) return [];
+    // Every field crud_form.ts renders as a TextField, in render order (String/int/double/Money —
+    // bypass-eligible — AND DateTime, readOnly, never bypassed): needed to compute each bypass
+    // field's position among `find.byType(TextField)` matches.
+    const textFieldOrder = crudTextFieldWidgets(entity, identityField);
+    const bypassFields = textInputBypassFields(entity, identityField);
+    // An entity whose only editable text-shaped fields are DateTime has no bypass target at all
+    // (G2 made DateTime read-only) — skip rather than assert a property that was never meant to
+    // be set.
+    if (!bypassFields.length) return [];
+    const bypassIndices = bypassFields.map((f) => textFieldOrder.indexOf(f));
     const base = `/${kebab(t.entity)}`;
     return [
-      focusCase(t.entity, `${base}/new`, "create"),
-      focusCase(t.entity, `${base}/x/edit`, "edit"),
+      focusCase(t.entity, `${base}/new`, "create", bypassFields.length, bypassIndices),
+      focusCase(t.entity, `${base}/x/edit`, "edit", bypassFields.length, bypassIndices),
     ];
   });
   if (!cases.length) return null;
@@ -669,6 +686,79 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
   const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
 
   return `// [generated] generator=FocusTestGenerator template=focus_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+${diImport}
+${session.import}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * WizardFocusTestGenerator — structural, deterministic, 0% LLM (RCA-002-ALL regression guard,
+ * mirrors generateFocusTest/generateSearchFocusTest above in shape). Task A point 2 of the
+ * KEYBOARD-ALL brief: a wizard's TextFormFields (controller-less, see screen.ts's own file-header
+ * comment) need the same gesture-bound FocusNode bypass CRUD form fields get. Navigates straight
+ * to the wizard route via `appRouter.go(screenPath(...))` and asserts every field rendered on the
+ * FIRST step — the only step mounted without first satisfying `state.canAdvance` and tapping
+ * Next, so the only step this test can reach deterministically. Unlike `TextField`,
+ * `TextFormField` does NOT re-expose its `focusNode`/`onTap` constructor args as public instance
+ * fields (Flutter SDK: they're captured into its internal `FormField.builder` closure, not
+ * `this.`-assigned) — so this asserts against the real `TextField` TextFormField always builds as
+ * its own descendant (same widget, same focusNode/onTap instance, publicly readable there), not
+ * the TextFormField wrapper itself. Confirms the TextFormField count matches exactly (proving a
+ * stray DateTime field on step one still gets none) AND that tapping each bypass field transitions
+ * it to focused.
+ */
+export function generateWizardFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  const screens = feature.screens ?? [];
+  const wizardScreens = screens.filter((s) => s.type === "wizard" && (s.steps ?? []).length && isTargetReachable(feature, s.entity));
+  if (!wizardScreens.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const session = authSession(feature, pkg, "    ");
+  const setup = sm === "bloc" ? `    setupDependencies();\n${session.boot}` : "";
+  const diImport = sm === "bloc" ? `import 'package:${pkg}/core/di.dart';\n` : "";
+
+  const cases = wizardScreens.flatMap((s) => {
+    const entity = feature.entities.find((e) => e.name === s.entity);
+    const firstStepOnly = { ...s, steps: [(s.steps ?? [])[0]!] };
+    const textFieldOrder = wizardTextFieldWidgets(firstStepOnly, entity);
+    const bypassFields = wizardTextInputFields(firstStepOnly, entity);
+    if (!bypassFields.length) return [];
+    const bypassIndices = bypassFields.map((f) => textFieldOrder.indexOf(f));
+    const route = screenPath(screens, s).replace(":id", "x");
+    const tapAsserts = bypassIndices
+      .map((idx) => `    await tester.tap(find.byType(TextField).at(${idx}));
+    await tester.pump();
+    expect(fields[${idx}].focusNode!.hasFocus, isTrue, reason: 'tapping wizard text-input field ${idx} must actually transition it to focused');`)
+      .join("\n");
+    return [`  testWidgets('${s.name}: first step wires a focus-bypass FocusNode on every text-input field', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${route}');
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNWidgets(${textFieldOrder.length}), reason: 'the wizard first step must render exactly its own text-input widgets');
+    final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+    final bypassFields = fields.where((f) => f.focusNode != null).toList();
+    expect(bypassFields.length, ${bypassFields.length}, reason: 'every text-input field (String/int/double/Money) needs its own FocusNode bypass, and DateTime must stay readOnly with none');
+    for (final f in bypassFields) {
+      expect(f.onTap, isNotNull, reason: 'onTap must call requestFocus() synchronously inside that field\\'s own tap gesture');
+    }
+${tapAsserts}
+  });`];
+  });
+  if (!cases.length) return null;
+
+  const getItReset = sm === "bloc" ? `  setUp(() => GetIt.instance.reset());\n\n` : "";
+  const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
+
+  return `// [generated] generator=WizardFocusTestGenerator template=wizard_focus_test.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';

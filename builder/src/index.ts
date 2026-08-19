@@ -25,7 +25,7 @@ import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
 import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec, sectionsTargets, SectionSpec, assetTargets, AssetSpec } from "./composition";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateSearchFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateWizardFocusTest, generateSearchFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
 import { generateA11yTest, a11yTestFileName } from "./generators/a11y_test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -357,6 +357,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:focus", generator: "FocusTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // RCA-002-ALL regression guard — same "scope against the full ir, navigate via appRouter
+  // directly" reasoning as focusTest above, for wizard screens' TextFormFields (Task A point 2 of
+  // the KEYBOARD-ALL brief).
+  const wizardFocusTest = generateWizardFocusTest(ir, arch.stateManagement);
+  if (wizardFocusTest) {
+    const f = path.join(testDir, "wizard_focus_test.dart");
+    fs.writeFileSync(f, wizardFocusTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:wizardFocus", generator: "WizardFocusTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }
