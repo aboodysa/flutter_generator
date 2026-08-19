@@ -961,3 +961,34 @@ short messages); keep HANDOFF lean (archive to context_history with dated header
 - `tools/orchestrator-kit/` (new): portable project-agnostic kit + USAGE.md/pdf (md2html.js
   pipeline). Verified in-tree (run_loop monitor ran a real round loop to [COMPLETE]); sent to
   owner as documents. Commit this round.
+---
+
+## Round 2026-08-19 — benchmark + fixes + L4.1 + kids_quiz (archived from HANDOFF 2026-08-19)
+
+### Owner-reported app fixes (live testing) — DONE (Claude, zen-verified)
+
+- **keemart search (RCA-001)**: `searchFor()` list-only + no `primaryDisplayField` + decorative
+  SearchBar → functional sections search landed (`db7800f`/`08b1ba5`/`7e08400`); CDP-verified.
+- **iOS keyboard (RCA-002)**: SearchBar needed the crud-form iOS-Safari focus-bypass
+  (`f7adb4f`/`9a9c355`/`21cd8b3`); then owner "fix it for ALL input fields" → KEYBOARD_ALL
+  (`0f0921f` + regens `2b4daef`/`53f26d3`/`897be6b`, all pushed). Precedent RCA-005.
+- **Wizard overflow** (approved): `019377b` — wizard step body gets own `SingleChildScrollView`.
+- **Benchmark of 6 real apps**: `apps/BENCHMARK_APPS_REPORT.md` (f04979a) — all 37/37 gates,
+  byte-identical regens, 0 analyze errors. Reference=work_auth, showcase=keemart, richest
+  rules=ledgerly. Top gap: persistence in-memory everywhere.
+
+### kids_quiz — built, verified, exposed (2026-08-19)
+
+- Owner decisions: wizard-style stepped quiz, stars, general-knowledge seeds
+  (KIDS_QUIZ_DESIGN_BRIEF.md, 240c97f).
+- **L4.1 French-locale generator slice** (`b7f20e2`): `"enArFr"` closed-enum value, `_fr`
+  AppStrings, 3rd `Locale('fr')`, [l10n] gate re-derived — existing apps byte-identical.
+- **kids_quiz app** (`dca6ebc`): Question/Achievement/QuizRun entities, 5 oracle-backed rules
+  (Q1-Q3Correct, PerfectRun→bonus step, RunCompleted→star verdict), wizard 6 steps.
+  Verified: 37/37 gates, 52/52 flutter tests, 0 analyze errors, double-regen deterministic.
+- Exposed: `/kids_quiz` → 127.0.0.1:8084 (SPA-fallback node server), URIs 200. Probed via CDP —
+  full quiz run driven (bonus step unlocked on perfect score, result @100%), zero errors.
+  Evidence: `apps/kids_quiz/output/cdp/` + `output/qa/PROBE_FINDINGS.md` (3 findings; top fix =
+  `fieldRole()` chip-eligibility + Play entry from home).
+- Probe + lessons: `PROBE_FINDINGS.md`, `LESSONS_LEARNED_ROUND_2026-08-19.md`, AGENTS.md guiding
+  principles (e98688c). Scaffold tracked (f1d34e3).
