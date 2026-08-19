@@ -179,8 +179,11 @@ export interface AppAttributes {
   budget?: BudgetModel; // MF5: budget/quota (additive — absent = no core/budget.dart)
   // L4: l10n + RTL. "en"/"ar" pin a single boot locale; "both" supports switching (boots "en",
   // Arabic is the opt-in RTL option — MaterialApp.supportedLocales carries both either way).
-  // Additive — absent = today's flat single-locale AppStrings, byte-identical output.
-  locale?: "en" | "ar" | "both";
+  // L4.1: "enArFr" is the tri-locale mode (en+ar+fr all in supportedLocales, boots from the
+  // platform/browser locale like "both" already does — no fixed `locale:` line either).
+  // Additive — absent = today's flat single-locale AppStrings, byte-identical output; "en"/"ar"/
+  // "both" stay byte-identical too (the "enArFr"-only additions are gated behind that value).
+  locale?: "en" | "ar" | "both" | "enArFr";
   // MF6: offline outbox — repo create/update/delete write-ahead-enqueue an OutboxMessage before
   // mutating the in-memory list. Additive — absent = today's output byte-identical.
   outbox?: boolean;

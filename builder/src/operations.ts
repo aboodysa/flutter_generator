@@ -360,7 +360,7 @@ export function hasLocale(ir: FeatureModel): boolean {
   return !!ir.attributes?.locale;
 }
 
-export function localeOf(ir: FeatureModel): "en" | "ar" | "both" | undefined {
+export function localeOf(ir: FeatureModel): "en" | "ar" | "both" | "enArFr" | undefined {
   return ir.attributes?.locale;
 }
 

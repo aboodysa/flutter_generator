@@ -86,15 +86,19 @@ flutter:
 // plain `title:` string is evaluated before that scope exists) + explicit locale/supportedLocales/
 // delegates. "both" boots English; Arabic is the opt-in RTL option, not a silent default —
 // supportedLocales always carries both either way, so both directions are actually reachable.
-function titleAndLocaleBlock(locale: "en" | "ar" | "both" | undefined): string {
+function titleAndLocaleBlock(locale: "en" | "ar" | "both" | "enArFr" | undefined): string {
   if (!locale) return `title: 'Generated app',`;
-  const supported = locale === "both" ? "Locale('en'), Locale('ar')" : `Locale('${locale}')`;
-  // For "both", do NOT hard-code `locale:` — an explicit MaterialApp.locale makes the app ignore
-  // the browser/system locale (CDP setLocaleOverride, OS AR, RTL device), so AR becomes unreachable
-  // despite being "supported". Leaving `locale:` unset resolves from PlatformDispatcher.instance
-  // .locale via supportedLocales, so an Arabic browser/OS gets AR + RTL automatically (L4 finding
-  // G-L4-1). For a fixed "en"/"ar" it's explicit.
-  const localeLine = locale === "both" ? "" : `        locale: const Locale('${locale}'),`;
+  // L4.1: "enArFr" is the tri-locale mode — same "don't hard-code `locale:`" reasoning as "both"
+  // below, just with a third Locale('fr') added to supportedLocales.
+  const supported = locale === "both" ? "Locale('en'), Locale('ar')"
+    : locale === "enArFr" ? "Locale('en'), Locale('ar'), Locale('fr')"
+    : `Locale('${locale}')`;
+  // For "both"/"enArFr", do NOT hard-code `locale:` — an explicit MaterialApp.locale makes the app
+  // ignore the browser/system locale (CDP setLocaleOverride, OS AR, RTL device), so AR becomes
+  // unreachable despite being "supported". Leaving `locale:` unset resolves from
+  // PlatformDispatcher.instance.locale via supportedLocales, so an Arabic browser/OS gets AR + RTL
+  // automatically (L4 finding G-L4-1). For a fixed "en"/"ar" it's explicit.
+  const localeLine = (locale === "both" || locale === "enArFr") ? "" : `        locale: const Locale('${locale}'),`;
   return `onGenerateTitle: (context) => AppStrings.of(context).appTitle,
 ${localeLine}        supportedLocales: const [${supported}],
         localizationsDelegates: const [
@@ -227,7 +231,7 @@ class ReplicaApp extends StatelessWidget {
 // with one entry per distinct state; for riverpod no extra wiring is needed at all — providers
 // self-register on first `ref.watch`, so the body is identical to generateMain's riverpod branch
 // regardless of feature or screen count.
-export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc", locale?: "en" | "ar" | "both", themeMode: "light" | "dark" | "system" = "light"): string {
+export function generateMultiMain(features: FeatureModel[], sm: StateManagementProvider = "bloc", locale?: "en" | "ar" | "both" | "enArFr", themeMode: "light" | "dark" | "system" = "light"): string {
   // MF4: same split-state inclusion as generateMain above, per feature.
   const distinctStates = Array.from(new Set(features.flatMap((f) => [...(f.screens ?? []).map((s) => s.state), ...splitStateNames(f)])));
   const titleAndLocale = titleAndLocaleBlock(locale);

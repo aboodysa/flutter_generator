@@ -115,7 +115,32 @@ class AppStrings {
 // are dynamically derived from whatever the IR's author named a field/entity, and there is no
 // deterministic, 0%-LLM source for their Arabic translation without inventing content. Documented
 // scope boundary, not silently dropped — see the task report.
-function generateLocaleAwareLocalization(): string {
+function generateLocaleAwareLocalization(mode: "en" | "ar" | "both" | "enArFr" | undefined): string {
+  // L4.1: the tri-locale mode adds a third `_fr` map + a third `.of()` branch — every other mode
+  // ("en"/"ar"/"both") keeps the exact pre-L4.1 _en/_ar-only class body, byte-identical.
+  const isTri = mode === "enArFr";
+  const frMap = isTri
+    ? `
+
+  static const Map<String, String> _fr = <String, String>{
+    'appTitle': 'Application générée',
+    'loading': 'Chargement…',
+    'error': "Une erreur s'est produite",
+    'retry': 'Réessayer',
+    'save': 'Enregistrer',
+    'create': 'Créer',
+    'back': 'Retour',
+    'edit': 'Modifier',
+    'delete': 'Supprimer',
+    'cancel': 'Annuler',
+    'audit': "Journal d'audit",
+    'noData': 'Aucune donnée',
+    'newLabel': 'Nouveau',
+    'signIn': 'Se connecter',
+    'chooseDemoAccount': 'Choisissez un compte de démonstration',
+  };`
+    : "";
+  const ofBody = isTri ? "code == 'ar' ? _ar : code == 'fr' ? _fr : _en" : "code == 'ar' ? _ar : _en";
   return `${hdr("LocalizationGenerator", "localization.v2")}
 import 'package:flutter/widgets.dart';
 
@@ -157,14 +182,14 @@ class AppStrings {
     'newLabel': 'جديد',
     'signIn': 'تسجيل الدخول',
     'chooseDemoAccount': 'اختر حساباً تجريبياً',
-  };
+  };${frMap}
 
   /// Resolves from the nearest Localizations ancestor (MaterialApp sets this up from its own
   /// locale/supportedLocales) — falls back to English when no Localizations ancestor exists yet
   /// (e.g. called above MaterialApp, such as MaterialApp.onGenerateTitle's own context).
   static AppStrings of(BuildContext context) {
     final code = Localizations.maybeLocaleOf(context)?.languageCode;
-    return AppStrings._(code == 'ar' ? _ar : _en);
+    return AppStrings._(${ofBody});
   }
 
   String get appTitle => _values['appTitle']!;
@@ -187,7 +212,7 @@ class AppStrings {
 }
 
 export function generateLocalization(f: FeatureModel): string {
-  return hasLocale(f) ? generateLocaleAwareLocalization() : generateFlatLocalization();
+  return hasLocale(f) ? generateLocaleAwareLocalization(f.attributes?.locale) : generateFlatLocalization();
 }
 
 // D1 (DESIGN_OPTS §1 O1.2): normalize the declared brand seed to a deterministic uppercase hex.

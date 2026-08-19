@@ -3,7 +3,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
-import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
+import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, localeOf, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
 import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor, sectionsFor, assetFor, AssetSpec } from "./composition";
 import { spacingToken } from "./generators/screen";
@@ -1671,6 +1671,11 @@ function l10nCheck(ir: any, files: string[]): string[] {
     for (const m of L10N_STRINGS_MARKERS) {
       if (!src.includes(m)) issues.push(`[l10n] core/app_strings.dart missing '${m}' — not the locale-aware AppStrings`);
     }
+    // L4.1: the tri-locale mode additionally requires the _fr map to have actually been emitted
+    // (proves infra.ts took the isTri branch, not just the pre-L4.1 _en/_ar body).
+    if (localeOf(ir) === "enArFr" && !src.includes("_fr")) {
+      issues.push(`[l10n] attributes.locale="enArFr" but core/app_strings.dart has no '_fr' map`);
+    }
   }
   const main = files.find((f) => f.endsWith("/main.dart"));
   if (!main) {
@@ -1679,6 +1684,9 @@ function l10nCheck(ir: any, files: string[]): string[] {
     const src = fs.readFileSync(main, "utf8");
     for (const m of L10N_MAIN_MARKERS) {
       if (!src.includes(m)) issues.push(`[l10n] lib/main.dart missing '${m}' — MaterialApp locale/RTL wiring not enforced`);
+    }
+    if (localeOf(ir) === "enArFr" && !src.includes("Locale('fr')")) {
+      issues.push(`[l10n] attributes.locale="enArFr" but lib/main.dart supportedLocales has no Locale('fr')`);
     }
   }
   return issues;
