@@ -10,6 +10,7 @@ import { spacingToken } from "./generators/screen";
 import { screenPath } from "./routing";
 import { DART_SDK_FLOOR } from "./toolchain";
 import { unapprovedElements } from "./provenance";
+import { typeCheckExpression } from "./expression_types";
 
 /**
  * Validation pipeline — runs on generated output (determinism, headers, secrets, idioms, arch).
@@ -388,6 +389,25 @@ function verdictCheck(ir: any, oracleDir: string): string[] {
     const oracle = loadOracle(rule.name, oracleDir);
     if (!oracle || !oracle.cases || oracle.cases.length === 0) {
       issues.push(`[verdict] rule '${rule.name}': severity'd rule missing/zero-case oracle — unverifiable`);
+    }
+  }
+  return issues;
+}
+
+// BREL Task 2: a rule's `expression` tree must resolve to a typed, legal field/operator/fn
+// combination BEFORE Dart generation ever compiles it — expression.ts's compileExpression is a
+// mechanical string-emitter with no type awareness, so a Money field piped through `.contains()`
+// would previously surface only as a `flutter analyze` failure on the GENERATED app, not here.
+// Only `conditions[]`/`rows[]` rules are unaffected (no `expression` set) — the legacy path this
+// gate never touches.
+export function expressionTypesCheck(ir: any): string[] {
+  const issues: string[] = [];
+  for (const rule of ir.businessRules ?? []) {
+    if (!rule.expression) continue;
+    const entity = (ir.entities ?? []).find((e: any) => e.name === rule.entity);
+    if (!entity) continue; // unresolvable entity — reported by schema/trust-boundary checks, not here
+    for (const v of typeCheckExpression(rule.expression, entity, ir.enums ?? [])) {
+      issues.push(`[expression-types] rule '${rule.name}': ${v}`);
     }
   }
   return issues;
@@ -1571,6 +1591,10 @@ function flattenedIr(ir: any): any {
     // [states] needs the identical flattening or every multi-feature app's re-derivation would
     // silently find zero states and report every screen as a stale/missing plan entry.
     states: Array.isArray(ir.states) ? ir.states : (ir.features ?? []).flatMap((f: any) => f.states ?? []),
+    // BREL Task 2 (expression-types): enums are feature-local (FeatureModel.enums), same vacuous-
+    // no-op gap as businessRules/repositories/states above — expressionTypesCheck needs the full
+    // enum vocabulary to validate enum-literal membership on a multi-feature IR.
+    enums: Array.isArray(ir.enums) ? ir.enums : (ir.features ?? []).flatMap((f: any) => f.enums ?? []),
   };
 }
 
@@ -1815,6 +1839,7 @@ export interface ValidationResult {
   money: number;     // count of money-declared fields emitted as double (P7-L1)
   datepicker: number; // count of DateTime fields rendered as a bare TextField, no showDatePicker (G2)
   verdict: number;   // count of severity'd rules with invalid severity, empty message, or missing oracle (L2)
+  expressionTypes: number; // count of type-invalid businessRules[].expression trees: illegal operator for the resolved field type, mismatched operand types, bad fn arg types, or an unknown enum literal (BREL Task 2)
   split: number;     // count of split-group issues: missing/zero-case Split oracle, or a split child with no category field (MF4)
   tenant: number;    // count of tenantId-carrying repos whose generated impl lacks the scoped marker set (MF2)
   auth: number;      // count of auth-guard markers missing from a declared-auth app's router (MF2)
@@ -1898,7 +1923,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     // Flutter-only gates: N/A for a swiftui-target IR (no lib/ output exists in S2) — vacuous
     // pass, not "unchecked", since nothing in this pipeline could ever produce a Flutter issue.
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
-    datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
+    datepicker: 0, verdict: 0, expressionTypes: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, sections: 0, planDeterminism: 0,
     theme: 0, contrast: 0, literals: 0, assets: 0, assetRef: 0, aspectRatio: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
@@ -2011,6 +2036,14 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   const verdictIssues = verdictCheck(flattenedIr(ir), oracleDirFor(irPath));
   issues.push(...verdictIssues);
   const verdict = verdictIssues.length;
+
+  // BREL Task 2 (expression-types): typed field/operator/fn checking over every
+  // businessRules[].expression tree — see expressionTypesCheck's own doc above. G2b: flattenedIr,
+  // same reasoning as verdictCheck — ir.businessRules/ir.entities/ir.enums live per-feature on a
+  // multi-feature IR.
+  const expressionTypeIssues = expressionTypesCheck(flattenedIr(ir));
+  issues.push(...expressionTypeIssues);
+  const expressionTypes = expressionTypeIssues.length;
 
   // Split/allocation (MF4): a declared split group needs oracle coverage for validateSplit and a
   // category field to render — stricter than the general [oracle] gate, which never sees this
@@ -2184,7 +2217,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   const timestamps = timestampIssues.length;
 
   return {
-    determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
+    determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, expressionTypes, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, literals, outbox, platform, shell, search,
     scroll, actions, states, visualIntent, sections, assets, assetRef, aspectRatio, lockfile, timestamps,
     planDeterminism,
@@ -2226,6 +2259,7 @@ function main() {
   console.log(`[money] ${r.money === 0 ? "PASS" : "FAIL (" + r.money + ")"}`);
   console.log(`[datepicker] ${r.datepicker === 0 ? "PASS" : "FAIL (" + r.datepicker + ")"}`);
   console.log(`[verdict] ${r.verdict === 0 ? "PASS" : "FAIL (" + r.verdict + ")"}`);
+  console.log(`[expression-types] ${r.expressionTypes === 0 ? "PASS" : "FAIL (" + r.expressionTypes + ")"}`);
   console.log(`[split] ${r.split === 0 ? "PASS" : "FAIL (" + r.split + ")"}`);
   console.log(`[tenant] ${r.tenant === 0 ? "PASS" : "FAIL (" + r.tenant + ")"}`);
   console.log(`[symbols] ${r.symbols === 0 ? "PASS" : "FAIL (" + r.symbols + ")"}`);
@@ -2251,7 +2285,7 @@ function main() {
   console.log(`[aspect-ratio] ${r.aspectRatio === 0 ? "PASS" : "FAIL (" + r.aspectRatio + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.assets + r.assetRef + r.aspectRatio + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.expressionTypes + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.assets + r.assetRef + r.aspectRatio + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }

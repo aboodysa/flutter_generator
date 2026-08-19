@@ -5,6 +5,7 @@ import Ajv from "ajv";
 import { RuleModel, RuleCondition, FeatureModel, EntityModel } from "./types";
 import { stampAgentProvenance } from "./provenance";
 import { normalizeExpression, fieldsInExpression } from "./expression";
+import { typeCheckExpression } from "./expression_types";
 
 /**
  * BusinessRuleAgent (Phase 3a) — natural-language business rules → validated RuleModel[].
@@ -115,6 +116,18 @@ export function parseAgentOutput(text: string, entityContext: FeatureModel): Par
     if (bad.length) {
       errors.push(`[trust] ${label}: unknown field(s) on ${candidate.entity}: ${[...new Set(bad)].join(", ")}`);
       continue;
+    }
+
+    // BREL Task 2 (expression-types): a type-invalid expression tree (e.g. a Money field piped
+    // through a string operator) is caught here in the semantic lane, consistent with the
+    // unknownFields cross-check above — same trust boundary, one more shape of "the LLM produced
+    // something that isn't actually valid."
+    if (candidate.expression) {
+      const typeViolations = typeCheckExpression(candidate.expression, entity, entityContext.enums ?? []);
+      if (typeViolations.length) {
+        errors.push(`[expression-types] ${label}: ${typeViolations.join("; ")}`);
+        continue;
+      }
     }
 
     businessRules.push(candidate as RuleModel);
