@@ -402,6 +402,19 @@
           }
         ]
       }
+    },
+    "assets": {
+      "/product": [
+        {
+          "role": "hero",
+          "kind": "gradient",
+          "tokenRef": "AppColors.primary"
+        },
+        {
+          "role": "productGrid",
+          "kind": "omitted"
+        }
+      ]
     }
   }
 }

@@ -5,7 +5,7 @@ import { generateApp } from "./index";
 import { oracleCoverage, oracleDirFor, loadOracle } from "./oracle";
 import { isMoneyField, isPolicyRule, hasSplitGroups, splitParentEntities, splitGroupFor, listEntityName, tenantScopedEntities, hasAuth, hasAttachments, hasBudget, budgetOf, resolveBudget, auditedEntities, hasAudit, declaredExportScreens, resolveExport, exportableFields, hasLocale, hasOutbox, isSwiftUI, crudFormTargets } from "./operations";
 import { fileName } from "./dart";
-import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor, sectionsFor } from "./composition";
+import { MAX_SHELL_DESTINATIONS, KNOWN_SHELL_ICONS, searchTargets, scrollTargets, actionsTargets, ActionSpec, statePlacementFor, visualFor, compositionFor, sectionsFor, assetFor, AssetSpec } from "./composition";
 import { spacingToken } from "./generators/screen";
 import { screenPath } from "./routing";
 import { DART_SDK_FLOOR } from "./toolchain";
@@ -1272,13 +1272,114 @@ export function sectionsCheck(ir: any, outDir: string, files: string[]): string[
   return issues;
 }
 
-// S6_IMPL_BRIEF_CLAUDE.md slice 3 / SPIKE_S6_REPORT.md §14.3: gated on S3/S4 (asset generation +
-// Image emission haven't landed yet — confirmed: no generator under builder/src/generators emits
-// Image.asset/AssetImage/Image(/AspectRatio( anywhere in this tree today). Owner decision (§16):
-// build the real gate logic now rather than stub it, wire it into validateOutput/main() like every
-// other gate, and let it PASS VACUOUSLY (zero matches → zero issues) until S3 starts emitting
-// asset references and Image widgets — at that point these gates start having real teeth with no
-// further wiring changes required.
+// S3 (SPIKE_S3_REPORT.md §14.5) — the `[assets]` gate. Same centralized-decision posture as
+// [visualIntent]/[sections]:
+//   (a) re-derive `assetFor` fresh for every screen and diff against plan.json's recorded
+//       patterns.assets — INCLUDING the null case (a screen with no asset-bearing section must
+//       have no plan entry either);
+//   (b) closed-kind enum: every recorded AssetSpec's `kind` must be one of the v1 admitted values
+//       — belt-and-suspenders against a hand-edited/stale plan.json, since AssetSpec itself is
+//       generator-derived (never raw user IR) and TS already closes the enum at compile time;
+//   (c) token-only/icon-only scan — the `:44` never-rule (VLM_DESIGN_TO_IR_CONTRACT_V2.md:44):
+//       every `tokenRef`/`icon` must be a token/glyph reference, never a path, URL, or raw number;
+//   (d) marker scan — every decided `hero` role must leave an `AppHeroBanner(` marker in the
+//       generated screen (mirrors [sections]'s own marker scan) and NO generated file may ever
+//       emit `Image.asset(`/`AssetImage(`/`Image.network(`/`Image.file(` — S3 ships zero raster by
+//       design (D2's rejected-alternatives §15), so this is the positive proof of that promise,
+//       not just an absence.
+export function assetsCheck(ir: any, outDir: string, files: string[]): string[] {
+  const issues: string[] = [];
+  const flat = flattenedIr(ir);
+  const screens: any[] = flat.screens ?? [];
+
+  // (b)+(c) closed-kind enum + token-only/icon-only scan, run against plan.json's recorded
+  // entries (defense in depth — catches a hand-edited/stale plan.json independent of (a) below).
+  const CLOSED_KINDS = new Set(["icon", "gradient", "shape", "placeholder", "omitted"]);
+  // The `:44` never-rule: a path (contains '/'), a URL, a bare number, or a raster file extension
+  // is never an admissible tokenRef/icon — both must always be a token/glyph reference.
+  const looksLikePathUrlOrNumber = (v: string): boolean =>
+    /^\d+(\.\d+)?$/.test(v) || /^https?:/i.test(v) || /[\/\\]/.test(v) || /\.(png|jpe?g|gif|svg|webp|bmp)$/i.test(v);
+  const validateAssetSpec = (screenName: string, spec: any): void => {
+    if (!spec || typeof spec !== "object") return;
+    if (!CLOSED_KINDS.has(spec.kind)) {
+      issues.push(`[assets] screen '${screenName}' declares asset role '${spec.role}' with kind '${spec.kind}' — not in the v1 closed enum (icon|gradient|shape|placeholder|omitted)`);
+    }
+    if (typeof spec.tokenRef === "string" && looksLikePathUrlOrNumber(spec.tokenRef)) {
+      issues.push(`[assets] screen '${screenName}' asset role '${spec.role}' carries tokenRef '${spec.tokenRef}' — looks like a path/URL/number, never admissible (VLM_DESIGN_TO_IR_CONTRACT_V2.md:44)`);
+    }
+    if (typeof spec.icon === "string" && (looksLikePathUrlOrNumber(spec.icon) || !spec.icon.startsWith("Icons."))) {
+      issues.push(`[assets] screen '${screenName}' asset role '${spec.role}' carries icon '${spec.icon}' — must be an Icons.* glyph reference, never a path/URL/number`);
+    }
+  };
+
+  const planPath = path.join(outDir, "plan.json");
+  if (!fs.existsSync(planPath)) {
+    issues.push(`[assets] plan.json missing in ${outDir} — cannot verify asset decisions`);
+    return issues;
+  }
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+  const recorded: Record<string, AssetSpec[]> = plan.patterns?.assets ?? {};
+  for (const [screenName, specs] of Object.entries(recorded)) {
+    for (const spec of specs ?? []) validateAssetSpec(screenName, spec);
+  }
+
+  // (a) plan.json vs fresh re-derivation — same "stale plan entry" posture as [sections].
+  const recordedPaths = new Set(Object.keys(recorded));
+  const expectedPaths = new Set<string>();
+  const specEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
+  for (const screen of screens) {
+    const spec = assetFor(screen, flat);
+    const p = screenPath(screens, screen);
+    if (spec) {
+      expectedPaths.add(p);
+      if (!recordedPaths.has(p)) {
+        issues.push(`[assets] '${p}' should declare assets (screen has an asset-bearing section) but plan.json's patterns.assets has no entry for it`);
+      } else if (!specEqual(spec, recorded[p])) {
+        issues.push(`[assets] '${p}' plan.json entry does not match the re-derived decision`);
+      }
+    } else if (recordedPaths.has(p)) {
+      issues.push(`[assets] '${p}' has a plan.json patterns.assets entry but re-deriving assetFor against the current IR returns null — stale plan entry`);
+    }
+  }
+  for (const p of recordedPaths) {
+    if (!expectedPaths.has(p)) {
+      issues.push(`[assets] plan.json declares assets for '${p}' but re-deriving the selector against the current IR no longer resolves it — stale plan entry`);
+    }
+  }
+
+  // (d) marker scan + the zero-raster proof, over every emitted screen this gate can locate.
+  const RASTER_CTOR = /\b(?:Image\.asset|Image\.network|Image\.file|AssetImage)\(/;
+  for (const screen of screens) {
+    const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
+    if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
+    const filePath = path.join(outDir, entry.file);
+    if (!fs.existsSync(filePath)) continue; // reported by other gates already
+    const src = fs.readFileSync(filePath, "utf8");
+    const p = screenPath(screens, screen);
+    const spec = assetFor(screen, flat);
+
+    if (RASTER_CTOR.test(src)) {
+      issues.push(`[assets] '${p}' (${screen.name}) emits a raster Image/AssetImage constructor — S3 ships zero raster by design (D2), only token/glyph AssetSpecs`);
+    }
+    if (spec?.some((s) => s.role === "hero") && !src.includes("AppHeroBanner(")) {
+      issues.push(`[assets] '${p}' (${screen.name}) decided a 'hero' asset role but no AppHeroBanner( marker found in the generated screen`);
+    }
+  }
+
+  return issues;
+}
+
+// S3 (SPIKE_S3_REPORT.md §14.5): S6_IMPL_BRIEF_CLAUDE.md slice 3 / SPIKE_S6_REPORT.md §14.3's
+// `[asset-ref]`/`[aspect-ratio]` gates flip ON here — S3 has landed and both are now genuinely
+// load-bearing against `patterns.assets`, wired unconditionally into validateOutput/main() below
+// like every other gate (no feature flag ever gated them; they were always live, just naturally
+// vacuous). They stay at zero matches against every real generator output: D2's rejected
+// alternatives (§15) deliberately keep the v1 ladder raster-free (gradient/shape/icon/placeholder/
+// omitted only, never `Image.asset`/`AssetImage`/`AspectRatio`), so there is nothing on the v1
+// closed-kind enum for these two gates to ever catch in a real app — the `[assets]` gate's own (d)
+// marker scan above is the positive proof of that promise. Their teeth are proven directly against
+// synthetic fixtures in test/s3_assets.test.ts (unit tests feeding assetRefCheck/aspectRatioCheck
+// hand-built file content), independent of this vacuous-by-design real-app posture.
 
 // extractCallArgs: balanced-paren argument extraction for a `Name(` constructor match. A plain
 // regex window (the style literalScanCheck/visualIntentCheck use for simple `key: value` scans)
@@ -1706,8 +1807,9 @@ export interface ValidationResult {
   states: number;    // count of per-screen state-placement issues: plan/output drift, missing/unexpected loading/error/empty/emptyCta/retry/refresh marker (P5/D2)
   visualIntent: number; // count of visual-intent issues: plan/output drift, unapproved nested visualStyle value, v1-closed-enum violation, raw radius literal (S1)
   sections: number;  // count of section-list issues: plan/output drift, archetype-pairing misuse, disallowed section keys/unknown types, missing per-type marker, raw grid/rail extent (S2)
-  assetRef: number;  // count of asset references not declared in pubspec.yaml's flutter.assets or missing on disk — gated on S3, passes vacuously today (S6 D2#3)
-  aspectRatio: number; // count of emitted Image/AspectRatio issues: missing fit: token, or a raw IR-side aspectRatio number — gated on S3, passes vacuously today (S6 D2#3)
+  assets: number;    // count of asset-decision issues: plan/output drift, v1-closed-kind violation, non-token tokenRef/icon, missing hero marker, or any raster Image/AssetImage constructor (S3)
+  assetRef: number;  // count of asset references not declared in pubspec.yaml's flutter.assets or missing on disk — flipped ON at S3 (S6 D2#3); stays 0 against real output by design (D2: zero raster in v1) — teeth proven in test/s3_assets.test.ts
+  aspectRatio: number; // count of emitted Image/AspectRatio issues: missing fit: token, or a raw IR-side aspectRatio number — flipped ON at S3 (S6 D2#3); stays 0 against real output by design (D2: zero raster in v1) — teeth proven in test/s3_assets.test.ts
   lockfile: number;  // count of missing pubspec.lock (ERROR only; floor-differs is a warning, logged but not counted — S-HERMETIC)
   timestamps: number; // count of header-band build-time date/timestamp stamps (S-HERMETIC)
   platform: number;  // count of invalid attributes.platform values — not "flutter"/"swiftui"/absent (S1)
@@ -1770,7 +1872,7 @@ function validateSwiftUIOutput(ir: any, outDir: string, irPath: string): Validat
     determinism: true, headers: 0, secrets: 0, idioms: 0, arch: 0, oracle: 0, fidelity: 0, money: 0,
     datepicker: 0, verdict: 0, split: 0, tenant: 0, auth: 0, attachment: 0, budget: 0, audit: 0,
     exportGate: 0, l10n: 0, outbox: 0, symbols: 0, shell: 0, search: 0, scroll: 0, actions: 0, states: 0, visualIntent: 0, sections: 0, planDeterminism: 0,
-    theme: 0, contrast: 0, literals: 0, assetRef: 0, aspectRatio: 0, lockfile: 0, timestamps: 0,
+    theme: 0, contrast: 0, literals: 0, assets: 0, assetRef: 0, aspectRatio: 0, lockfile: 0, timestamps: 0,
     platform, swiftpkg, swiftarch, swiftdeterminism,
     files: iosFiles.length, issues,
   };
@@ -2019,16 +2121,24 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   issues.push(...sectionsIssues);
   const sections = sectionsIssues.length;
 
-  // Asset references (S6 D2#3, gated on S3): every Image.asset/AssetImage path in generated code
-  // must be declared in pubspec.yaml's flutter.assets and exist on disk. No generator emits an
-  // asset reference yet, so this scans zero matches and passes vacuously until S3 lands.
+  // Per-screen asset resolution (S3): plan.json's recorded asset decisions must match a fresh
+  // re-derivation (same assetFor), every recorded AssetSpec stays on the v1 closed-kind enum with
+  // a token/glyph-only tokenRef/icon, every decided hero role leaves its AppHeroBanner( marker,
+  // and no generated file ever emits a raster Image/AssetImage constructor.
+  const assetsIssues = assetsCheck(ir, outDir, files);
+  issues.push(...assetsIssues);
+  const assets = assetsIssues.length;
+
+  // Asset references (S6 D2#3, flipped ON at S3): every Image.asset/AssetImage path in generated
+  // code must be declared in pubspec.yaml's flutter.assets and exist on disk. Stays 0 against real
+  // output by design — S3's v1 ladder emits zero raster (D2) — but the check itself is live.
   const assetRefIssues = assetRefCheck(outDir, files);
   issues.push(...assetRefIssues);
   const assetRef = assetRefIssues.length;
 
-  // Image fit/aspectRatio tokens (S6 D2#3, gated on S3): every emitted Image must carry a fit:
-  // token and never a raw IR-side aspectRatio number. No generator emits an Image or AspectRatio
-  // widget yet, so this scans zero matches and passes vacuously until S3 lands.
+  // Image fit/aspectRatio tokens (S6 D2#3, flipped ON at S3): every emitted Image must carry a
+  // fit: token and never a raw IR-side aspectRatio number. Stays 0 against real output by design
+  // (S3 emits zero Image/AspectRatio widgets, D2) but the check itself is live.
   const aspectRatioIssues = aspectRatioCheck(files);
   issues.push(...aspectRatioIssues);
   const aspectRatio = aspectRatioIssues.length;
@@ -2048,7 +2158,7 @@ export function validateOutput(ir: any, outDir: string, irPath = "builder/sample
   return {
     determinism, headers, secrets, idioms, arch, oracle, fidelity, money, datepicker, verdict, split,
     tenant, symbols, auth, attachment, budget, audit, exportGate, l10n, theme, contrast, literals, outbox, platform, shell, search,
-    scroll, actions, states, visualIntent, sections, assetRef, aspectRatio, lockfile, timestamps,
+    scroll, actions, states, visualIntent, sections, assets, assetRef, aspectRatio, lockfile, timestamps,
     planDeterminism,
     // Swift-only gates: N/A for a flutter-target IR (no ios/ output exists) — vacuous pass, same
     // reasoning as the Flutter-only fields validateSwiftUIOutput above zeroes out.
@@ -2108,11 +2218,12 @@ function main() {
   console.log(`[states] ${r.states === 0 ? "PASS" : "FAIL (" + r.states + ")"}`);
   console.log(`[visualIntent] ${r.visualIntent === 0 ? "PASS" : "FAIL (" + r.visualIntent + ")"}`);
   console.log(`[sections] ${r.sections === 0 ? "PASS" : "FAIL (" + r.sections + ")"}`);
+  console.log(`[assets] ${r.assets === 0 ? "PASS" : "FAIL (" + r.assets + ")"}`);
   console.log(`[asset-ref] ${r.assetRef === 0 ? "PASS" : "FAIL (" + r.assetRef + ")"}`);
   console.log(`[aspect-ratio] ${r.aspectRatio === 0 ? "PASS" : "FAIL (" + r.aspectRatio + ")"}`);
   console.log(`[lockfile] ${r.lockfile === 0 ? "PASS" : "FAIL (" + r.lockfile + ")"}`);
   console.log(`[timestamp] ${r.timestamps === 0 ? "PASS" : "FAIL (" + r.timestamps + ")"}`);
-  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.assetRef + r.aspectRatio + r.lockfile + r.timestamps > 0;
+  const failed = !r.determinism || r.headers + r.secrets + r.idioms + r.arch + r.oracle + r.fidelity + r.money + r.datepicker + r.verdict + r.split + r.tenant + r.symbols + r.auth + r.attachment + r.budget + r.audit + r.exportGate + r.l10n + r.theme + r.contrast + r.literals + r.outbox + r.platform + r.shell + r.search + r.scroll + r.actions + r.states + r.visualIntent + r.sections + r.assets + r.assetRef + r.aspectRatio + r.lockfile + r.timestamps > 0;
   console.log(failed ? "\nVALIDATION FAILED" : "\nVALIDATION PASSED");
   process.exit(failed ? 1 : 0);
 }
