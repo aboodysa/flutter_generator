@@ -1,0 +1,22 @@
+accessibility tree dump — kids_quiz v1.3 CDP probe (2026-08-19)
+route: /kids_quiz/#/quiz-run/wizard, step q1 (Which planet is known as the Red Planet?)
+state: chip "a" (Earth) tapped — a wrong pick against the correct answer "b" (Mars)
+
+generic "flutter typography measurement" [ref_7]
+generic [ref_1]
+ heading "Quiz Runs" [ref_8]
+ progressbar "33" [ref_9]
+ generic "Q1: Which planet is known as the Red Planet? A) Earth B) Mars C) Venus D) Jupiter" [ref_10]
+ group [ref_11]
+  generic "Player Name: Sara" [ref_12]
+  checkbox "a" [ref_13]
+  checkbox "b" [ref_14]
+  checkbox "c" [ref_15]
+  checkbox "d" [ref_16]
+  generic "Not quite — the answer was b" [ref_17]
+  generic "0 correct · 0 ⭐ so far" [ref_18]
+ button "Back" [ref_19]
+ button "Next" [ref_20]
+  button "Next" [ref_21]
+
+Full run text-evidence continues in ../qa/PROBE_FINDINGS_V13.md (steps q2/q3, bonus, result).

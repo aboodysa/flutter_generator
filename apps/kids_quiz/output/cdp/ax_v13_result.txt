@@ -1,0 +1,24 @@
+accessibility tree dump — kids_quiz v1.3 CDP probe (2026-08-19)
+route: /kids_quiz/#/quiz-run/wizard, step result (after a corrected q1 + perfect q2/q3)
+answers: Q1=b (corrected from the wrong pick "a"), Q2=a, Q3=b — all correct
+
+generic "flutter typography measurement" [ref_7]
+generic [ref_1]
+ heading "Quiz Runs" [ref_8]
+ progressbar "100" [ref_9]
+ generic "Your Results" [ref_10]
+ group [ref_11]
+  generic "⭐⭐⭐ (3/3)" [ref_22]
+  generic "3 correct × 5 ⭐ = 15 ⭐" [ref_23]
+  generic "Correct! +5 ⭐" [ref_24]
+  generic "Correct! +5 ⭐" [ref_25]
+  generic "Correct! +5 ⭐" [ref_26]
+  generic "Player Name: Sara" [ref_12]
+  generic "Q1 Answer: b" [ref_27]
+  generic "Q2 Answer: a" [ref_28]
+  generic "Q3 Answer: b" [ref_29]
+ button "Back" [ref_19]
+ button "Finish" [ref_20]
+  button "Finish" [ref_21]
+
+Full run text-evidence in ../qa/PROBE_FINDINGS_V13.md.
