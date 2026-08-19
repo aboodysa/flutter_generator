@@ -190,6 +190,10 @@
           "default": false,
           "description": "L3: marks a field as holding sensitive data — export.ts's header-building excludes it from any CSV/JSON export regardless of a list screen's export: flag."
         },
+        "role": {
+          "enum": ["choice"],
+          "description": "V1.1: explicit hint that an enum field is a genuine multiple-choice value (renders as ChoiceChip everywhere, like status/priority) rather than a descriptive category (DropdownButton). Additive — absent = today's behavior."
+        },
         "actor": {
           "type": "string"
         },

@@ -535,14 +535,14 @@ export function generateCrudFlowTest(feature: FeatureModel, sm: StateManagementP
     deleteViaOverflow = specs.some((a) => a.kind === "delete" && a.presentation === "overflow");
   }
 
-  // D1: crud_form.ts renders a status/priority enum as a ChoiceChip row (see crud_form.ts's
-  // "UIX Slice D" comment) instead of a Dropdown — this test only ever typed into the first
-  // TextField, so onSelected was proven by render+analyze, never by an actual tap. The form's
-  // default selection is always `${enumType}.values.first`, so tapping the SECOND value (when one
-  // exists) and asserting selected flips true/false there/on the default is a real behavioral
-  // check, not just a render check.
+  // D1: crud_form.ts renders a status/priority (or, V1.1, "choice") enum as a ChoiceChip row (see
+  // crud_form.ts's "UIX Slice D" comment) instead of a Dropdown — this test only ever typed into
+  // the first TextField, so onSelected was proven by render+analyze, never by an actual tap. The
+  // form's default selection is always `${enumType}.values.first`, so tapping the SECOND value
+  // (when one exists) and asserting selected flips true/false there/on the default is a real
+  // behavioral check, not just a render check.
   const roleCtx = { identityField, entityNames: (feature.entities ?? []).map((e) => e.name) };
-  const chipField = entity?.fields.find((f) => f.type === "enum" && ["status", "priority"].includes(fieldRole(f, roleCtx)));
+  const chipField = entity?.fields.find((f) => f.type === "enum" && ["status", "priority", "choice"].includes(fieldRole(f, roleCtx)));
   const chipEnumValues = chipField ? (feature.enums ?? []).find((e) => e.name === (chipField.of || capitalize(chipField.name)))?.values : undefined;
   const chipTapStep = chipField && chipEnumValues && chipEnumValues.length >= 2
     ? `    await tester.tap(find.widgetWithText(ChoiceChip, '${chipEnumValues[1]}'));
@@ -1235,7 +1235,26 @@ function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): strin
   const field = entity.fields.find((f) => f.name === cond.field);
   if (!field) return null;
   if (field.type === "enum" && cond.operator === "==") {
-    return `    await tester.tap(find.widgetWithText(ChoiceChip, '${cond.value}'));\n    await tester.pumpAndSettle();`;
+    // V1.1: only a chip-eligible role (status/priority/decision or the explicit "choice" hint —
+    // see operations.ts's fieldRole) actually renders as a ChoiceChip in crud_form.ts; every other
+    // enum falls through to a bare DropdownButton, so driving it needs a different interaction.
+    const role = fieldRole(field, {});
+    if (role === "status" || role === "priority" || role === "choice") {
+      return `    await tester.tap(find.widgetWithText(ChoiceChip, '${cond.value}'));\n    await tester.pumpAndSettle();`;
+    }
+    const enumType = field.of ?? capitalize(field.name);
+    // A plain-enum DropdownButton isn't field-keyed in crud_form.ts today, so this assumes exactly
+    // one DropdownButton<EnumType> exists on the form — true for every current app (no committed
+    // policy rule targets a plain enum field). An entity with two same-typed plain-enum fields
+    // both driving policy rules would need a real per-field key to disambiguate; tester.tap already
+    // throws a clear "found N widgets, expected 1" error in that case rather than tapping the wrong
+    // one silently.
+    // warnIfMissed: false — DropdownButton opens its menu in the root Overlay, so the rendered
+    // DropdownMenuItem's hit-test geometry during the open animation doesn't always line up with
+    // WidgetController's offset heuristic; a benign, well-known Flutter test-harness quirk with
+    // overlay-rendered menus (the tap still reaches the item's InkWell and fires onChanged), not a
+    // sign of a wrong target.
+    return `    await tester.tap(find.byType(DropdownButton<${enumType}>));\n    await tester.pumpAndSettle();\n    await tester.tap(find.widgetWithText(DropdownMenuItem<${enumType}>, '${cond.value}').last, warnIfMissed: false);\n    await tester.pumpAndSettle();`;
   }
   const numeric = isMoneyField(field) || field.type === "double" || field.type === "int";
   if (numeric && (cond.operator === ">=" || cond.operator === ">")) {
@@ -1279,6 +1298,12 @@ export function generatePolicyTest(feature: FeatureModel): string | null {
 
   const cases: string[] = [];
   let waiveCaseWritten = false;
+  // V1.1: a plain-enum condition drives a real DropdownButton<EnumType>/DropdownMenuItem<EnumType>
+  // interaction (policyTriggerSteps' dropdown branch) — unlike the ChoiceChip branch (string
+  // values only), that needs the enum TYPE literally in scope, so the barrel import below is only
+  // added when at least one case actually needs it (every currently-committed app's policy rules
+  // are chip-driven, so this stays unused/absent there — byte-identical).
+  let needsGeneratedImport = false;
 
   for (const t of targets) {
     const entity = feature.entities.find((e) => e.name === t.entity);
@@ -1290,6 +1315,7 @@ export function generatePolicyTest(feature: FeatureModel): string | null {
     for (const rule of rules) {
       const trigger = policyTriggerSteps(rule, entity);
       if (!trigger) continue; // undriveable condition shape — documented gap, not asserted
+      if (trigger.includes("DropdownButton<")) needsGeneratedImport = true;
 
       // Scroll to the bottom of the form after triggering — the policy panel adds Cards above
       // PrimaryButton, and Flutter's ListView only builds elements within the viewport/cache
@@ -1376,6 +1402,7 @@ ${scrollToBottom}
   // generated test file (focus/scroll/back).
   const getItReset = `  setUp(() => GetIt.instance.reset());\n\n`;
 
+  const generatedImport = needsGeneratedImport ? `import 'package:${pkg}/generated.dart';\n` : "";
   return `// [generated] generator=PolicyTestGenerator template=policy_test.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
@@ -1385,7 +1412,7 @@ import 'package:${pkg}/main.dart';
 import 'package:${pkg}/core/router.dart';
 import 'package:${pkg}/core/components.dart';
 import 'package:${pkg}/core/di.dart';
-${session.import}
+${generatedImport}${session.import}
 void main() {
 ${getItReset}${cases.join("\n\n")}
 }

@@ -236,7 +236,7 @@ export function wizardTextFieldWidgets(screen: ScreenModel, entity: EntityModel 
 // its own "what kind of field is this" heuristic. Rejects a client-side FieldPresentation schema
 // (see design/flutter-app-builder/UIX_ENHANCEMENTS.md) in favor of inferring from field names +
 // semanticType — 0% LLM, no new IR config surface, same input always yields the same role.
-export type FieldRole = "title" | "description" | "identifier" | "date" | "status" | "priority" | "money" | "relation" | "plain";
+export type FieldRole = "title" | "description" | "identifier" | "date" | "status" | "priority" | "choice" | "money" | "relation" | "plain";
 
 const TITLE_FIELD_NAMES = ["title", "name", "merchant", "label", "subject"];
 const DESCRIPTION_FIELD_NAMES = ["description", "notes", "details"];
@@ -252,11 +252,23 @@ export interface FieldRoleContext {
 export function fieldRole(field: Field, ctx: FieldRoleContext = {}): FieldRole {
   if (ctx.identityField && field.name === ctx.identityField) return "identifier";
   if (isMoneyField(field)) return "money";
+  // V1.1: an explicit IR-authored hint always wins, checked before any name-list/value-shape
+  // heuristic below — same "explicit beats inferred" posture as semanticType/secret.
+  if (field.type === "enum" && field.role === "choice") return "choice";
   // LM6: "decision" is a common domain synonym for a status-shaped approve/reject/pending enum
   // (an Approval entity's own field, for instance) — only ledgerly currently uses this name, so
   // widening the match is byte-identical for every other sample.
   if (field.type === "enum" && (field.name === "status" || field.name === "decision")) return "status";
   if (field.type === "enum" && field.name === "priority") return "priority";
+  // V1.1: value-shape fallback — kept OFF by default (see kids_quiz's fields, which all set the
+  // explicit `role:"choice"` hint above instead). Deliberately NOT auto-promoting every other
+  // multi-value enum here: hr_service's `LeaveRequest.leaveType` (enum LeaveType, 3 values) is a
+  // real counter-example already in the committed fleet — a descriptive category, not a picker —
+  // and an automatic "any enum with >=2 values that isn't status/priority/decision" rule would
+  // silently flip its rendering (DropdownButton -> ChoiceChip) and break the "all existing apps
+  // stay byte-identical" regression contract. The explicit hint above is the only mechanism v1.1
+  // ships; a future value-shape heuristic would need a narrower signal than "just has >=2 values"
+  // to stay safe (documented in kids_quiz's v1.1 findings, not implemented here).
   if (field.type === "DateTime") return "date";
   if (TITLE_FIELD_NAMES.includes(field.name)) return "title";
   if (field.type === "String" && DESCRIPTION_FIELD_NAMES.includes(field.name)) return "description";

@@ -167,13 +167,15 @@ function wizardFieldInput(fieldName: string, field: Field | undefined, setterCal
       return `CheckboxListTile(key: ${key}, value: state.${field.name} ?? false, title: Text('${label}'), onChanged: (v) => ${setterCall("v")})`;
     // UIX Slice D: status/priority wizard fields get the same ChoiceChip treatment as the CRUD
     // form (single source of truth: fieldRole + AppChip.toneFor*) — every other enum keeps the
-    // dropdown, unchanged.
+    // dropdown, unchanged. V1.1: "choice" (a genuine multiple-choice value, e.g. a quiz answer)
+    // gets the same chip row with a NEUTRAL tone — see crud_form.ts's identical branch for why a
+    // status/priority string-match tone would be meaningless here.
     case "enum": {
       const enumType = field.of ?? capitalize(field.name);
       const role = fieldRole(field, roleCtx);
-      if (role === "status" || role === "priority") {
-        const toneFn = role === "status" ? "toneForStatus" : "toneForPriority";
-        return `Wrap(key: ${key}, spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.${field.name} == v, selectedColor: AppChip.colorForTone(context, AppChip.${toneFn}(v.name)).withValues(alpha: 0.2), onSelected: (_) => ${setterCall("v")})).toList())`;
+      if (role === "status" || role === "priority" || role === "choice") {
+        const toneExpr = role === "choice" ? "AppChipTone.neutral" : `AppChip.${role === "status" ? "toneForStatus" : "toneForPriority"}(v.name)`;
+        return `Wrap(key: ${key}, spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: state.${field.name} == v, selectedColor: AppChip.colorForTone(context, ${toneExpr}).withValues(alpha: 0.2), onSelected: (_) => ${setterCall("v")})).toList())`;
       }
       return `DropdownButton<${enumType}>(key: ${key}, value: state.${field.name}, hint: Text('${label}'), items: ${enumType}.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => ${setterCall("v")})`;
     }

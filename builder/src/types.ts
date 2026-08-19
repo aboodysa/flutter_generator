@@ -30,6 +30,13 @@ export interface Field {
   // a name-pattern guess (same reasoning `semanticType: "Money"` is explicit, not inferred from a
   // field named "amount") — additive, absent = not secret (today's behavior, byte-identical).
   secret?: boolean;
+  // V1.1: explicit IR-authored hint that an enum field is a genuine multiple-choice value (a quiz
+  // answer, a picker, ...), not a descriptive category — operations.ts's fieldRole() resolves it
+  // to FieldRole "choice" (ChoiceChip everywhere a status/priority enum already renders as one)
+  // BEFORE any name-list heuristic runs. Same explicit-marker pattern as `secret`/`semanticType`
+  // above: only present = only true, absent = today's behavior (byte-identical for every field
+  // that never sets it, i.e. every field in every currently-committed app).
+  role?: "choice";
 }
 
 export interface EntityModel {

@@ -143,11 +143,15 @@ function fieldWidget(f: Field, roleCtx?: FieldRoleContext, focusBypassTarget?: b
       // UIX Slice D: status/priority enums get a ChoiceChip row (segmented, tone-colored via the
       // same AppChip.toneFor* mapping Slice C's read-only chips use) instead of a raw
       // DropdownButton overlay — the owner's UI/UX complaint was specifically about that overlay.
+      // V1.1: a "choice" field (a genuine multiple-choice value, not a status/priority) gets the
+      // same ChoiceChip row but a NEUTRAL tone — toneForStatus/toneForPriority string-match the
+      // enum VALUE name against status/priority vocabulary ("approved"/"high"/...), which is
+      // meaningless (and would misfire) for arbitrary choice values like a quiz answer's "a"/"b".
       // Every other enum keeps the dropdown unchanged (role fallback = "plain", not this branch).
       const role = fieldRole(f, roleCtx);
-      if (role === "status" || role === "priority") {
-        const toneFn = role === "status" ? "toneForStatus" : "toneForPriority";
-        return `        Wrap(spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: _${f.name} == v, selectedColor: AppChip.colorForTone(context, AppChip.${toneFn}(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _${f.name} = v))).toList()),`;
+      if (role === "status" || role === "priority" || role === "choice") {
+        const toneExpr = role === "choice" ? "AppChipTone.neutral" : `AppChip.${role === "status" ? "toneForStatus" : "toneForPriority"}(v.name)`;
+        return `        Wrap(spacing: AppSpacing.sm, children: ${enumType}.values.map((v) => ChoiceChip(label: Text(v.name), selected: _${f.name} == v, selectedColor: AppChip.colorForTone(context, ${toneExpr}).withValues(alpha: 0.2), onSelected: (_) => setState(() => _${f.name} = v))).toList()),`;
       }
       return `        DropdownButton<${enumType}>(value: _${f.name}, items: ${enumType}.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => setState(() => _${f.name} = v ?? _${f.name})),`;
     }

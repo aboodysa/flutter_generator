@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "1",
+  "name": "choice_demo",
+  "attributes": {
+    "stateManagement": "bloc"
+  },
+  "enums": [
+    {
+      "name": "AnswerOption",
+      "values": ["a", "b", "c"],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "MoodOption",
+      "values": ["happy", "neutral", "sad"],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "entities": [
+    {
+      "name": "Pick",
+      "identity": { "field": "id" },
+      "primaryDisplayField": "label",
+      "fields": [
+        { "name": "id", "type": "String", "required": true, "nullable": false, "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
+        { "name": "label", "type": "String", "required": true, "nullable": false, "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
+        {
+          "name": "answer",
+          "type": "enum",
+          "of": "AnswerOption",
+          "default": "a",
+          "role": "choice",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "mood",
+          "type": "enum",
+          "of": "MoodOption",
+          "default": "happy",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "MoodHappy",
+      "entity": "Pick",
+      "result": "true",
+      "conditions": [
+        { "field": "mood", "operator": "==", "value": "happy" }
+      ],
+      "severity": "warn",
+      "message": "Feeling happy today!",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "repositories": [
+    {
+      "name": "PickRepository",
+      "operations": [
+        { "name": "listPicks", "returns": "Future<List<Pick>>", "params": [] },
+        { "name": "createPick", "returns": "Future<Pick>", "params": [ { "name": "pick", "type": "Pick", "named": false } ] },
+        { "name": "updatePick", "returns": "Future<void>", "params": [ { "name": "pick", "type": "Pick", "named": false } ] }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "states": [
+    {
+      "name": "PickList",
+      "entity": "Pick",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": ["initial", "loading", "success", "failure"]
+    },
+    {
+      "name": "PickWizard",
+      "entity": "Pick",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": ["initial", "loading", "success", "failure"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "PickListScreen",
+      "entity": "Pick",
+      "type": "list",
+      "state": "PickList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "PickWizardScreen",
+      "entity": "Pick",
+      "type": "wizard",
+      "state": "PickWizard",
+      "steps": [
+        { "id": "answer-step", "title": "Pick one", "fields": ["answer"] },
+        { "id": "result", "title": "Done" }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "useCases": [
+    { "name": "ListPicks", "repository": "PickRepository", "operation": "listPicks", "paramType": "NoParams", "returnType": "List<Pick>", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
+    { "name": "CreatePick", "repository": "PickRepository", "operation": "createPick", "paramType": "Pick", "returnType": "Pick", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
+    { "name": "UpdatePick", "repository": "PickRepository", "operation": "updatePick", "paramType": "Pick", "returnType": "void", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false }
+  ]
+}
