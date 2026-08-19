@@ -13,3 +13,6 @@ build/
 # Logs
 *.log
 cft-report.png
+
+# graphify derived output (regenerable)
+graphify-out/

@@ -238,6 +238,11 @@ ask before deciding which.
     graph to reflect current code, not a stale snapshot. Use `/graphify builder/src --update`
     (incremental) rather than a full rebuild when only a few files changed.
   - `GRAPH_REPORT.md`'s header date predates recent commits touching `builder/src`.
+- **Refresh command (use the skill, do not hand-run):** run `/graphify builder/src --update`
+  (incremental, AST-only → no LLM token cost on this code-only corpus). After it completes, verify
+  the header date in `GRAPH_REPORT.md` is today's and the node/edge counts grew to match the new
+  modules. If a review finds the graph drifted again, refresh it before that review — a stale graph
+  is worse than grep for the questions it claims to answer.
 - **How to use it:**
   - `graphify query "<question>"` — BFS traversal for broad context (add `--dfs` to trace one
     specific path, `--budget N` to cap output).
