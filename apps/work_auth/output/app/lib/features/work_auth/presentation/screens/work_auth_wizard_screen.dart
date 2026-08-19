@@ -38,7 +38,7 @@ class WorkAuthWizardScreen extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                     child: switch (state.currentStep) {
                       0 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [

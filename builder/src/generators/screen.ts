@@ -718,7 +718,7 @@ ${titleCases}
                   ),
                 ),
                 Expanded(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                     child: switch (state.currentStep) {
 ${contentCases}
