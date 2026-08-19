@@ -586,9 +586,15 @@ function searchCheck(ir: any, outDir: string, files: string[]): string[] {
   }
 
   // Cross-check the generated output: only screens plan.json marked searchable may render a
-  // SearchBar, and every one of them actually does.
+  // controller-wired SearchBar, and every one of them actually does. RCA-001: a `sections` screen
+  // may legitimately declare a `search` section that DIDN'T resolve (e.g. entity has no
+  // primaryDisplayField) — screen.ts's renderSection then falls back to the pre-existing
+  // decorative bare SearchBar (no `controller:`), which must NOT trip this gate; checking for the
+  // controller marker (rather than bare "SearchBar(") is what tells the two apart. A `list`
+  // screen never has a decorative variant (searchBarBlock is emitted only when searchEnabled), so
+  // this is a no-op change for it — same bare "SearchBar(" and controller-marker cases coincide.
   for (const screen of screens) {
-    if (screen.type !== "list") continue;
+    if (screen.type !== "list" && screen.type !== "sections") continue;
     const entry = (plan.entries ?? []).find((e: any) => e.schema === "screen" && (e.artifact === `screen:${screen.name}` || e.artifact.endsWith(`:screen:${screen.name}`)));
     if (!entry) continue; // a screen plan.json itself doesn't know about is out of scope for this gate
     const filePath = path.join(outDir, entry.file);
@@ -596,12 +602,12 @@ function searchCheck(ir: any, outDir: string, files: string[]): string[] {
     const src = fs.readFileSync(filePath, "utf8");
     const p = screenPath(screens, screen);
     const shouldHaveSearch = recordedPaths.has(p);
-    const hasSearchBar = src.includes("SearchBar(");
-    if (shouldHaveSearch && !hasSearchBar) {
-      issues.push(`[search] '${p}' (${screen.name}) is marked searchable in plan.json but its generated screen has no SearchBar`);
+    const hasFunctionalSearch = src.includes("controller: _searchController,");
+    if (shouldHaveSearch && !hasFunctionalSearch) {
+      issues.push(`[search] '${p}' (${screen.name}) is marked searchable in plan.json but its generated screen has no controller-wired SearchBar`);
     }
-    if (!shouldHaveSearch && hasSearchBar) {
-      issues.push(`[search] '${p}' (${screen.name}) has no search entry in plan.json but its generated screen renders a SearchBar anyway`);
+    if (!shouldHaveSearch && hasFunctionalSearch) {
+      issues.push(`[search] '${p}' (${screen.name}) has no search entry in plan.json but its generated screen renders a controller-wired SearchBar anyway`);
     }
   }
   return issues;

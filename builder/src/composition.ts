@@ -136,20 +136,22 @@ export function shellFor(features: FeatureModel[], mergedScreens: ScreenModel[])
 
 /**
  * P2 (INTERFACE_PATTERN_CONTRACT.md §4) — per-list search. Same centralized-decision posture as
- * P1's shellFor above: this is the ONE place that decides whether a list screen gets search, and
- * with what field/mode; screen.ts only ever renders the `SearchSpec` it's handed, never re-derives
- * the decision (contract §1 master principle).
+ * P1's shellFor above: this is the ONE place that decides whether a list (or, RCA-001, a sections
+ * screen that declares a `search` section) gets search, and with what field/mode; screen.ts only
+ * ever renders the `SearchSpec` it's handed, never re-derives the decision (contract §1 master
+ * principle).
  *
  * Scope locked by the brief (grill C4/C5/C6):
  * - Single field, mode "contains" only (in-memory, case-insensitive, no server-query/multi-field/
  *   startsWith/enum/date in this slice — a later slice changes the payload shape, never this
  *   architecture).
- * - `enabled` is a SEMANTIC predicate, never a name-guess: list screen + repo has `list`
- *   (structural — `findRepoForEntity` only ever resolves a repo that HAS a `list` operation, see
- *   its own doc comment, so that leg is never separately re-checked) + the entity declares
- *   `primaryDisplayField` referencing one of its own String-typed fields. No IR `primaryDisplayField`
- *   -> predicate stays false, same as `TITLE_FIELD_NAMES`-style guessing would have wrongly fired
- *   for entities that merely happen to have a same-shaped field under a different name.
+ * - `enabled` is a SEMANTIC predicate, never a name-guess: (list screen, OR sections screen that
+ *   declares a `search` section — RCA-001) + repo has `list` (structural — `findRepoForEntity`
+ *   only ever resolves a repo that HAS a `list` operation, see its own doc comment, so that leg is
+ *   never separately re-checked) + the entity declares `primaryDisplayField` referencing one of
+ *   its own String-typed fields. No IR `primaryDisplayField` -> predicate stays false, same as
+ *   `TITLE_FIELD_NAMES`-style guessing would have wrongly fired for entities that merely happen to
+ *   have a same-shaped field under a different name.
  */
 export interface SearchSpec {
   enabled: true; // only ever constructed true — a screen with no search simply has no map entry
@@ -157,8 +159,19 @@ export interface SearchSpec {
   mode: "contains";
 }
 
+// RCA-001 (owner-reported: "search does not work in keemart app"): a `sections` screen that
+// DECLARES a `search` section (anywhere in its section tree, top-level or nested one level under
+// `type:"section"` — the same depth-1 shape `[sections]`'s own flattenSections walks) is an
+// explicit author intent to be searchable, same as `type: "list"` always was — so it gets the same
+// SearchSpec resolution chance below, never a silent decorative-only fallback. A `sections` screen
+// with no `search` section keeps returning null here, same as before this fix.
+function hasSearchSection(screen: ScreenModel): boolean {
+  const inTree = (secs: SectionModel[] | undefined): boolean => !!secs?.some((sec) => sec.type === "search" || inTree(sec.children));
+  return inTree(screen.sections);
+}
+
 export function searchFor(screen: ScreenModel, entity: EntityModel | undefined, repo: RepositoryModel | undefined): SearchSpec | null {
-  if (screen.type !== "list") return null;
+  if (screen.type !== "list" && !hasSearchSection(screen)) return null;
   if (!entity || !repo) return null;
   if (!entity.primaryDisplayField) return null;
   const field = entity.fields.find((f) => f.name === entity.primaryDisplayField);

@@ -428,6 +428,19 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
     // convention the list branch's own plainEmptyExpr already uses.
     const sectionsEmptyExpr = `EmptyState(message: 'No ${appBarTitle} yet')`;
 
+    // RCA-001: same `filtered`/`query` prelude the list branch's own searchPrelude computes
+    // (screen.ts:848-852), scoped to this screen's resolved collection (`state.${collection}` —
+    // sections has no parent-scope `items` local the way a child list screen's listFilterExpr
+    // does, so it filters the state field directly). No-op (empty string) whenever this screen's
+    // search didn't resolve — productGrid/horizontalCards keep reading `state.${collection}`
+    // verbatim, byte-identical to before this fix.
+    const sectionsSearchPrelude = searchEnabled
+      ? `            final query = _query.trim().toLowerCase();
+            final filtered = query.isEmpty ? state.${collection} : state.${collection}.where((item) => (${fieldValue(searchField!, "item")}).toLowerCase().contains(query)).toList();
+`
+      : "";
+    const sectionsListVar = searchEnabled ? "filtered" : `state.${collection}`;
+
     // Depth-1 recursion (schema-enforced: `children` only exists on type:"section", one level,
     // leaves only — types.ts/screen.schema.json) — `indent` keeps nested Column children readable
     // in the emitted source, purely cosmetic. Every section type in the closed v1 enum is mapped
@@ -442,14 +455,21 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
             : ""; // the Scaffold's own AppBar (below) already renders the chrome header — a
                   // titleless `header` section is a structural marker only, nothing extra to emit.
         case "search":
-          // Decorative only in this slice (P2's searchFor/`_query` wiring is list-archetype-only,
-          // composition.ts:157) — a stock Material SearchBar, same posture the list branch's own
-          // SearchBar block already documents (screen.ts's search precedent, no registry wrapper
-          // needed for a stock widget). Still respects the decided radiusScale.search (S1 token
-          // rigor, S2_HARDENING_BRIEF_CLAUDE.md: "respect all of it") — same searchShapeArg the
-          // list branch's own SearchBar applies, so a sections home's search field is just as
-          // sharp/pill as a list screen's under the same cornerRadius decision.
-          return `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search)${searchShapeArg})),`;
+          // RCA-001 (owner-reported: "search does not work in keemart app"): functional when
+          // composition.ts's searchFor actually resolved this screen (declared `search` section +
+          // entity primaryDisplayField, contract §4) — controller-wired, same
+          // `controller: _searchController`/`onChanged: setState(() => _query = v)` the list
+          // branch's own SearchBar block wires (screen.ts:858-867). Falls back to the pre-existing
+          // decorative bare SearchBar (hintText/leading/shape only, no controller) when the
+          // section is declared but unresolved (e.g. entity has no primaryDisplayField) — same
+          // "declared but not wired" posture as before this fix, never a silent widget removal.
+          // Still respects the decided radiusScale.search (S1 token rigor, S2_HARDENING_BRIEF_CLAUDE.md:
+          // "respect all of it") — same searchShapeArg the list branch's own SearchBar applies, so
+          // a sections home's search field is just as sharp/pill as a list screen's under the same
+          // cornerRadius decision.
+          return searchEnabled
+            ? `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v)${searchShapeArg})),`
+            : `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search ${escapeStr(appBarTitle)}', leading: const Icon(Icons.search)${searchShapeArg})),`;
         case "hero":
         case "promoBanner":
           return `${indent}Padding(key: ${sectionKey(section.id)}, padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, ${itemGapExpr}), child: AppHeroBanner(headline: '${escapeStr(section.title ?? appBarTitle)}', compact: ${section.type === "promoBanner"}${radiusArg})),`;
@@ -466,7 +486,7 @@ ${indent}  key: ${sectionKey(section.id)},
 ${indent}  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
 ${indent}  child: state.${collection}.isEmpty
 ${indent}      ? ${sectionsEmptyExpr}
-${indent}      : GridView.builder(
+${indent}      : ${searchEnabled ? `filtered.isEmpty && query.isNotEmpty\n${indent}          ? EmptyState(message: 'No results for "\\$_query"')\n${indent}          : ` : ""}GridView.builder(
 ${indent}    shrinkWrap: true,
 ${indent}    physics: const NeverScrollableScrollPhysics(),
 ${indent}    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -475,9 +495,9 @@ ${indent}      mainAxisExtent: AppTokens.cardHeight,
 ${indent}      crossAxisSpacing: AppSpacing.sm,
 ${indent}      mainAxisSpacing: AppSpacing.sm,
 ${indent}    ),
-${indent}    itemCount: state.${collection}.length,
+${indent}    itemCount: ${sectionsListVar}.length,
 ${indent}    itemBuilder: (context, i) {
-${indent}      final item = state.${collection}[i];
+${indent}      final item = ${sectionsListVar}[i];
 ${indent}      return AppProductCard(
 ${indent}        title: ${productTitleExpr},
 ${indent}        price: ${productPriceExpr},
@@ -496,9 +516,9 @@ ${indent}  height: AppTokens.cardHeight,
 ${indent}  child: ListView.builder(
 ${indent}    scrollDirection: Axis.horizontal,
 ${indent}    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-${indent}    itemCount: state.${collection}.length,
+${indent}    itemCount: ${sectionsListVar}.length,
 ${indent}    itemBuilder: (context, i) {
-${indent}      final item = state.${collection}[i];
+${indent}      final item = ${sectionsListVar}[i];
 ${indent}      return Padding(
 ${indent}        padding: const EdgeInsets.only(right: AppSpacing.sm),
 ${indent}        child: SizedBox(
@@ -534,7 +554,7 @@ ${indent}]),`;
     const spacer = `              const SizedBox(height: ${itemGapExpr}),`;
     const sectionWidgets = (sectionsSpec?.sections ?? []).map((sec) => renderSection(sec, "              ")).filter(Boolean);
     const interleaved = sectionWidgets.flatMap((w, i) => (i === 0 ? [w] : [spacer, w]));
-    body = `            return ListView(
+    body = `${sectionsSearchPrelude}            return ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
 ${interleaved.join("\n")}
