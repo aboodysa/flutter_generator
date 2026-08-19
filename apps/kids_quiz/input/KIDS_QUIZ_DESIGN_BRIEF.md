@@ -53,6 +53,34 @@ are motivated to keep answering (points, badges, streaks, progress).
 - **Offline-first** — `persistence: "nosql"` (hive_ce adapter emitted alongside in-memory
   repo, which is what actually runs deterministically).
 
+## L10n — Arabic, English, FRENCH (owner req, 2026-08-19)
+
+The owner requires the kids Q&A app to support **ar, en, fr**. **Generator finding (L4.1 gap):**
+today `localeOf()` (`builder/src/operations.ts` `"en" | "ar" | "both"`) and `AppStrings`
+(`builder/src/generators/infra.ts` — `_ar`/`_en` maps) only cover en+ar; `supportedLocales` in
+project.ts:91 is hard-coded to `Locale('en'), Locale('ar')`. French is NOT representable.
+
+Required additive generator slice (L4.1) — small, mirrors the existing ar branch:
+1. `localeOf`/`localeTypes` gain `"fr"` and a tri-locale mode (e.g. `"enArFr"` or a 3-array —
+   decide with implementer; keep `"en"|"ar"|"both"` byte-identical for existing apps).
+2. `infra.ts` `AppStrings` gains a `_fr` map (same fixed chrome vocabulary: appTitle/loading/
+   error/retry/save/create/back/edit/delete/cancel/audit/noData/newLabel, translated to French).
+3. `project.ts` `titleAndLocaleBlock` wires the third `Locale('fr')` + `supportedLocales` list.
+4. `[l10n]` validate gate re-derived to match (French IR → fr strings present, ar→ar, etc.).
+5. Regenerate samples that use locale (ledgerly `locale: "both"` untouched / byte-identical).
+   IR attr proposal: `"locale": "enArFr"` (three languages) — the tri-locale kids app. Or reuse
+   `"both"` + a `fr: true` sub-flag; owner/investigation decision. A 3-language enum keeps it one
+   closed attribute: `"en" | "ar" | "enAr" | "enArFr"`.
+6. RTL: Arabic already flips Directionality via supportedLocales (project.ts:91-100); French +
+   English are LTR — the fix is purely the third locale + strings, no layout change.
+7. Seeded question content itself (question title/choices/explanation) is generated seed data —
+   for a trilingual kids app the DEMO ROWS should carry human content, and per-locale seed
+   versions are an enhancement (see enhancement roadmap); v1 ships en seed rows, UI chrome in all
+   three.
+
+This is an **additive generator slice** for the implementer (Claude), NOT hand-editing a
+generated app.
+
 ## Open decisions for owner
 
 1. **Quiz flow shape**: (a) list→detail learning mode (browse questions + answer, tap to check)
