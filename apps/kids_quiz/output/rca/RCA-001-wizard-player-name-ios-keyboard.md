@@ -35,9 +35,36 @@ is "the same iPhone input problem" as keemart's search (RCA-002) and the CRUD fo
 - No console/network errors and no overflow on desktop probe; the failure is iOS-Safari-specific
   keyboard-suppression, not a Dart exception.
 
-## 3. Root cause (working hypothesis — NOT yet proven)
+## 3. Root cause (updated after deeper evidence — CODE IS CORRECT + SERVED; cache most likely)
 
-Two candidate mechanisms, both distinct from the CRUD-form case:
+**Decisive evidence that reframed this from "defect in served code" to "device/cache":**
+- kids_quiz home **search box** emits a bypass **byte-for-byte identical to keemart's** search box
+  (`SearchBar(controller: _searchController, focusNode: _searchFocus, onTap: () =>
+  _searchFocus.requestFocus()`) — and the owner confirmed keemart search **works** on the same
+  iPhone. Wizard Player Name carries the exact CRUD-form bypass emission too
+  (crud_form.ts:111 mechanism).
+- Served JS == local build (3,103,574 bytes identical). No service-worker caching:
+  `flutter_service_worker.js` self-unregisters on activate. **However the node server sent NO
+  `Cache-Control` header** — Safari can heuristically cache `main.dart.js` for a URL, so a return
+  visit can load the pre-rebuild copy even though the server has newer bytes (keemart was
+  re-visited/re-loaded after its fix; kids_quiz may not have been).
+- A11y-test gap remains (wizard focus test asserts EMIT, not iOS behavior), and desktop CDP cannot
+  reproduce iOS WebKit keyboard suppression — so "can't reproduce in code" is not "proven fixed on
+  iPhone".
+
+**Remaining candidates (both still require real-iOS confirmation):**
+1. Device HTTP-cache serving stale `main.dart.js` (made impossible server-side below).
+2. iOS Safari keyboard-suppression in the wizard's scroll-view/controller-less context — HARDENED for
+   below.
+
+## Hardening action taken (server-side, additive, low-risk)
+
+- The node server now sends `Cache-Control: no-cache / no-store / must-revalidate` (+ Pragma, Expires)
+  on all assets, so iPhone Safari always fetches the current build. Server restarted; `/kids_quiz`
+  still 200. This eliminates candidate 1 without touching the generator.
+
+## Two candidate mechanisms (original hypothesis — if not cache)
+
 
 1. **Scroll-view gesture arbitration:** the field sits inside `SingleChildScrollView`. On iOS
    Safari, the first tap is consumed by the scroll view's own gesture recognizers (potential
