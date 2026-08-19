@@ -1,0 +1,40 @@
+role,name
+RootWebArea,Generated app
+none,
+generic,
+generic,
+generic,
+generic,
+none,
+generic,
+generic,
+generic,
+generic,
+generic,
+progressbar,83
+generic,
+group,
+button,Back
+button,Next
+heading,Quiz Runs
+StaticText,Perfect score! Bonus round unlocked!
+generic,
+generic,
+generic,
+generic,
+StaticText,Back
+button,Next
+StaticText,Quiz Runs
+InlineTextBox,Perfect score! Bonus round unlocked!
+StaticText,Player Name: Sara
+StaticText,Q1 Answer: b
+StaticText,Q2 Answer: a
+StaticText,Q3 Answer: b
+InlineTextBox,Back
+StaticText,Next
+InlineTextBox,Quiz Runs
+InlineTextBox,Player Name: Sara
+InlineTextBox,Q1 Answer: b
+InlineTextBox,Q2 Answer: a
+InlineTextBox,Q3 Answer: b
+InlineTextBox,Next
