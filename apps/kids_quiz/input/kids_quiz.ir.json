@@ -3,7 +3,7 @@
   "name": "kids_quiz",
   "attributes": {
     "stateManagement": "bloc",
-    "persistence": "none",
+    "persistence": "nosql",
     "locale": "enArFr"
   },
   "enums": [

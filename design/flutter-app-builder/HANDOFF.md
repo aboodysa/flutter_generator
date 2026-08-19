@@ -1,15 +1,37 @@
-# HANDOFF — kids_quiz v1.1 (round: 2026-08-19, part 3) — chips + Play FAB done
+# HANDOFF — nosql persistence fixed (round: 2026-08-19, part 4)
 
 > Lean round summary. Previous content archived to `context_history.md`.
 
 ## Status
 
-**kids_quiz v1.0 + v1.1 both live and independently verified.** Owner UX asks done: quiz answers
-are tappable **ChoiceChips** and the home has a real **"Play Quiz"** FAB. v1.1 was additive — all 5
-other apps' generated surface stayed byte-identical. Lane `s-hermetic` idle at `❯` (feedback
-dismissed). Repos synced: HEAD `eab743a`, master == origin.
+**nosql offline persistence — CLOSED.** `generateHiveAdapter`/`generateDriftTable` now receive
+`GenContext` and resolve entity + enum imports via `ctx.symbols`. kids_quiz flipped to
+`persistence:"nosql"` and verified: 37/37 gates, 57/57 tests, 0 analyze errors, byte-identical
+determinism, all 5 benchmark apps byte-identical. HEAD `27bb1e9` → new commit pending.
 
-## This round (part 3: v1.1 slice)
+## This round
+
+### nosql persistence fix — DONE (zen impl + verified)
+
+- **Root cause**: `generateHiveAdapter` (`persistence.ts`) emitted a bare relative import
+  (`import 'question.dart';`) from `data/local/` — the entity lives at `domain/entities/`.
+  The function never received `GenContext`, so it had no access to `ctx.symbols` (the symbol
+  table every other generator uses). Enum types (`f.of`) were also missing imports entirely.
+- **Fix** (`persistence.ts`): both `generateDriftTable(entity, ctx?)` and
+  `generateHiveAdapter(entity, enums, valueObjects, typeId, ctx?)` now accept `GenContext` and
+  resolve entity + enum imports via `ctx.symbols.get(...)`. `index.ts` passes `ctx` through.
+- **kids_quiz**: `persistence:"none"` → `"nosql"` — 3 adapter files now compile with correct
+  package imports (`package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/...`).
+- **Verification**: typecheck clean, validate 37/37, flutter analyze 0 errors, flutter test 57/57,
+  double-regen byte-identical, keemart/tasks/work_auth/hr_service/ledgerly all byte-identical.
+
+## Open findings still ahead (all documented)
+
+1. `screen.ts` `appStringsUsed` unused_import (v1.1 probe, low).
+2. `tasks` stray `test/temp_all_flows_test.dart` (breaks 5 tests, not generator-emitted).
+3. Per-locale / human seed-content IR block (nice-to-have).
+
+## This round (part 3: v1.1 slice) — ARCHIVED
 
 ### kids_quiz v1.1 — DONE (Claude impl, zen-verified, all pushed)
 
@@ -28,16 +50,7 @@ dismissed). Repos synced: HEAD `eab743a`, master == origin.
 - New finding (low, latent): `screen.ts` `appStringsUsed` flag → unused_import of app_strings.dart
   on home (documented in `input/brief.md` v1.1 addendum; 0 errors held; fix in `screen.ts`).
 
-## Open findings still ahead (all documented)
-
-1. **nosql offline persistence**: `generateHiveAdapter` emits a bare relative import that doesn't
-   resolve (latent since rasheed). kids_quiz currently ships `persistence:"none"` (runtime-identical
-   to all apps). Fix = pass `GenContext` into hive/drift generation.
-2. `screen.ts` `appStringsUsed` unused_import (v1.1 probe).
-3. `tasks` stray `test/temp_all_flows_test.dart` (breaks 5 tests, not generator-emitted).
-4. Per-locale / human seed-content IR block (nice-to-have).
-
-## This round (part 2: post-benchmark)
+## This round (part 2: post-benchmark) — ARCHIVED
 
 ### Fixes owner found while testing — DONE (Claude, zen-verified, all pushed)
 
@@ -70,29 +83,28 @@ dismissed). Repos synced: HEAD `eab743a`, master == origin.
 
 | Item | Value |
 |---|---|
-| HEAD | `eab743a` (master, pushed; equals origin/master) |
+| HEAD | `27bb1e9` (master, pushed; equals origin/master) |
 | typecheck | clean (`npm run typecheck:builder`) |
 | jest s1 | 20/20; `npm test` green; validate 37/37 per app |
-| kids_quiz flutter | 52/52, **0 analyze errors** (warnings only); v1.1 kept 5 sample apps byte-identical |
+| kids_quiz flutter | 57/57, **0 analyze errors** (warnings only); nosql adapters compile clean |
 | Lanes | `s-hermetic` idle @ `❯`; `germany3` idle |
 | Tailnet | `/kids_quiz`@8084, `/keemart`@8083, `/tasks`@8081, `/hr_service`@8082, `/api`@3000. `/`@8080 down (pre-existing) |
 | Remotes | tracematrix `/root/fg-p5` — synced to origin/master |
 
 ## Next steps
 
-1. **nosql offline persistence** (biggest open ask for "offline-first"): fix `generateHiveAdapter`
-   import + real hive_ce wiring, flip kids_quiz to `persistence:"nosql"`. Brief → Claude → zen-verify.
-2. `screen.ts` `appStringsUsed` unused_import cleanup (v1.1 probe finding, low).
-3. `tasks` stray `test/temp_all_flows_test.dart` cleanup + lint template fixes
+1. `screen.ts` `appStringsUsed` unused_import cleanup (v1.1 probe finding, low).
+2. `tasks` stray `test/temp_all_flows_test.dart` cleanup + lint template fixes
    (`unnecessary_non_null_assertion`, a11y-test unused_import/pipelineOwner).
-4. Seed-data IR block (per-locale, human content for `Question` bank) — nice-to-have.
-5. S4 (asset library+manifest) remains the roadmap slice after P5 baseline v1.
+3. Seed-data IR block (per-locale, human content for `Question` bank) — nice-to-have.
+4. S4 (asset library+manifest) remains the roadmap slice after P5 baseline v1.
 
 ## Key files
 
-- `research/KIDS_QUIZ_V11_IMPL_BRIEF_CLAUDE.md` (54ae833)
+- `builder/src/generators/persistence.ts` — `GenContext` threading + enum imports
+- `apps/kids_quiz/output/rca/RCA-002-nosql-hive-adapter-import.md`
 - `apps/BENCHMARK_APPS_REPORT.md`, `apps/kids_quiz/input/{KIDS_QUIZ_DESIGN_BRIEF.md, brief.md}`,
   `research/KIDS_QUIZ_IMPL_BRIEF_CLAUDE.md`
 - `apps/kids_quiz/output/{app, cdp/, qa/PROBE_FINDINGS.md}`
-- RCAs: `apps/keemart/output/rca/RCA-001…`, `RCA-002…`, `apps/tasks/output/rca/RCA-005…`
+- RCAs: `apps/keemart/output/rca/RCA-001…`, `apps/kids_quiz/output/rca/RCA-001…`, `RCA-002…`, `apps/tasks/output/rca/RCA-005…`
 - `design/flutter-app-builder/research/LESSONS_LEARNED_ROUND_2026-08-19.md`; AGENTS.md guiding principles

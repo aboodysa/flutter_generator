@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 72,
+  "artifactCount": 75,
   "entries": [
     {
       "artifact": "enum:QuizCategory",
@@ -465,6 +465,45 @@
       "class": "pattern"
     },
     {
+      "artifact": "persistence:Question",
+      "generator": "PersistenceGenerator",
+      "schema": "persistence",
+      "layer": "data/local",
+      "file": "lib/features/kids_quiz/data/local/question_adapter.dart",
+      "strategy": "nosql",
+      "dependsOn": [
+        "entity:Question"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "persistence:Achievement",
+      "generator": "PersistenceGenerator",
+      "schema": "persistence",
+      "layer": "data/local",
+      "file": "lib/features/kids_quiz/data/local/achievement_adapter.dart",
+      "strategy": "nosql",
+      "dependsOn": [
+        "entity:Achievement"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "persistence:QuizRun",
+      "generator": "PersistenceGenerator",
+      "schema": "persistence",
+      "layer": "data/local",
+      "file": "lib/features/kids_quiz/data/local/quiz_run_adapter.dart",
+      "strategy": "nosql",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
       "artifact": "policy:QuizRun",
       "generator": "PolicyEngineGenerator",
       "schema": "policy",
@@ -872,7 +911,7 @@
     "stateManagement": "bloc",
     "di": "get_it",
     "routing": "go_router",
-    "persistence": "none",
+    "persistence": "nosql",
     "coupledPair": "bloc × get_it",
     "complexity": 16
   },

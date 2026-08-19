@@ -1,4 +1,5 @@
 import { EntityModel, Field, ValueObjectModel } from "../types";
+import { GenContext } from "../gen_context";
 import { nullable, sampleArgFor, fileName } from "../dart";
 
 /**
@@ -31,19 +32,23 @@ function driftColumn(f: Field): string | null {
   }
 }
 
-export function generateDriftTable(entity: EntityModel): string {
+export function generateDriftTable(entity: EntityModel, ctx?: GenContext): string {
   const identity = entity.identity?.field;
   const columns = entity.fields.map(driftColumn).filter((c): c is string => !!c).join("\n");
   const skipped = entity.fields.filter((f) => !PRIMITIVE_TYPES.has(f.type)).map((f) => f.name);
   const skipNote = skipped.length
     ? ` Relational fields deferred (not yet FK/junction-modeled): ${skipped.join(", ")}.`
     : "";
+  const entityImport = ctx?.symbols.get(entity.name)
+    ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(entity.name)}';`
+    : `import '${fileName(entity.name)}';`;
 
   return `// [generated] generator=PersistenceGenerator template=persistence_sql_drift.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 // Drift schema for ${entity.name} (SQL persistence, §5.2-F2). Schema-only — see file header
 // docs in persistence.ts for why no @DriftDatabase/part-file is emitted here.${skipNote}
 import 'package:drift/drift.dart';
+${entityImport}
 
 class ${entity.name}Table extends Table {
 ${columns}
@@ -80,7 +85,7 @@ function hiveWriteExpr(f: Field): string | null {
   }
 }
 
-export function generateHiveAdapter(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], typeId: number): string {
+export function generateHiveAdapter(entity: EntityModel, enums: any[], valueObjects: ValueObjectModel[], typeId: number, ctx?: GenContext): string {
   const ctorArgs = entity.fields
     .map((f) => {
       const expr = PRIMITIVE_TYPES.has(f.type) ? hiveReadExpr(f) : sampleArgFor(f, enums, valueObjects);
@@ -100,13 +105,26 @@ export function generateHiveAdapter(entity: EntityModel, enums: any[], valueObje
   const skipNote = skipped.length
     ? ` Relational fields not persisted (placeholder on read): ${skipped.join(", ")}.`
     : "";
+  const entityImport = ctx?.symbols.get(entity.name)
+    ? `import 'package:${ctx!.pkg}/${ctx!.symbols.get(entity.name)}';`
+    : `import '${fileName(entity.name)}';`;
+
+  const enumTypes = [...new Set(entity.fields.filter((f) => f.type === "enum" && f.of).map((f) => f.of!))];
+  const enumImports = enumTypes
+    .map((et) => {
+      const sym = ctx?.symbols.get(et);
+      return sym
+        ? `import 'package:${ctx!.pkg}/${sym}';`
+        : `import '${fileName(et)}';`;
+    })
+    .join("\n");
 
   return `// [generated] generator=PersistenceGenerator template=persistence_nosql_hive.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 // Hand-written Hive TypeAdapter for ${entity.name} (NoSQL persistence, §5.2-F2) — no
 // hive_ce_generator codegen required, so this compiles standalone.${skipNote}
 import 'package:hive_ce/hive_ce.dart';
-import '${fileName(entity.name)}';
+${entityImport}${enumImports ? "\n" + enumImports : ""}
 
 class ${entity.name}Adapter extends TypeAdapter<${entity.name}> {
   @override

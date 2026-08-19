@@ -616,8 +616,8 @@ function writeCrudExtras(ir: FeatureModel, ctx: GenContext, arch: ArchitectureDe
       if (!entity) continue;
       fs.mkdirSync(localDir, { recursive: true });
       const content = isSql
-        ? generateDriftTable(entity)
-        : generateHiveAdapter(entity, ir.enums ?? [], ir.valueObjects ?? [], ir.entities.indexOf(entity));
+        ? generateDriftTable(entity, ctx)
+        : generateHiveAdapter(entity, ir.enums ?? [], ir.valueObjects ?? [], ir.entities.indexOf(entity), ctx);
       const f = path.join(localDir, fileName(entity.name).replace(/\.dart$/, isSql ? "_table.dart" : "_adapter.dart"));
       fs.writeFileSync(f, content);
       files.push(f);
