@@ -54,6 +54,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
   final _createdAt = TextEditingController();
 
   final _taskIdFocus = FocusNode();
+  final _subjectFocus = FocusNode();
 
 
 
@@ -73,6 +74,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
     _subject.dispose();
     _createdAt.dispose();
     _taskIdFocus.dispose();
+    _subjectFocus.dispose();
 
 
     super.dispose();
@@ -85,7 +87,7 @@ class _FollowUpFormScreenBodyState extends State<_FollowUpFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _taskId, focusNode: _taskIdFocus, onTap: () => _taskIdFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Task Id')),
-        TextField(controller: _subject, decoration: const InputDecoration(labelText: 'Subject')),
+        TextField(controller: _subject, focusNode: _subjectFocus, onTap: () => _subjectFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Subject')),
         TextField(controller: _createdAt, readOnly: true, decoration: const InputDecoration(labelText: 'Created At', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_createdAt.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _createdAt.text = picked.toIso8601String().split('T').first);

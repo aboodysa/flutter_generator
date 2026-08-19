@@ -56,6 +56,7 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
   Priority _priority = Priority.values.first;
   TaskStatus _status = TaskStatus.values.first;
   final _titleFocus = FocusNode();
+  final _descriptionFocus = FocusNode();
   final Map<String, TextEditingController> _waiveReasonControllers = {};
   final Map<String, PolicyVerdict> _waivedVerdicts = {};
   final _policyJustification = TextEditingController();
@@ -79,6 +80,7 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
     _description.dispose();
     _dueDate.dispose();
     _titleFocus.dispose();
+    _descriptionFocus.dispose();
     for (final c in _waiveReasonControllers.values) {
       c.dispose();
     }
@@ -168,7 +170,7 @@ class _TaskFormScreenBodyState extends State<_TaskFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _title, focusNode: _titleFocus, onTap: () => _titleFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Title')),
-        TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
+        TextField(controller: _description, focusNode: _descriptionFocus, onTap: () => _descriptionFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Description')),
         TextField(controller: _dueDate, readOnly: true, decoration: const InputDecoration(labelText: 'Due Date', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_dueDate.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _dueDate.text = picked.toIso8601String().split('T').first);
