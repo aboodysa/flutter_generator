@@ -52,3 +52,14 @@ Independent CDP re-probe after v1.1 (`27f6fb2` + `98f65a9`):
 
 ### New finding (v1.1 probe, low, pre-existing latent)
 - `unused_import` of `app_strings.dart` on `question_list_screen.dart` — `screen.ts`'s `appStringsUsed` flag doesn't account for the FAB-nav path dropping AppStrings usage on a sections home. 0 errors held; fix location = `screen.ts` `appStringsUsed`. Documented by implementer in `input/brief.md` v1.1 addendum (out of scope for this slice).
+
+## v1.2 finding (2026-08-19) — NO gamification surfaced on a completed run (HIGH)
+
+Owner: "where scores and final score... stars". Verified in source + CDP: the wizard result step
+(`quiz_run_wizard_screen.dart` step 5) renders ONLY raw answers (Player Name, Q1/Q2/Q3 Answer) —
+**no score, no stars, no correct/incorrect, no points, no badge earned**. `Question.points` is never
+summed; `QuizRun` has no `score` field. `Question1Correct/2/3` are severity-less (plain, oracle-only,
+invisible in UI) because v1.0 lacked the `FieldRole "choice"` fix they needed — v1.1 landed that fix
+but the IR wasn't updated to use it. `RunCompleted`'s "+5 ⭐" only shows in the CRUD-list edit form,
+not the wizard. Bonus step does fire on a perfect run. Fix scoped in
+`research/KIDS_QUIZ_V12_GAMIFICATION_BRIEF_CLAUDE.md`.
