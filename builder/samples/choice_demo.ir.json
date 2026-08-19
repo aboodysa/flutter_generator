@@ -7,7 +7,11 @@
   "enums": [
     {
       "name": "AnswerOption",
-      "values": ["a", "b", "c"],
+      "values": [
+        "a",
+        "b",
+        "c"
+      ],
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
@@ -15,7 +19,11 @@
     },
     {
       "name": "MoodOption",
-      "values": ["happy", "neutral", "sad"],
+      "values": [
+        "happy",
+        "neutral",
+        "sad"
+      ],
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
@@ -25,11 +33,31 @@
   "entities": [
     {
       "name": "Pick",
-      "identity": { "field": "id" },
+      "identity": {
+        "field": "id"
+      },
       "primaryDisplayField": "label",
       "fields": [
-        { "name": "id", "type": "String", "required": true, "nullable": false, "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
-        { "name": "label", "type": "String", "required": true, "nullable": false, "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "label",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
         {
           "name": "answer",
           "type": "enum",
@@ -68,7 +96,11 @@
       "entity": "Pick",
       "result": "true",
       "conditions": [
-        { "field": "mood", "operator": "==", "value": "happy" }
+        {
+          "field": "mood",
+          "operator": "==",
+          "value": "happy"
+        }
       ],
       "severity": "warn",
       "message": "Feeling happy today!",
@@ -82,11 +114,49 @@
       "entity": "Pick",
       "result": "true",
       "conditions": [
-        { "field": "answer", "operator": "==", "value": "b" }
+        {
+          "field": "answer",
+          "operator": "==",
+          "value": "b"
+        }
       ],
       "severity": "warn",
       "message": "Correct! +5 stars",
       "points": 5,
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "AnswerAcceptable",
+      "entity": "Pick",
+      "result": "true",
+      "conditions": [],
+      "expression": {
+        "or": [
+          {
+            "left": {
+              "field": "answer"
+            },
+            "op": "==",
+            "right": {
+              "value": "a"
+            }
+          },
+          {
+            "left": {
+              "field": "answer"
+            },
+            "op": "==",
+            "right": {
+              "value": "b"
+            }
+          }
+        ]
+      },
+      "severity": "autoApprove",
+      "message": "Acceptable answer!",
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
@@ -97,9 +167,33 @@
     {
       "name": "PickRepository",
       "operations": [
-        { "name": "listPicks", "returns": "Future<List<Pick>>", "params": [] },
-        { "name": "createPick", "returns": "Future<Pick>", "params": [ { "name": "pick", "type": "Pick", "named": false } ] },
-        { "name": "updatePick", "returns": "Future<void>", "params": [ { "name": "pick", "type": "Pick", "named": false } ] }
+        {
+          "name": "listPicks",
+          "returns": "Future<List<Pick>>",
+          "params": []
+        },
+        {
+          "name": "createPick",
+          "returns": "Future<Pick>",
+          "params": [
+            {
+              "name": "pick",
+              "type": "Pick",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updatePick",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "pick",
+              "type": "Pick",
+              "named": false
+            }
+          ]
+        }
       ],
       "actor": "human:attested",
       "confidenceSource": "human-attested",
@@ -115,7 +209,12 @@
       "confidenceSource": "human-attested",
       "confidence": 1,
       "requiresApproval": false,
-      "statuses": ["initial", "loading", "success", "failure"]
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
     },
     {
       "name": "PickWizard",
@@ -124,7 +223,12 @@
       "confidenceSource": "human-attested",
       "confidence": 1,
       "requiresApproval": false,
-      "statuses": ["initial", "loading", "success", "failure"]
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
     }
   ],
   "screens": [
@@ -144,8 +248,17 @@
       "type": "wizard",
       "state": "PickWizard",
       "steps": [
-        { "id": "answer-step", "title": "Pick one", "fields": ["answer"] },
-        { "id": "result", "title": "Done" }
+        {
+          "id": "answer-step",
+          "title": "Pick one",
+          "fields": [
+            "answer"
+          ]
+        },
+        {
+          "id": "result",
+          "title": "Done"
+        }
       ],
       "actor": "human:attested",
       "confidenceSource": "human-attested",
@@ -154,8 +267,38 @@
     }
   ],
   "useCases": [
-    { "name": "ListPicks", "repository": "PickRepository", "operation": "listPicks", "paramType": "NoParams", "returnType": "List<Pick>", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
-    { "name": "CreatePick", "repository": "PickRepository", "operation": "createPick", "paramType": "Pick", "returnType": "Pick", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false },
-    { "name": "UpdatePick", "repository": "PickRepository", "operation": "updatePick", "paramType": "Pick", "returnType": "void", "actor": "human:attested", "confidenceSource": "human-attested", "confidence": 1, "requiresApproval": false }
+    {
+      "name": "ListPicks",
+      "repository": "PickRepository",
+      "operation": "listPicks",
+      "paramType": "NoParams",
+      "returnType": "List<Pick>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "CreatePick",
+      "repository": "PickRepository",
+      "operation": "createPick",
+      "paramType": "Pick",
+      "returnType": "Pick",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "UpdatePick",
+      "repository": "PickRepository",
+      "operation": "updatePick",
+      "paramType": "Pick",
+      "returnType": "void",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
   ]
 }

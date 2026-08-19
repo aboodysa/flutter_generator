@@ -14,3 +14,4 @@ export 'package:rasheed_replica_choice_demo/features/choice_demo/presentation/sc
 export 'package:rasheed_replica_choice_demo/features/choice_demo/presentation/screens/pick_wizard_screen.dart';
 export 'package:rasheed_replica_choice_demo/features/choice_demo/domain/rules/mood_happy.dart';
 export 'package:rasheed_replica_choice_demo/features/choice_demo/domain/rules/answer_correct.dart';
+export 'package:rasheed_replica_choice_demo/features/choice_demo/domain/rules/answer_acceptable.dart';

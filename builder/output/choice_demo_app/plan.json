@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 44,
+  "artifactCount": 46,
   "entries": [
     {
       "artifact": "enum:AnswerOption",
@@ -167,6 +167,19 @@
       "class": "semantic"
     },
     {
+      "artifact": "rule:AnswerAcceptable",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/choice_demo/domain/rules/answer_acceptable.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Pick"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
       "artifact": "model:Pick",
       "generator": "ModelGenerator",
       "schema": "model",
@@ -215,7 +228,8 @@
       "dependsOn": [
         "entity:Pick",
         "rule:MoodHappy",
-        "rule:AnswerCorrect"
+        "rule:AnswerCorrect",
+        "rule:AnswerAcceptable"
       ],
       "mode": "semantic",
       "class": "semantic"
@@ -495,6 +509,19 @@
       "strategy": "default",
       "dependsOn": [
         "rule:AnswerCorrect"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:AnswerAcceptable",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/answer_acceptable_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:AnswerAcceptable"
       ],
       "mode": "semantic",
       "class": "semantic"
