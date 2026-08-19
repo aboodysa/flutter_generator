@@ -25,7 +25,7 @@ import { generateDi } from "./generators/di";
 import { generateRoutes } from "./generators/route";
 import { generateAppShell } from "./generators/app_shell";
 import { shellFor, ShellPattern, searchTargets, SearchSpec, scrollTargets, ScrollSpec, actionsTargets, ActionSpec, statePlacementTargets, visualTargets, VisualSpec, sectionsTargets, SectionSpec, assetTargets, AssetSpec } from "./composition";
-import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
+import { generateUnitTest, generateGoldenTest, generateFlowTest, generateCrudFlowTest, generateFocusTest, generateSearchFocusTest, generateScrollTest, generateBackTest, generateQuickDecisionTest, generatePolicyTest, generateSplitTest, generateAuthTest, generateAttachmentTest, generateBudgetTest, generateAuditTest, generateL10nTest, generateOutboxTest, generateViewportSqueezeTest } from "./generators/test";
 import { generateA11yTest, a11yTestFileName } from "./generators/a11y_test";
 import { generateLocalization, generateTheme, generateConfig, generateSecrets, generateObservability, generateValidator, generateNoParams, generateMoney } from "./generators/infra";
 import { generateComponents } from "./generators/components";
@@ -357,6 +357,19 @@ function writeTests(ir: FeatureModel, arch: ArchitectureDecision, outDir: string
     files.push(f);
     planEntries.push({
       artifact: "test:focus", generator: "FocusTestGenerator", schema: "test", layer: "test",
+      file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
+    });
+  }
+  // RCA-002 regression guard — same "scope against the full ir, navigate via appRouter directly"
+  // reasoning as focus/scroll/back above (searchTargets, unlike crudFormTargets, is already keyed
+  // by every screen in the ir, list AND sections alike — no flowTestScope narrowing needed).
+  const searchFocusTest = generateSearchFocusTest(ir, arch.stateManagement);
+  if (searchFocusTest) {
+    const f = path.join(testDir, "search_focus_test.dart");
+    fs.writeFileSync(f, searchFocusTest);
+    files.push(f);
+    planEntries.push({
+      artifact: "test:searchFocus", generator: "SearchFocusTestGenerator", schema: "test", layer: "test",
       file: path.relative(outDir, f), strategy: "default", dependsOn: [], mode: "deterministic", class: "structural",
     });
   }

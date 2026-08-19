@@ -3,7 +3,7 @@ import { crudFormTargets, isMoneyField, firstCrudTextField, firstFocusBypassFiel
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
-import { actionsTargets, statePlacementFor } from "../composition";
+import { actionsTargets, statePlacementFor, searchTargets } from "../composition";
 import { nullable } from "../nullability";
 import { OracleFile } from "../oracle";
 import { GenContext } from "../gen_context";
@@ -669,6 +669,70 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
   const getItImport = sm === "bloc" ? `import 'package:get_it/get_it.dart';\n` : "";
 
   return `// [generated] generator=FocusTestGenerator template=focus_test.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+${getItImport}import 'package:${pkg}/main.dart';
+import 'package:${pkg}/core/router.dart';
+${diImport}
+${session.import}
+void main() {
+${getItReset}${cases.join("\n\n")}
+}
+`;
+}
+
+/**
+ * SearchFocusTestGenerator — structural, deterministic, 0% LLM (RCA-002 regression guard, mirrors
+ * generateFocusTest above verbatim in shape). The owner's iPhone Safari report ("i can not type
+ * search term") traced to the SearchBar emits (list AND sections archetype) never carrying the
+ * gesture-bound FocusNode bypass crud_form.ts:88-110 already wires for form fields — see this
+ * file's screen.ts sibling for the actual fix. For every screen composition.ts's searchTargets
+ * resolved a SearchSpec for, navigates straight to that screen via `appRouter.go(screenPath(...))`
+ * (same route-by-path navigation generateViewportSqueezeTest already uses — works uniformly for
+ * both list and sections screens, no per-archetype branching needed) and asserts the rendered
+ * SearchBar carries a non-null `focusNode`/`onTap` (the structural check — a generator that
+ * dropped the bypass has neither) AND that tapping it genuinely transitions the FocusNode to
+ * focused (the behavioral check — proves the wiring actually works). Bloc-only, same as the fix
+ * itself: screen.ts's `searchEnabled` is `!!searchSpec && sm !== "riverpod"` (no current sample
+ * pairs riverpod with a searchable screen), so this generator is a no-op for a riverpod app rather
+ * than asserting a bypass the screen generator never emits for it.
+ */
+export function generateSearchFocusTest(feature: FeatureModel, sm: StateManagementProvider = "bloc"): string | null {
+  if (sm === "riverpod") return null;
+  const screens = feature.screens ?? [];
+  const targets = searchTargets(feature); // Map<screenName, SearchSpec>
+  const searchable = screens.filter((s) => targets.has(s.name) && isTargetReachable(feature, s.entity));
+  if (!searchable.length) return null;
+
+  const pkg = `rasheed_replica_${feature.name}`.replace(/[^a-z0-9_]/g, "_");
+  const session = authSession(feature, pkg, "    ");
+  const setup = `    setupDependencies();\n${session.boot}`;
+  const diImport = `import 'package:${pkg}/core/di.dart';\n`;
+
+  const cases = searchable.map((s) => {
+    const route = screenPath(screens, s).replace(":id", "x");
+    return `  testWidgets('${s.name}: search bar wires a focus-bypass FocusNode (iOS Safari keyboard fix)', (tester) async {
+${setup}    await tester.pumpWidget(const ReplicaApp());
+    await tester.pumpAndSettle();
+    appRouter.go('${route}');
+    await tester.pumpAndSettle();
+    final bar = tester.widget<SearchBar>(find.byType(SearchBar));
+    expect(bar.focusNode, isNotNull, reason: 'search field needs an explicit FocusNode for the gesture-bound requestFocus bypass (iOS Safari keyboard fix)');
+    expect(bar.onTap, isNotNull, reason: 'onTap must call requestFocus() synchronously inside the tap gesture');
+    await tester.tap(find.byType(SearchBar));
+    await tester.pump();
+    expect(bar.focusNode!.hasFocus, isTrue, reason: 'tapping the search bar must actually transition it to focused');
+  });`;
+  });
+
+  // Each case independently boots the real app (setupDependencies() registers everything in
+  // get_it's global singleton) — same reset generateFocusTest/generateScrollTest/
+  // generateViewportSqueezeTest already need whenever this file has more than one case.
+  const getItReset = "  setUp(() => GetIt.instance.reset());\n\n";
+  const getItImport = "import 'package:get_it/get_it.dart';\n";
+
+  return `// [generated] generator=SearchFocusTestGenerator template=search_focus_test.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
