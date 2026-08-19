@@ -15,6 +15,7 @@
     {
       "name": "Product",
       "identity": { "field": "id" },
+      "primaryDisplayField": "title",
       "fields": [
         { "name": "id", "type": "String", "required": true },
         { "name": "title", "type": "String", "required": true },

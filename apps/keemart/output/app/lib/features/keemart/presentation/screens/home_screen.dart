@@ -1,4 +1,4 @@
-// [generated] generator=ScreenGenerator template=screen_sections_bloc.v1 class=structural ownership=generated
+// [generated] generator=ScreenGenerator template=screen_sections_bloc_search.v1 class=structural ownership=generated
 // Do not hand-edit this file; regenerate from IR.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,8 +9,21 @@ import 'package:rasheed_replica_keemart/features/keemart/presentation/state/home
 
 
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,10 +33,12 @@ class HomeScreen extends StatelessWidget {
         builder: (context, state) {
         if (state.status == HomeStatus.loading) return const LoadingState();
         if (state.status == HomeStatus.failure) return ErrorState(message: state.errorMessage);
+            final query = _query.trim().toLowerCase();
+            final filtered = query.isEmpty ? state.products : state.products.where((item) => (item.title).toLowerCase().contains(query)).toList();
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-              Padding(key: ValueKey('section-search'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(hintText: 'Search Products', leading: const Icon(Icons.search), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))))),
+              Padding(key: ValueKey('section-search'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, hintText: 'Search Products', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))))),
               const SizedBox(height: AppSpacing.md),
               Padding(key: ValueKey('section-primaryHero'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md), child: AppHeroBanner(headline: 'Ready For School', compact: false, radius: AppRadius.roundedSurface)),
               const SizedBox(height: AppSpacing.md),
@@ -33,9 +48,9 @@ class HomeScreen extends StatelessWidget {
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  itemCount: state.products.length,
+                  itemCount: filtered.length,
                   itemBuilder: (context, i) {
-                    final item = state.products[i];
+                    final item = filtered[i];
                     return Padding(
                       padding: const EdgeInsets.only(right: AppSpacing.sm),
                       child: SizedBox(
@@ -54,7 +69,9 @@ class HomeScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   child: state.products.isEmpty
                       ? EmptyState(message: 'No Products yet')
-                      : GridView.builder(
+                      : filtered.isEmpty && query.isNotEmpty
+                          ? EmptyState(message: 'No results for "\$_query"')
+                          : GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -63,9 +80,9 @@ class HomeScreen extends StatelessWidget {
                       crossAxisSpacing: AppSpacing.sm,
                       mainAxisSpacing: AppSpacing.sm,
                     ),
-                    itemCount: state.products.length,
+                    itemCount: filtered.length,
                     itemBuilder: (context, i) {
-                      final item = state.products[i];
+                      final item = filtered[i];
                       return AppProductCard(
                         title: item.title,
                         price: item.price.format(),

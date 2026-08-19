@@ -323,6 +323,13 @@
     "complexity": 4
   },
   "patterns": {
+    "search": {
+      "/product": {
+        "enabled": true,
+        "field": "title",
+        "mode": "contains"
+      }
+    },
     "states": {
       "/product": {
         "flowField": "status",
