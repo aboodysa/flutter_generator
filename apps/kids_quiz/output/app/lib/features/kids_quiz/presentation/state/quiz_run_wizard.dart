@@ -58,6 +58,8 @@ class QuizRunWizardState extends Equatable {
       status: RunStatus.values.first,
       );
 
+  QuizRun get draft => _draft;
+
   bool get canAdvance => switch (currentStep) {
       0 => (playerName != null && playerName!.isNotEmpty),
       1 => q1Answer != null,

@@ -7,6 +7,7 @@ import 'package:rasheed_replica_kids_quiz/core/theme.dart';
 import 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/quiz_run_wizard.dart';
 import 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/correct_option.dart';
 
+import 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/policy/quiz_run_policy.dart';
 
 import 'package:rasheed_replica_kids_quiz/core/app_strings.dart';
 
@@ -81,6 +82,22 @@ class _QuizRunWizardScreenState extends State<QuizRunWizardScreen> {
                         Text('Q3 Answer: ${(state.q3Answer?.name ?? '—')}'),
                       ]),
                       5 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Builder(builder: (context) {
+                          final gamifiedVerdicts = evaluateQuizRunPolicy(state.draft).where((v) => const {'Question1Correct', 'Question2Correct', 'Question3Correct'}.contains(v.ruleId)).toList();
+                          final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const {'Question1Correct': 5, 'Question2Correct': 5, 'Question3Correct': 5}[v.ruleId] ?? 0));
+                          final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
+                          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('$gamifiedStars  (${gamifiedVerdicts.length}/3)', style: Theme.of(context).textTheme.headlineMedium),
+                            Text('Score: $gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
+                          gamifiedVerdicts.any((v) => v.ruleId == 'Question1Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
+                          gamifiedVerdicts.any((v) => v.ruleId == 'Question2Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
+                          gamifiedVerdicts.any((v) => v.ruleId == 'Question3Correct') ? const AppChip(label: 'Correct! +5 ⭐', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
+                            ]),
+                            const SizedBox(height: AppSpacing.sm),
+                          ]);
+                        }),
                         Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
                         Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
                         Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),

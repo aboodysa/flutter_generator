@@ -393,7 +393,10 @@
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
-      "requiresApproval": false
+      "requiresApproval": false,
+      "severity": "warn",
+      "message": "Correct! +5 \u2b50",
+      "points": 5
     },
     {
       "name": "Question2Correct",
@@ -409,7 +412,10 @@
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
-      "requiresApproval": false
+      "requiresApproval": false,
+      "severity": "warn",
+      "message": "Correct! +5 \u2b50",
+      "points": 5
     },
     {
       "name": "Question3Correct",
@@ -425,7 +431,10 @@
       "actor": "human:attested",
       "confidenceSource": "human-attested",
       "confidence": 1,
-      "requiresApproval": false
+      "requiresApproval": false,
+      "severity": "warn",
+      "message": "Correct! +5 \u2b50",
+      "points": 5
     },
     {
       "name": "PerfectRun",

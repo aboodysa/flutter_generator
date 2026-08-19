@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 71,
+  "artifactCount": 72,
   "entries": [
     {
       "artifact": "enum:QuizCategory",
@@ -473,6 +473,9 @@
       "strategy": "default",
       "dependsOn": [
         "entity:QuizRun",
+        "rule:Question1Correct",
+        "rule:Question2Correct",
+        "rule:Question3Correct",
         "rule:RunCompleted"
       ],
       "mode": "semantic",
@@ -715,6 +718,17 @@
       "schema": "test",
       "layer": "test",
       "file": "test/wizard_focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:wizardGamified",
+      "generator": "WizardGamifiedTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/wizard_gamified_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
