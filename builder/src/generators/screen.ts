@@ -214,16 +214,16 @@ function gamifiedResultBlock(entityName: string, rules: RuleModel[]): string {
   const marks = rules
     .map((r) => {
       const msg = (r.message ?? "Correct!").replace(/'/g, "\\'");
-      return `                          _verdicts.any((v) => v.ruleId == '${r.name}') ? const AppChip(label: '${msg}', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),`;
+      return `                          gamifiedVerdicts.any((v) => v.ruleId == '${r.name}') ? const AppChip(label: '${msg}', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),`;
     })
     .join("\n");
   return `Builder(builder: (context) {
-                          final _verdicts = ${evalCall}.where((v) => const ${idSet}.contains(v.ruleId)).toList();
-                          final _points = _verdicts.fold<int>(0, (sum, v) => sum + (const ${pointsMap}[v.ruleId] ?? 0));
-                          final _stars = List.filled(_verdicts.length, '⭐').join();
+                          final gamifiedVerdicts = ${evalCall}.where((v) => const ${idSet}.contains(v.ruleId)).toList();
+                          final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const ${pointsMap}[v.ruleId] ?? 0));
+                          final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
                           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('$_stars  (\${_verdicts.length}/${rules.length})', style: Theme.of(context).textTheme.headlineMedium),
-                            Text('Score: \$_points ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            Text('$gamifiedStars  (\${gamifiedVerdicts.length}/${rules.length})', style: Theme.of(context).textTheme.headlineMedium),
+                            Text('Score: \$gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
 ${marks}

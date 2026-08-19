@@ -45,15 +45,15 @@ class PickWizardScreen extends StatelessWidget {
                       ]),
                       1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Builder(builder: (context) {
-                          final _verdicts = evaluatePickPolicy(state.draft).where((v) => const {'AnswerCorrect'}.contains(v.ruleId)).toList();
-                          final _points = _verdicts.fold<int>(0, (sum, v) => sum + (const {'AnswerCorrect': 5}[v.ruleId] ?? 0));
-                          final _stars = List.filled(_verdicts.length, '⭐').join();
+                          final gamifiedVerdicts = evaluatePickPolicy(state.draft).where((v) => const {'AnswerCorrect'}.contains(v.ruleId)).toList();
+                          final gamifiedPoints = gamifiedVerdicts.fold<int>(0, (sum, v) => sum + (const {'AnswerCorrect': 5}[v.ruleId] ?? 0));
+                          final gamifiedStars = List.filled(gamifiedVerdicts.length, '⭐').join();
                           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('$_stars  (${_verdicts.length}/1)', style: Theme.of(context).textTheme.headlineMedium),
-                            Text('Score: $_points ⭐', style: Theme.of(context).textTheme.titleMedium),
+                            Text('$gamifiedStars  (${gamifiedVerdicts.length}/1)', style: Theme.of(context).textTheme.headlineMedium),
+                            Text('Score: $gamifiedPoints ⭐', style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
-                          _verdicts.any((v) => v.ruleId == 'AnswerCorrect') ? const AppChip(label: 'Correct! +5 stars', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
+                          gamifiedVerdicts.any((v) => v.ruleId == 'AnswerCorrect') ? const AppChip(label: 'Correct! +5 stars', tone: AppChipTone.success) : const AppChip(label: '✗', tone: AppChipTone.neutral),
                             ]),
                             const SizedBox(height: AppSpacing.sm),
                           ]);

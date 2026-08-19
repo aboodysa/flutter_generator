@@ -1,5 +1,5 @@
-import { FeatureModel, Field, RuleModel, StateManagementProvider, WizardStep } from "../types";
-import { crudFormTargets, isMoneyField, firstCrudTextField, crudTextFieldWidgets, textInputBypassFields, wizardTextInputFields, wizardTextFieldWidgets, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets, gamifiedWizardRules, stepFields } from "../operations";
+import { FeatureModel, Field, RuleModel, StateManagementProvider, WizardStep, EntityModel } from "../types";
+import { crudFormTargets, isMoneyField, firstCrudTextField, crudTextFieldWidgets, textInputBypassFields, wizardTextInputFields, wizardTextFieldWidgets, findRepoForEntity, policyRulesForEntity, splitGroupFor, hasSplitGroups, hasAuth, hasAttachments, authPersonas, authBootstrapStatement, isTargetReachable, resolveBudget, hasAudit, hasExport, resolvedExportScreens, crudOperations, hasLocale, hasOutbox, fieldRole, quickDecisionTargets, gamifiedWizardRules, stepFields, crudEditableFields } from "../operations";
 import { kebab, collectionField, camelize, fieldLabel, fileName, capitalize } from "../naming";
 import { variantSampleArgs } from "../sampling";
 import { childLinks } from "./screen";
@@ -866,8 +866,17 @@ export function generateWizardGamifiedTest(feature: FeatureModel, sm: StateManag
     if (undriveable) continue;
 
     const route = screenPath(screens, s).replace(":id", "x");
-    const idSet = `{${rules.map((r) => `'${r.name}'`).join(", ")}}`;
-    const marks = rules.map((r) => `'${(r.message ?? "").replace(/'/g, "\\'")}'`).join(", ");
+    // Two+ gamified rules can share the exact same message (kids_quiz's three "Correct! +5 ⭐"
+    // marks) — asserting per UNIQUE message with the right occurrence COUNT (not one findsOneWidget
+    // per rule) is what makes this correct when messages repeat, not just when they're all distinct.
+    const messageCounts = new Map<string, number>();
+    for (const r of rules) {
+      const msg = r.message ?? "";
+      messageCounts.set(msg, (messageCounts.get(msg) ?? 0) + 1);
+    }
+    const markAsserts = Array.from(messageCounts.entries())
+      .map(([msg, count]) => `    expect(find.text('${msg.replace(/'/g, "\\'")}'), findsNWidgets(${count}), reason: 'every rule sharing this exact message must each show their own fired mark');`)
+      .join("\n");
 
     cases.push(`  testWidgets('${s.name}: a perfect run shows the full score, star count, and every rule\\'s mark on the result step', (tester) async {
 ${setup}    await tester.pumpWidget(const ReplicaApp());
@@ -876,9 +885,7 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
 ${stepActions.join("\n")}
     expect(find.textContaining('(${rules.length}/${rules.length})'), findsOneWidget, reason: 'a perfect run must show every gamified rule fired');
-    for (final message in [${marks}]) {
-      expect(find.text(message), findsOneWidget, reason: 'each fired rule\\'s own message must be shown as a success-tone mark');
-    }
+${markAsserts}
   });`);
   }
   if (!cases.length) return null;
@@ -1357,7 +1364,7 @@ ${getItReset}${cases.join("\n\n")}
  * Covers exactly what the task asked for: block prevents Save, warn allows Save with a visible
  * message, requireJustification blocks until typed, waive requires a reason (and re-enables Save).
  */
-function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): string | null {
+function policyTriggerSteps(rule: RuleModel, entity: EntityModel): string | null {
   const cond = rule.conditions[0];
   if (!cond) return null;
   const field = entity.fields.find((f) => f.name === cond.field);
@@ -1368,7 +1375,30 @@ function policyTriggerSteps(rule: RuleModel, entity: { fields: Field[] }): strin
     // enum falls through to a bare DropdownButton, so driving it needs a different interaction.
     const role = fieldRole(field, {});
     if (role === "status" || role === "priority" || role === "choice") {
-      return `    await tester.tap(find.widgetWithText(ChoiceChip, '${cond.value}'));\n    await tester.pumpAndSettle();`;
+      // V1.2: crud_form.ts's ChoiceChip `Wrap` isn't field-keyed either — a plain value search
+      // (`find.widgetWithText(ChoiceChip, cond.value)`) is only ambiguous when TWO+ chip-rendered
+      // fields share the SAME ENUM TYPE (so the same value string, e.g. 'b', can legitimately
+      // appear in more than one chip row) — kids_quiz's q1Answer/q2Answer/q3Answer, all
+      // `CorrectOption`. A different enum TYPE never collides even if it also happens to be chip-
+      // rendered (tasks' Priority vs TaskStatus have disjoint value sets) — scoping unconditionally
+      // on "any 2+ chip fields" would change every such app's generated test text for no reason.
+      // `Wrap` is used for nothing else in crud_form.ts, so scoping to the Nth Wrap among fields of
+      // THIS SAME enum type (in crudEditableFields' own render order) resolves the real ambiguity
+      // precisely, without a per-field key on the generated form, and without touching any app
+      // whose chip fields don't actually share a type.
+      const identityField = entity.identity?.field ?? "id";
+      const enumType = field.of ?? capitalize(field.name);
+      const allChipFields = crudEditableFields(entity, identityField).filter(
+        (f) => f.type === "enum" && ["status", "priority", "choice"].includes(fieldRole(f, {})),
+      );
+      // The Nth Wrap on the PAGE (find.byType(Wrap) sees every chip-rendered field, any enum type)
+      // — this field's global position, not its position among same-type fields only.
+      const chipIndex = allChipFields.findIndex((f) => f.name === field.name);
+      const sameTypeChipFieldCount = allChipFields.filter((f) => (f.of ?? capitalize(f.name)) === enumType).length;
+      const chipScope = sameTypeChipFieldCount > 1
+        ? `find.descendant(of: find.byType(Wrap).at(${chipIndex}), matching: find.widgetWithText(ChoiceChip, '${cond.value}'))`
+        : `find.widgetWithText(ChoiceChip, '${cond.value}')`;
+      return `    await tester.tap(${chipScope});\n    await tester.pumpAndSettle();`;
     }
     const enumType = field.of ?? capitalize(field.name);
     // A plain-enum DropdownButton isn't field-keyed in crud_form.ts today, so this assumes exactly
@@ -1504,7 +1534,18 @@ ${setup}    await tester.pumpWidget(const ReplicaApp());
     await tester.pumpAndSettle();
 ${trigger}
 ${scrollToBottom}
-    expect(find.textContaining('${(rule.message ?? "").replace(/'/g, "\\'")}'), findsOneWidget);
+${(() => {
+  // V1.2: a DIFFERENT warn rule on this same entity can independently be active — and, if it
+  // shares this rule's EXACT message text, make the plain findsOneWidget assertion below
+  // ambiguous — purely because ANOTHER field's own default value happens to already satisfy it
+  // (kids_quiz's Question2Correct fires out of the box: q2Answer's default IS its own correct
+  // answer). Only rules that actually share message text with a sibling get the weaker
+  // findsAtLeastNWidgets(1); every entity where every rule's message is unique (every currently-
+  // committed app) keeps the exact original findsOneWidget assertion, byte-identical.
+  const sharesMessage = rules.filter((r) => r.message === rule.message).length > 1;
+  const matcher = sharesMessage ? "findsAtLeastNWidgets(1)" : "findsOneWidget";
+  return `    expect(find.textContaining('${(rule.message ?? "").replace(/'/g, "\\'")}'), ${matcher});`;
+})()}
     expect(tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed, isNotNull, reason: 'a warn verdict must never block Save');
   });`);
       } else if (rule.severity === "requireJustification") {

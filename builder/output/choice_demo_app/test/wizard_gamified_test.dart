@@ -23,8 +23,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('(1/1)'), findsOneWidget, reason: 'a perfect run must show every gamified rule fired');
-    for (final message in ['Correct! +5 stars']) {
-      expect(find.text(message), findsOneWidget, reason: 'each fired rule\'s own message must be shown as a success-tone mark');
-    }
+    expect(find.text('Correct! +5 stars'), findsNWidgets(1), reason: 'every rule sharing this exact message must each show their own fired mark');
   });
 }
