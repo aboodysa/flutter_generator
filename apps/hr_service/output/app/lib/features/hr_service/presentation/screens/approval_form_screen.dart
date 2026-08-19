@@ -56,6 +56,8 @@ class _ApprovalFormScreenBodyState extends State<_ApprovalFormScreenBody> {
   final _decidedAt = TextEditingController();
 
   final _leaveRequestIdFocus = FocusNode();
+  final _approverFocus = FocusNode();
+  final _noteFocus = FocusNode();
 
 
 
@@ -77,6 +79,8 @@ class _ApprovalFormScreenBodyState extends State<_ApprovalFormScreenBody> {
     _note.dispose();
     _decidedAt.dispose();
     _leaveRequestIdFocus.dispose();
+    _approverFocus.dispose();
+    _noteFocus.dispose();
 
 
     super.dispose();
@@ -89,8 +93,8 @@ class _ApprovalFormScreenBodyState extends State<_ApprovalFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _leaveRequestId, focusNode: _leaveRequestIdFocus, onTap: () => _leaveRequestIdFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Leave Request Id')),
-        TextField(controller: _approver, decoration: const InputDecoration(labelText: 'Approver')),
-        TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note')),
+        TextField(controller: _approver, focusNode: _approverFocus, onTap: () => _approverFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Approver')),
+        TextField(controller: _note, focusNode: _noteFocus, onTap: () => _noteFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Note')),
         TextField(controller: _decidedAt, readOnly: true, decoration: const InputDecoration(labelText: 'Decided At', hintText: 'YYYY-MM-DD'), onTap: () async {
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_decidedAt.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _decidedAt.text = picked.toIso8601String().split('T').first);

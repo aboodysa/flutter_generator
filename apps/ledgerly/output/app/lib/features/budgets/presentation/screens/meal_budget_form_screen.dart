@@ -56,6 +56,9 @@ class _MealBudgetFormScreenBodyState extends State<_MealBudgetFormScreenBody> {
   final _actual = TextEditingController();
 
   final _nameFocus = FocusNode();
+  final _limitFocus = FocusNode();
+  final _committedFocus = FocusNode();
+  final _actualFocus = FocusNode();
   final Map<String, TextEditingController> _waiveReasonControllers = {};
   final Map<String, PolicyVerdict> _waivedVerdicts = {};
   final _policyJustification = TextEditingController();
@@ -79,6 +82,9 @@ class _MealBudgetFormScreenBodyState extends State<_MealBudgetFormScreenBody> {
     _committed.dispose();
     _actual.dispose();
     _nameFocus.dispose();
+    _limitFocus.dispose();
+    _committedFocus.dispose();
+    _actualFocus.dispose();
     for (final c in _waiveReasonControllers.values) {
       c.dispose();
     }
@@ -167,9 +173,9 @@ class _MealBudgetFormScreenBodyState extends State<_MealBudgetFormScreenBody> {
       child: ListView(
         children: [
         TextField(controller: _name, focusNode: _nameFocus, onTap: () => _nameFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Name')),
-        TextField(controller: _limit, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Limit', suffixText: 'SAR')),
-        TextField(controller: _committed, onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Committed', suffixText: 'SAR')),
-        TextField(controller: _actual, onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Actual', suffixText: 'SAR')),
+        TextField(controller: _limit, focusNode: _limitFocus, onTap: () => _limitFocus.requestFocus(), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Limit', suffixText: 'SAR')),
+        TextField(controller: _committed, focusNode: _committedFocus, onTap: () => _committedFocus.requestFocus(), onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Committed', suffixText: 'SAR')),
+        TextField(controller: _actual, focusNode: _actualFocus, onTap: () => _actualFocus.requestFocus(), onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Actual', suffixText: 'SAR')),
           _policyPanel(),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(

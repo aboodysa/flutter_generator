@@ -59,6 +59,8 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
   LeaveStatus _status = LeaveStatus.values.first;
   bool _exported = false;
   final _nameFocus = FocusNode();
+  final _daysFocus = FocusNode();
+  final _reasonFocus = FocusNode();
 
 
 
@@ -85,6 +87,8 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
     _days.dispose();
     _reason.dispose();
     _nameFocus.dispose();
+    _daysFocus.dispose();
+    _reasonFocus.dispose();
 
 
     super.dispose();
@@ -106,9 +110,9 @@ class _LeaveRequestFormScreenBodyState extends State<_LeaveRequestFormScreenBody
           final picked = await showDatePicker(context: context, initialDate: DateTime.tryParse(_endDate.text) ?? DateTime.now(), firstDate: DateTime(1900), lastDate: DateTime(2100));
           if (picked != null) setState(() => _endDate.text = picked.toIso8601String().split('T').first);
         }),
-        TextField(controller: _days, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Days')),
+        TextField(controller: _days, focusNode: _daysFocus, onTap: () => _daysFocus.requestFocus(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Days')),
         Wrap(spacing: AppSpacing.sm, children: LeaveStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
-        TextField(controller: _reason, decoration: const InputDecoration(labelText: 'Reason')),
+        TextField(controller: _reason, focusNode: _reasonFocus, onTap: () => _reasonFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Reason')),
         CheckboxListTile(title: const Text('Exported'), value: _exported, onChanged: (v) => setState(() => _exported = v ?? false)),
           const SizedBox(height: AppSpacing.md),
           PrimaryButton(

@@ -58,6 +58,7 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
   ClaimStatus _status = ClaimStatus.values.first;
   bool _exported = false;
   final _nameFocus = FocusNode();
+  final _amountFocus = FocusNode();
   final Map<String, TextEditingController> _waiveReasonControllers = {};
   final Map<String, PolicyVerdict> _waivedVerdicts = {};
   final _policyJustification = TextEditingController();
@@ -83,6 +84,7 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
     _name.dispose();
     _amount.dispose();
     _nameFocus.dispose();
+    _amountFocus.dispose();
     for (final c in _waiveReasonControllers.values) {
       c.dispose();
     }
@@ -228,7 +230,7 @@ class _ExpenseClaimFormScreenBodyState extends State<_ExpenseClaimFormScreenBody
       child: ListView(
         children: [
         TextField(controller: _name, focusNode: _nameFocus, onTap: () => _nameFocus.requestFocus(), decoration: const InputDecoration(labelText: 'Name')),
-        TextField(controller: _amount, onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Amount', suffixText: 'SAR')),
+        TextField(controller: _amount, focusNode: _amountFocus, onTap: () => _amountFocus.requestFocus(), onChanged: (_) => setState(() {}), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Amount', suffixText: 'SAR')),
         Wrap(spacing: AppSpacing.sm, children: ClaimStatus.values.map((v) => ChoiceChip(label: Text(v.name), selected: _status == v, selectedColor: AppChip.colorForTone(context, AppChip.toneForStatus(v.name)).withValues(alpha: 0.2), onSelected: (_) => setState(() => _status = v))).toList()),
         CheckboxListTile(title: const Text('Exported'), value: _exported, onChanged: (v) => setState(() => _exported = v ?? false)),
           _policyPanel(),
