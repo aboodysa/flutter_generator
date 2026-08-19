@@ -388,6 +388,16 @@ export function generateScreen(s: ScreenModel, ctx?: GenContext): string {
     // parent (the list branch's Expanded(child: ListView...) shape, :744-759) — NEVER re-derives
     // component selection/token mapping (composition.ts's sectionsFor is the single owner);
     // applies ctx.visual deltas verbatim, same as every other archetype above.
+    //
+    // S3 (SPIKE_S3_REPORT.md §14.4): the `hero`/`promoBanner`/`productGrid` cases below are the
+    // verbatim application of composition.ts's decided AssetSpec (ctx.assets, via assetFor) — no
+    // NEW lookup is needed here because AppHeroBanner/AppProductCard have no image-kind param to
+    // thread in the first place: both are single-shape organisms (gradient-only, image-slot-free)
+    // that already structurally implement the sole admitted kind for their role (D2), so emitting
+    // `AppHeroBanner(`/`AppProductCard(` here IS the decision, byte-for-byte — never re-derived,
+    // never parameterized past what the closed mapping table (composition.ts's ASSET_MAPPING)
+    // already fixed. The `[assets]` gate re-derives assetFor independently and scans this file's
+    // output for the same markers, so drift between the two is caught without a live dereference.
     const productRoleCtx = entity ? roleContextFor(entity, ctx) : undefined;
     const titleField = entity ? pickTitle(entity) : undefined;
     // Ordered by IR field-declaration order (never a hardcoded field name): the first money field

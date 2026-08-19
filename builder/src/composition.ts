@@ -4,7 +4,7 @@
  * and surface treatment. Adding a new archetype = one entry here (data), no dispatch rewrite.
  * The screen generator consults this registry; unknown archetypes fall back to `list`.
  */
-import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec, VisualHierarchy, VisualCornerRadius, VisualPersonality, SectionModel } from "./types";
+import { FeatureModel, ScreenModel, EntityModel, RepositoryModel, StatePlacementSpec, VisualHierarchy, VisualCornerRadius, VisualPersonality, SectionModel, SectionType } from "./types";
 import { entityPluralTitle } from "./naming";
 import { screenPath } from "./routing";
 import { findRepoForEntity, crudFormTargets, isAudited, resolveExport, findWizardScreen } from "./operations";
@@ -509,6 +509,79 @@ export function sectionsTargets(ir: FeatureModel): Map<string, SectionSpec> {
   const out = new Map<string, SectionSpec>();
   for (const screen of ir.screens ?? []) {
     const spec = sectionsFor(screen, ir);
+    if (spec) out.set(screen.name, spec);
+  }
+  return out;
+}
+
+/**
+ * S3 (SPIKE_S3_REPORT.md §14.1) — the procedural asset-resolution selector. Same single-owner
+ * posture as every other member of this family: `assetFor` is the ONE place a screen's decided
+ * imagery role resolves to a token-only `AssetSpec`; screen.ts applies the decision verbatim
+ * (D1/D5's `:44` never-rule — a tokenRef/icon is always a token/glyph reference, never a path,
+ * URL, or raw number).
+ *
+ * D1 (no `AssetRequest` vocabulary exists yet — VLM_DESIGN_TO_IR_CONTRACT_V2.md's shape is
+ * contract prose only) keys this purely off ALREADY-decided `sections[]` semantics — the same
+ * input sectionsFor already reads (no new IR field, §14.2 imagery flip is owner-gated and out of
+ * this slice). D2 (rung 3 ADOPT): hero/promoBanner resolve to the AppHeroBanner gradient that
+ * already ships (components.ts:270); productGrid resolves to `omitted` — AppProductCard has no
+ * image param today and D2's "no image (S3 owns the asset ladder)" promise is realized by
+ * recording that as a decision, not by adding one. `storeLogo` is the contract's third sample role
+ * (VLM_DESIGN_TO_IR_CONTRACT_V2.md:249) but has no v1 section-type trigger — SPIKE_S3_REPORT.md
+ * §16 is explicit that wiring a storeLogo/avatar section into the S2 vocabulary is a follow-up,
+ * NOT an S3 decision — so the row is declared for closed-table completeness but is unreachable
+ * until that follow-up lands; ASSET_MAPPING below deliberately has no entry that resolves to it.
+ */
+export interface AssetSpec {
+  role: string; // "hero" | "productGrid" (closed; "storeLogo" declared, unreachable — see above)
+  kind: "icon" | "gradient" | "shape" | "placeholder" | "omitted";
+  tokenRef?: string; // an AppColors.*/AppAvatar-style token or component reference — never a path/URL/number
+  icon?: string; // an Icons.* glyph reference — never a path/URL/number
+}
+
+// Closed, fixed table (RADIUS_SCALE/PERSONALITY_ROW style, `:421-456`): every admitted section
+// type resolves to the SAME AssetSpec regardless of which screen/app declares it — there is no
+// per-app variability to decide (rung 3 is deterministic-by-construction, SPIKE_S3_REPORT.md
+// §2c/D2), so this is a lookup table, not branching logic. hero/promoBanner share one `role`
+// (the sections gate already caps hero-family sections at 0..1 per screen, GAP-1) so a screen
+// never records two different decisions for the same focal-point slot.
+const ASSET_MAPPING: Partial<Record<SectionType, AssetSpec>> = {
+  hero: { role: "hero", kind: "gradient", tokenRef: "AppColors.primary" },
+  promoBanner: { role: "hero", kind: "gradient", tokenRef: "AppColors.primary" },
+  productGrid: { role: "productGrid", kind: "omitted" },
+};
+
+// assetFor: closed-enum → fixed table, per screen — mirrors sectionsFor's `null` posture (a
+// screen with no sections, or whose sections carry no asset-bearing role, records nothing) and
+// actionsTargets' `AssetSpec[]` posture (a screen can carry more than one decided role at once —
+// keemart's HomeScreen declares both a `hero` AND a `productGrid` section, so a single-object
+// return type would lose one of the two decisions; `gen_context.ts`'s `actions?: Map<string,
+// ActionSpec[]>` is the exact multi-valued precedent this mirrors instead). Depth-1 children are
+// scanned too (same flattening sectionsCheck's GAP-1/GAP-2 already do) since an asset-bearing
+// section may sit inside a `type:"section"` grouping container (keemart's `offersGrid`).
+export function assetFor(s: ScreenModel, _ir: FeatureModel): AssetSpec[] | null {
+  if (!s.sections || !s.sections.length) return null;
+  const flatten = (secs: SectionModel[]): SectionModel[] => secs.flatMap((sec) => [sec, ...(sec.children ?? [])]);
+  const seenRoles = new Set<string>();
+  const out: AssetSpec[] = [];
+  for (const sec of flatten(s.sections)) {
+    const spec = ASSET_MAPPING[sec.type];
+    if (spec && !seenRoles.has(spec.role)) {
+      seenRoles.add(spec.role);
+      out.push(spec);
+    }
+  }
+  return out.length ? out : null;
+}
+
+// Runs assetFor across every screen in one IR (single- or already-merged multi-feature — same
+// posture as sectionsTargets/visualTargets). Keyed by screen NAME (screen.ts's lookup); index.ts
+// re-keys by screenPath() for plan.json `patterns.assets`.
+export function assetTargets(ir: FeatureModel): Map<string, AssetSpec[]> {
+  const out = new Map<string, AssetSpec[]>();
+  for (const screen of ir.screens ?? []) {
+    const spec = assetFor(screen, ir);
     if (spec) out.set(screen.name, spec);
   }
   return out;

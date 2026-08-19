@@ -1,5 +1,5 @@
 import { FeatureModel, StatePlacementSpec } from "./types";
-import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec } from "./composition";
+import { ShellDestination, SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec, AssetSpec } from "./composition";
 
 /**
  * Generation Plan — a first-class serialized artifact (DESIGN §6.1).
@@ -57,6 +57,13 @@ export interface GenerationPlan {
   // screenPath() like visual, one entry per screen with a non-empty `sections[]` (composition.ts's
   // sectionsFor). Omitted entirely when no screen in this app declares sections. The `[sections]`
   // gate re-derives-and-diffs this the same way `[visualIntent]` does for `patterns.visual`.
+  // S3 (SPIKE_S3_REPORT.md §14.3): `assets` is additive alongside the above — keyed by
+  // screenPath() like sections, one entry per screen with at least one decided asset role
+  // (composition.ts's assetFor). Value is an array (not a single AssetSpec) because one screen
+  // can carry more than one decided role at once (a `hero` + `productGrid` sections screen decides
+  // both) — the same multi-valued posture `actions` already uses. Omitted entirely when no screen
+  // declares an asset-bearing section. The `[assets]` gate re-derives-and-diffs this the same way
+  // `[sections]` does for `patterns.sections`.
   patterns?: {
     shell?: { destinations: ShellDestination[] };
     search?: Record<string, SearchSpec>;
@@ -65,6 +72,7 @@ export interface GenerationPlan {
     states?: Record<string, StatePlacementSpec>;
     visual?: Record<string, VisualSpec>;
     sections?: Record<string, SectionSpec>;
+    assets?: Record<string, AssetSpec[]>;
   };
 }
 

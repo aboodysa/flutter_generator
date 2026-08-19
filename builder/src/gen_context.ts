@@ -8,7 +8,7 @@
 // narrowest capability they actually use — TS structural typing lets index.ts keep constructing
 // and passing one full GenContext everywhere without any caller-side change.
 import { StateManagementProvider, StatePlacementSpec } from "./types";
-import { SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec } from "./composition";
+import { SearchSpec, ScrollSpec, ActionSpec, VisualSpec, SectionSpec, AssetSpec } from "./composition";
 
 export interface PkgContext {
   pkg: string; // package name (e.g. "rasheed_replica_expense")
@@ -41,4 +41,11 @@ export interface GenContext extends PkgContext {
   // generateApp run — screen.ts's sections branch looks itself up by `s.name` to render its
   // decided SectionSpec verbatim (or nothing, for any screen that declares no sections).
   sections?: Map<string, SectionSpec>;
+  // S3 (SPIKE_S3_REPORT.md §14.3): composition.ts's assetTargets(ir), computed once per
+  // generateApp run — the decided AssetSpec[] per screen (or nothing, for any screen with no
+  // asset-bearing section). Recorded into plan.json's `patterns.assets` for the `[assets]` gate;
+  // screen.ts's sections branch needs no new render logic to consume it (AppHeroBanner/
+  // AppProductCard already structurally implement the sole admitted kind per role — see
+  // assetFor's doc comment).
+  assets?: Map<string, AssetSpec[]>;
 }
