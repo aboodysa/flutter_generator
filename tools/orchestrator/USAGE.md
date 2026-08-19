@@ -2,7 +2,8 @@
 
 > Objective-driven autonomous agent orchestration for THIS repo. Companion to the portable
 > `tools/orchestrator-kit/USAGE.md` (project-agnostic copy); this file is the live, in-repo
-> operator reference with concrete flutter_generator commands.
+> operator reference with concrete flutter_generator commands. For token efficiency read
+> `TOKEN_DISCIPLINE.md` (session lifecycle, compact/clear, graphify-first, MCP weight).
 
 ---
 
