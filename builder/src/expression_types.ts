@@ -53,12 +53,17 @@ const OPS_BY_KIND: Record<Exclude<TypeKind, "unknown">, Set<RuleOperator>> = {
 };
 
 const NULL_OPS = new Set<RuleOperator>(["isNull", "isNotNull"]);
-// Ops whose right operand isn't a semantically comparable value (isNull/isNotNull/isEmpty/
-// isNotEmpty ignore it entirely — mirrors expression.ts's operatorExpr, which never reads `right`
-// for these) — operand-compatibility is skipped for them. `in`/`notIn` are also skipped from the
-// generic pairwise check and handled separately (right is a collection, not a scalar).
-const RIGHT_IGNORED_OPS = new Set<RuleOperator>(["isNull", "isNotNull", "isEmpty", "isNotEmpty"]);
 const MEMBERSHIP_OPS = new Set<RuleOperator>(["in", "notIn"]);
+// The generic pairwise operand-compatibility check (brief: "numeric vs numeric, DateTime vs
+// DateTime, String vs String, enum vs enum constant, Money vs numeric literal") only makes sense
+// for the symmetric equality/ordering operators, where both sides represent "the same kind of
+// thing." contains/startsWith/endsWith/matches are asymmetric (a String/List haystack vs a
+// String needle) and are already fully covered by the operator-legality check above — running the
+// pairwise check on them too would just double-report the same Money-piped-through-a-string-op
+// mistake as two overlapping violations. isNull/isNotNull/isEmpty/isNotEmpty ignore the right
+// operand entirely (mirrors operatorExpr, which never reads it); in/notIn is handled separately
+// (right is a collection, not a scalar).
+const SYMMETRIC_COMPARE_OPS = new Set<RuleOperator>([">=", "<=", ">", "<", "==", "!="]);
 
 function numericKind(k: TypeKind): boolean {
   return k === "Money" || k === "int" || k === "double";
@@ -100,6 +105,16 @@ export function typeCheckExpression(e: RuleExpression, entity: EntityModel, enum
       return UNKNOWN;
     }
     return fieldTypeTag(f);
+  }
+
+  // Non-violating lookahead — used only to find the OTHER side's field type as a `counterpart`
+  // hint (money/enum literal disambiguation, mirrors expression.ts's compileValue counterpart
+  // param). `fieldTag` (above) is the sole violation-emitting resolver for a field ref; calling it
+  // twice for the same operand (once here, once in `resolveValue`) would double-report a missing
+  // field.
+  function peekFieldTag(name: string): TypeTag {
+    const f = fields.find((x) => x.name === name);
+    return f ? fieldTypeTag(f) : UNKNOWN;
   }
 
   function checkEnumLiteral(tag: TypeTag, value: unknown): void {
@@ -161,8 +176,8 @@ export function typeCheckExpression(e: RuleExpression, entity: EntityModel, enum
       }
     }
 
-    const leftFieldTag = "field" in c.left ? fieldTag(c.left.field) : undefined;
-    const rightFieldTag = "field" in c.right ? fieldTag(c.right.field) : undefined;
+    const leftFieldTag = "field" in c.left ? peekFieldTag(c.left.field) : undefined;
+    const rightFieldTag = "field" in c.right ? peekFieldTag(c.right.field) : undefined;
     const leftTag = resolveValue(c.left, rightFieldTag);
     const rightTag = resolveValue(c.right, leftFieldTag);
 
@@ -187,7 +202,7 @@ export function typeCheckExpression(e: RuleExpression, entity: EntityModel, enum
           }
         }
       }
-    } else if (!RIGHT_IGNORED_OPS.has(c.op)) {
+    } else if (SYMMETRIC_COMPARE_OPS.has(c.op)) {
       if (!typesCompatible(leftTag, rightTag)) {
         const l = leftTag.of ? `${leftTag.kind}<${leftTag.of}>` : leftTag.kind;
         const r = rightTag.of ? `${rightTag.kind}<${rightTag.of}>` : rightTag.kind;
