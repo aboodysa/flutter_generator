@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: state.products.isEmpty
                       ? EmptyState(message: 'No Products yet')
                       : filtered.isEmpty && query.isNotEmpty
-                          ? EmptyState(message: 'No results for "\$_query"')
+                          ? EmptyState(message: 'No results for "$_query"')
                           : GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
