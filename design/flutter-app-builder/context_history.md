@@ -992,3 +992,14 @@ short messages); keep HANDOFF lean (archive to context_history with dated header
   `fieldRole()` chip-eligibility + Play entry from home).
 - Probe + lessons: `PROBE_FINDINGS.md`, `LESSONS_LEARNED_ROUND_2026-08-19.md`, AGENTS.md guiding
   principles (e98688c). Scaffold tracked (f1d34e3).
+
+---
+## 2026-08-19 — HANDOFF content archived before BREL brief round
+_Content preserved from HANDOFF.md: nosql persistence fixed (round part 4). See git history / prior HANDOFF for full detail._
+
+### nosql persistence fix — DONE
+- Root cause: `generateHiveAdapter` emitted bare relative import from `data/local/`; never received `GenContext`; enum imports missing.
+- Fix: `persistence.ts` both generators accept `ctx?: GenContext` + resolve entity/enum imports via `ctx.symbols`; `index.ts` passes ctx.
+- kids_quiz → `persistence:"nosql"`; 37/37 gates, 57/57 tests, 0 analyze errors, byte-identical, 5 apps byte-identical.
+- HEAD was `27bb1e9`; fix committed as `cc75d8c`; pushed.
+- Open: `appStringsUsed` unused_import (low), tasks stray test file (low), per-locale IR block (nice-to-have).
