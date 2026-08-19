@@ -87,6 +87,10 @@ ls research/S3_SPIKE_BRIEF.md          → present
   collide with a later tracked version.
 - Add the HEAD==origin assertion to the lane-dispatch preflight (checked before sending any
   spike brief to a fresh lane).
+- **Pin the lane cwd to the REAL repo.** The server holds THREE copies: `/flutter_generator`
+  (stale, non-git), `/root/fg` (older), `/root/fg-p5` (the live repo). A lane launched with the
+  wrong cwd researches stale code and wastes the turn. Lane dispatch MUST launch with
+  `cd /root/fg-p5` explicitly and state it in the prime prompt.
 
 ## 8. Follow-up
 
