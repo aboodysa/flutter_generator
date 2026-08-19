@@ -1,0 +1,785 @@
+{
+  "schemaVersion": "1",
+  "name": "kids_quiz",
+  "attributes": {
+    "stateManagement": "bloc",
+    "persistence": "none",
+    "locale": "enArFr"
+  },
+  "enums": [
+    {
+      "name": "QuizCategory",
+      "values": [
+        "animals",
+        "space",
+        "body",
+        "colors"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "QuizDifficulty",
+      "values": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "CorrectOption",
+      "values": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "BadgeKind",
+      "values": [
+        "firstQuiz",
+        "streak3",
+        "streak10",
+        "score50",
+        "perfect10"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "EarnedStatus",
+      "values": [
+        "locked",
+        "earned"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "RunStatus",
+      "values": [
+        "inProgress",
+        "completed"
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "entities": [
+    {
+      "name": "Question",
+      "identity": {
+        "field": "id"
+      },
+      "primaryDisplayField": "title",
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "of": "QuizCategory",
+          "default": "animals",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "difficulty",
+          "type": "enum",
+          "of": "QuizDifficulty",
+          "default": "easy",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "answerA",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "answerB",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "answerC",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "answerD",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "correct",
+          "type": "enum",
+          "of": "CorrectOption",
+          "default": "a",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "explanation",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "points",
+          "type": "int",
+          "default": 5,
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "Achievement",
+      "identity": {
+        "field": "id"
+      },
+      "primaryDisplayField": "title",
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "kind",
+          "type": "enum",
+          "of": "BadgeKind",
+          "default": "firstQuiz",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "earned",
+          "type": "enum",
+          "of": "EarnedStatus",
+          "default": "locked",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "points",
+          "type": "int",
+          "default": 0,
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "QuizRun",
+      "identity": {
+        "field": "id"
+      },
+      "primaryDisplayField": "playerName",
+      "fields": [
+        {
+          "name": "id",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "playerName",
+          "type": "String",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "category",
+          "type": "enum",
+          "of": "QuizCategory",
+          "default": "animals",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "q1Answer",
+          "type": "enum",
+          "of": "CorrectOption",
+          "default": "a",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "q2Answer",
+          "type": "enum",
+          "of": "CorrectOption",
+          "default": "a",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "q3Answer",
+          "type": "enum",
+          "of": "CorrectOption",
+          "default": "a",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "of": "RunStatus",
+          "default": "inProgress",
+          "required": true,
+          "nullable": false,
+          "actor": "human:attested",
+          "confidenceSource": "human-attested",
+          "confidence": 1,
+          "requiresApproval": false
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "businessRules": [
+    {
+      "name": "Question1Correct",
+      "entity": "QuizRun",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "q1Answer",
+          "operator": "==",
+          "value": "b"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "Question2Correct",
+      "entity": "QuizRun",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "q2Answer",
+          "operator": "==",
+          "value": "a"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "Question3Correct",
+      "entity": "QuizRun",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "q3Answer",
+          "operator": "==",
+          "value": "b"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "PerfectRun",
+      "entity": "QuizRun",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "q1Answer",
+          "operator": "==",
+          "value": "b"
+        },
+        {
+          "field": "q2Answer",
+          "operator": "==",
+          "value": "a"
+        },
+        {
+          "field": "q3Answer",
+          "operator": "==",
+          "value": "b"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "RunCompleted",
+      "entity": "QuizRun",
+      "result": "true",
+      "conditions": [
+        {
+          "field": "status",
+          "operator": "==",
+          "value": "completed"
+        }
+      ],
+      "severity": "warn",
+      "message": "Great job finishing the quiz! +5 \u2b50",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "repositories": [
+    {
+      "name": "QuestionRepository",
+      "operations": [
+        {
+          "name": "listQuestions",
+          "returns": "Future<List<Question>>",
+          "params": []
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "AchievementRepository",
+      "operations": [
+        {
+          "name": "listAchievements",
+          "returns": "Future<List<Achievement>>",
+          "params": []
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "QuizRunRepository",
+      "operations": [
+        {
+          "name": "listQuizRuns",
+          "returns": "Future<List<QuizRun>>",
+          "params": []
+        },
+        {
+          "name": "createQuizRun",
+          "returns": "Future<QuizRun>",
+          "params": [
+            {
+              "name": "quizRun",
+              "type": "QuizRun",
+              "named": false
+            }
+          ]
+        },
+        {
+          "name": "updateQuizRun",
+          "returns": "Future<void>",
+          "params": [
+            {
+              "name": "quizRun",
+              "type": "QuizRun",
+              "named": false
+            }
+          ]
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "states": [
+    {
+      "name": "QuestionList",
+      "entity": "Question",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    },
+    {
+      "name": "AchievementList",
+      "entity": "Achievement",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    },
+    {
+      "name": "QuizRunList",
+      "entity": "QuizRun",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    },
+    {
+      "name": "QuizRunWizard",
+      "entity": "QuizRun",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false,
+      "statuses": [
+        "initial",
+        "loading",
+        "success",
+        "failure"
+      ]
+    }
+  ],
+  "screens": [
+    {
+      "name": "QuestionListScreen",
+      "entity": "Question",
+      "type": "sections",
+      "state": "QuestionList",
+      "visualStyle": {
+        "hierarchy": {
+          "value": "strong"
+        },
+        "cornerRadius": {
+          "value": "rounded"
+        },
+        "personality": {
+          "value": "playful"
+        }
+      },
+      "sections": [
+        {
+          "id": "header",
+          "type": "header"
+        },
+        {
+          "id": "search",
+          "type": "search"
+        },
+        {
+          "id": "primaryHero",
+          "type": "hero",
+          "title": "Let's Play & Learn!"
+        },
+        {
+          "id": "discover",
+          "type": "horizontalCards",
+          "title": "Fresh Questions"
+        },
+        {
+          "id": "allQuestions",
+          "type": "section",
+          "title": "All Questions",
+          "children": [
+            {
+              "id": "allQuestionsHeader",
+              "type": "sectionHeader",
+              "title": "All Questions"
+            },
+            {
+              "id": "allQuestionsGrid",
+              "type": "productGrid"
+            }
+          ]
+        },
+        {
+          "id": "allQuestionsDivider",
+          "type": "divider"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "AchievementListScreen",
+      "entity": "Achievement",
+      "type": "list",
+      "state": "AchievementList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "QuizRunListScreen",
+      "entity": "QuizRun",
+      "type": "list",
+      "state": "QuizRunList",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "QuizRunWizardScreen",
+      "entity": "QuizRun",
+      "type": "wizard",
+      "state": "QuizRunWizard",
+      "steps": [
+        {
+          "id": "intro",
+          "title": "Let's play! What's your name?",
+          "fields": [
+            "playerName"
+          ]
+        },
+        {
+          "id": "q1",
+          "title": "Q1: Which planet is known as the Red Planet? A) Earth  B) Mars  C) Venus  D) Jupiter",
+          "fields": [
+            "q1Answer"
+          ]
+        },
+        {
+          "id": "q2",
+          "title": "Q2: Which animal says 'Moo'? A) Cow  B) Cat  C) Dog  D) Duck",
+          "fields": [
+            "q2Answer"
+          ]
+        },
+        {
+          "id": "q3",
+          "title": "Q3: What color do you get by mixing blue and yellow? A) Purple  B) Green  C) Orange  D) Pink",
+          "fields": [
+            "q3Answer"
+          ]
+        },
+        {
+          "id": "bonus",
+          "title": "Perfect score! Bonus round unlocked!",
+          "when": "PerfectRun"
+        },
+        {
+          "id": "result",
+          "title": "Your Results"
+        }
+      ],
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ],
+  "useCases": [
+    {
+      "name": "ListQuestions",
+      "repository": "QuestionRepository",
+      "operation": "listQuestions",
+      "paramType": "NoParams",
+      "returnType": "List<Question>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "ListAchievements",
+      "repository": "AchievementRepository",
+      "operation": "listAchievements",
+      "paramType": "NoParams",
+      "returnType": "List<Achievement>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "ListQuizRuns",
+      "repository": "QuizRunRepository",
+      "operation": "listQuizRuns",
+      "paramType": "NoParams",
+      "returnType": "List<QuizRun>",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "CreateQuizRun",
+      "repository": "QuizRunRepository",
+      "operation": "createQuizRun",
+      "paramType": "QuizRun",
+      "returnType": "QuizRun",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    },
+    {
+      "name": "UpdateQuizRun",
+      "repository": "QuizRunRepository",
+      "operation": "updateQuizRun",
+      "paramType": "QuizRun",
+      "returnType": "void",
+      "actor": "human:attested",
+      "confidenceSource": "human-attested",
+      "confidence": 1,
+      "requiresApproval": false
+    }
+  ]
+}

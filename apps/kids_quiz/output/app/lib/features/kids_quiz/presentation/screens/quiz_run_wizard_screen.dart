@@ -1,0 +1,121 @@
+// [generated] generator=ScreenGenerator template=screen_wizard_bloc.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:rasheed_replica_kids_quiz/core/components.dart';
+import 'package:rasheed_replica_kids_quiz/core/theme.dart';
+import 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/quiz_run_wizard.dart';
+import 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/correct_option.dart';
+
+
+import 'package:rasheed_replica_kids_quiz/core/app_strings.dart';
+
+class QuizRunWizardScreen extends StatefulWidget {
+  const QuizRunWizardScreen({super.key});
+
+  @override
+  State<QuizRunWizardScreen> createState() => _QuizRunWizardScreenState();
+}
+
+class _QuizRunWizardScreenState extends State<QuizRunWizardScreen> {
+  final _playerNameFocus = FocusNode();
+  @override
+  void dispose() {
+    _playerNameFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Quiz Runs')),
+      body: BlocBuilder<QuizRunWizardCubit, QuizRunWizardState>(
+        builder: (context, state) {
+
+            if (state.wizardStatus == QuizRunWizardStatus.success) return const Center(child: Text('All done!'));
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(value: (state.currentStep + 1) / 6),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.md),
+                  child: Text(
+                    switch (state.currentStep) {
+                      0 => 'Let\'s play! What\'s your name?',
+                      1 => 'Q1: Which planet is known as the Red Planet? A) Earth  B) Mars  C) Venus  D) Jupiter',
+                      2 => 'Q2: Which animal says \'Moo\'? A) Cow  B) Cat  C) Dog  D) Duck',
+                      3 => 'Q3: What color do you get by mixing blue and yellow? A) Purple  B) Green  C) Orange  D) Pink',
+                      4 => 'Perfect score! Bonus round unlocked!',
+                      5 => 'Your Results',
+                      _ => '',
+                    },
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: switch (state.currentStep) {
+                      0 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        TextFormField(key: const ValueKey('field-playerName'), focusNode: _playerNameFocus, onTap: () => _playerNameFocus.requestFocus(), initialValue: state.playerName ?? '', decoration: const InputDecoration(labelText: 'Player Name'), onChanged: (v) => context.read<QuizRunWizardCubit>().setPlayerName(v)),
+                      ]),
+                      1 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
+                        DropdownButton<CorrectOption>(key: const ValueKey('field-q1Answer'), value: state.q1Answer, hint: Text('Q1 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ1Answer(v)),
+                      ]),
+                      2 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
+                        Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
+                        DropdownButton<CorrectOption>(key: const ValueKey('field-q2Answer'), value: state.q2Answer, hint: Text('Q2 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ2Answer(v)),
+                      ]),
+                      3 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
+                        Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
+                        Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),
+                        DropdownButton<CorrectOption>(key: const ValueKey('field-q3Answer'), value: state.q3Answer, hint: Text('Q3 Answer'), items: CorrectOption.values.map((v) => DropdownMenuItem(value: v, child: Text(v.name))).toList(), onChanged: (v) => context.read<QuizRunWizardCubit>().setQ3Answer(v)),
+                      ]),
+                      4 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
+                        Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
+                        Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),
+                        Text('Q3 Answer: ${(state.q3Answer?.name ?? '—')}'),
+                      ]),
+                      5 => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Player Name: ${(state.playerName?.toString() ?? '—')}'),
+                        Text('Q1 Answer: ${(state.q1Answer?.name ?? '—')}'),
+                        Text('Q2 Answer: ${(state.q2Answer?.name ?? '—')}'),
+                        Text('Q3 Answer: ${(state.q3Answer?.name ?? '—')}'),
+                      ]),
+                      _ => const SizedBox(),
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Row(
+                    children: [
+                      if (state.currentStep > 0)
+                        TextButton(onPressed: () => context.read<QuizRunWizardCubit>().back(), child: Text(AppStrings.of(context).back)),
+                      const Spacer(),
+                      PrimaryButton(
+                        label: state.isLastStep ? 'Finish' : 'Next',
+                        onPressed: state.canAdvance
+                            ? () {
+                                if (state.isLastStep) {
+                                  context.read<QuizRunWizardCubit>().finish();
+                                } else {
+                                  context.read<QuizRunWizardCubit>().next();
+                                }
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+        },
+      ),
+    );
+  }
+}

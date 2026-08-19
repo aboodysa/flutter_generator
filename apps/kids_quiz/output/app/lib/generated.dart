@@ -1,0 +1,35 @@
+// [generated] generator=ProjectGenerator template=barrel.v1 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/quiz_category.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/quiz_difficulty.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/correct_option.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/badge_kind.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/earned_status.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/run_status.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/question.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/data/models/question_model.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/achievement.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/data/models/achievement_model.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/entities/quiz_run.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/data/models/quiz_run_model.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/repositories/question_repository.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/repositories/achievement_repository.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/repositories/quiz_run_repository.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/usecases/list_questions.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/usecases/list_achievements.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/usecases/list_quiz_runs.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/usecases/create_quiz_run.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/usecases/update_quiz_run.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/question_list.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/achievement_list.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/quiz_run_list.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/state/quiz_run_wizard.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/screens/question_list_screen.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/screens/achievement_list_screen.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/screens/quiz_run_list_screen.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/presentation/screens/quiz_run_wizard_screen.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/rules/question1_correct.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/rules/question2_correct.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/rules/question3_correct.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/rules/perfect_run.dart';
+export 'package:rasheed_replica_kids_quiz/features/kids_quiz/domain/rules/run_completed.dart';

@@ -1,0 +1,87 @@
+// [generated] generator=LocalizationGenerator template=localization.v2 class=structural ownership=generated
+// Do not hand-edit this file; regenerate from IR.
+
+import 'package:flutter/widgets.dart';
+
+class AppStrings {
+  const AppStrings._(this._values);
+  final Map<String, String> _values;
+
+  static const Map<String, String> _en = <String, String>{
+    'appTitle': 'Generated app',
+    'loading': 'Loading…',
+    'error': 'Something went wrong',
+    'retry': 'Retry',
+    'save': 'Save',
+    'create': 'Create',
+    'back': 'Back',
+    'edit': 'Edit',
+    'delete': 'Delete',
+    'cancel': 'Cancel',
+    'audit': 'Audit log',
+    'noData': 'No data',
+    'newLabel': 'New',
+    'signIn': 'Sign in',
+    'chooseDemoAccount': 'Choose a demo account',
+  };
+
+  static const Map<String, String> _ar = <String, String>{
+    'appTitle': 'التطبيق المُنشأ',
+    'loading': 'جارٍ التحميل…',
+    'error': 'حدث خطأ ما',
+    'retry': 'إعادة المحاولة',
+    'save': 'حفظ',
+    'create': 'إنشاء',
+    'back': 'رجوع',
+    'edit': 'تعديل',
+    'delete': 'حذف',
+    'cancel': 'إلغاء',
+    'audit': 'سجل التدقيق',
+    'noData': 'لا توجد بيانات',
+    'newLabel': 'جديد',
+    'signIn': 'تسجيل الدخول',
+    'chooseDemoAccount': 'اختر حساباً تجريبياً',
+  };
+
+  static const Map<String, String> _fr = <String, String>{
+    'appTitle': 'Application générée',
+    'loading': 'Chargement…',
+    'error': "Une erreur s'est produite",
+    'retry': 'Réessayer',
+    'save': 'Enregistrer',
+    'create': 'Créer',
+    'back': 'Retour',
+    'edit': 'Modifier',
+    'delete': 'Supprimer',
+    'cancel': 'Annuler',
+    'audit': "Journal d'audit",
+    'noData': 'Aucune donnée',
+    'newLabel': 'Nouveau',
+    'signIn': 'Se connecter',
+    'chooseDemoAccount': 'Choisissez un compte de démonstration',
+  };
+
+  /// Resolves from the nearest Localizations ancestor (MaterialApp sets this up from its own
+  /// locale/supportedLocales) — falls back to English when no Localizations ancestor exists yet
+  /// (e.g. called above MaterialApp, such as MaterialApp.onGenerateTitle's own context).
+  static AppStrings of(BuildContext context) {
+    final code = Localizations.maybeLocaleOf(context)?.languageCode;
+    return AppStrings._(code == 'ar' ? _ar : code == 'fr' ? _fr : _en);
+  }
+
+  String get appTitle => _values['appTitle']!;
+  String get loading => _values['loading']!;
+  String get error => _values['error']!;
+  String get retry => _values['retry']!;
+  String get save => _values['save']!;
+  String get create => _values['create']!;
+  String get back => _values['back']!;
+  String get edit => _values['edit']!;
+  String get delete => _values['delete']!;
+  String get cancel => _values['cancel']!;
+  String get audit => _values['audit']!;
+  String get noData => _values['noData']!;
+  String get newLabel => _values['newLabel']!;
+  String get signIn => _values['signIn']!;
+  String get chooseDemoAccount => _values['chooseDemoAccount']!;
+}

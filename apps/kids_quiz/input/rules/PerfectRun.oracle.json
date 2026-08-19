@@ -1,0 +1,10 @@
+{
+  "rule": "PerfectRun",
+  "entity": "QuizRun",
+  "cases": [
+    { "input": { "id": "r-1", "playerName": "Lina", "category": "space", "q1Answer": "b", "q2Answer": "a", "q3Answer": "b" }, "expected": true },
+    { "input": { "id": "r-2", "playerName": "Omar", "category": "animals", "q1Answer": "b", "q2Answer": "a", "q3Answer": "a" }, "expected": false },
+    { "input": { "id": "r-3", "playerName": "Sara", "category": "colors", "q1Answer": "a", "q2Answer": "a", "q3Answer": "b" }, "expected": false },
+    { "input": { "id": "r-4", "playerName": "Yousef", "category": "body", "q1Answer": "c", "q2Answer": "d", "q3Answer": "a" }, "expected": false }
+  ]
+}

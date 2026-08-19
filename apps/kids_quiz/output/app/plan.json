@@ -1,0 +1,999 @@
+{
+  "schemaVersion": "1",
+  "generatorVersion": "1.0.0",
+  "artifactCount": 71,
+  "entries": [
+    {
+      "artifact": "enum:QuizCategory",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/quiz_category.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:QuizDifficulty",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/quiz_difficulty.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:CorrectOption",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/correct_option.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:BadgeKind",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/badge_kind.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:EarnedStatus",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/earned_status.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "enum:RunStatus",
+      "generator": "EnumGenerator",
+      "schema": "enum",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/run_status.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:Question",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/question.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:Achievement",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/achievement.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "entity:QuizRun",
+      "generator": "EntityGenerator",
+      "schema": "entity",
+      "layer": "domain/entities",
+      "file": "lib/features/kids_quiz/domain/entities/quiz_run.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:QuestionRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/kids_quiz/domain/repositories/question_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:AchievementRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/kids_quiz/domain/repositories/achievement_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository:QuizRunRepository",
+      "generator": "RepositoryContractGenerator",
+      "schema": "repository",
+      "layer": "domain/repositories",
+      "file": "lib/features/kids_quiz/domain/repositories/quiz_run_repository.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:ListQuestions",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/kids_quiz/domain/usecases/list_questions.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuestionRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:ListAchievements",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/kids_quiz/domain/usecases/list_achievements.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:AchievementRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:ListQuizRuns",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/kids_quiz/domain/usecases/list_quiz_runs.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuizRunRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:CreateQuizRun",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/kids_quiz/domain/usecases/create_quiz_run.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuizRunRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "usecase:UpdateQuizRun",
+      "generator": "UseCaseGenerator",
+      "schema": "usecase",
+      "layer": "domain/usecases",
+      "file": "lib/features/kids_quiz/domain/usecases/update_quiz_run.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuizRunRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "state:QuestionList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/kids_quiz/presentation/state/question_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:Question"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "state:AchievementList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/kids_quiz/presentation/state/achievement_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:Achievement"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "state:QuizRunList",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/kids_quiz/presentation/state/quiz_run_list.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "state:QuizRunWizard",
+      "generator": "StateGenerator",
+      "schema": "state",
+      "layer": "presentation/state",
+      "file": "lib/features/kids_quiz/presentation/state/quiz_run_wizard.dart",
+      "strategy": "enum-status",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:QuestionListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/kids_quiz/presentation/screens/question_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Question",
+        "state:QuestionList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:AchievementListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/kids_quiz/presentation/screens/achievement_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Achievement",
+        "state:AchievementList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:QuizRunListScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/kids_quiz/presentation/screens/quiz_run_list_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun",
+        "state:QuizRunList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "screen:QuizRunWizardScreen",
+      "generator": "ScreenGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/kids_quiz/presentation/screens/quiz_run_wizard_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun",
+        "state:QuizRunWizard"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "rule:Question1Correct",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/kids_quiz/domain/rules/question1_correct.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "rule:Question2Correct",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/kids_quiz/domain/rules/question2_correct.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "rule:Question3Correct",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/kids_quiz/domain/rules/question3_correct.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "rule:PerfectRun",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/kids_quiz/domain/rules/perfect_run.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "rule:RunCompleted",
+      "generator": "RuleCodeGenerator",
+      "schema": "rule",
+      "layer": "domain/rules",
+      "file": "lib/features/kids_quiz/domain/rules/run_completed.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "model:Question",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/kids_quiz/data/models/question_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Question"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:Achievement",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/kids_quiz/data/models/achievement_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:Achievement"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "model:QuizRun",
+      "generator": "ModelGenerator",
+      "schema": "model",
+      "layer": "data/models",
+      "file": "lib/features/kids_quiz/data/models/quiz_run_model.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:QuestionRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/kids_quiz/data/repositories/question_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuestionRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:AchievementRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/kids_quiz/data/repositories/achievement_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:AchievementRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "repository_impl:QuizRunRepositoryInMemoryImpl",
+      "generator": "RepositoryImplGenerator",
+      "schema": "repository_impl",
+      "layer": "data/repositories",
+      "file": "lib/features/kids_quiz/data/repositories/quiz_run_repository_in_memory_impl.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "repository:QuizRunRepository"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "screen:QuizRunFormScreen",
+      "generator": "CrudFormGenerator",
+      "schema": "screen",
+      "layer": "presentation/screens",
+      "file": "lib/features/kids_quiz/presentation/screens/quiz_run_form_screen.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "state:QuizRunList"
+      ],
+      "mode": "deterministic",
+      "class": "pattern"
+    },
+    {
+      "artifact": "policy:QuizRun",
+      "generator": "PolicyEngineGenerator",
+      "schema": "policy",
+      "layer": "domain/policy",
+      "file": "lib/features/kids_quiz/domain/policy/quiz_run_policy.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "entity:QuizRun",
+        "rule:RunCompleted"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "core:di",
+      "generator": "DIGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/di.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:router",
+      "generator": "RouteGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/router.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:components",
+      "generator": "ComponentRegistryGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/components.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:app_strings",
+      "generator": "LocalizationGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/app_strings.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:theme",
+      "generator": "ThemeGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/theme.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:config",
+      "generator": "ConfigGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/config.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:secrets",
+      "generator": "SecretsGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/secrets.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:observability",
+      "generator": "ObservabilityGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/observability.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:validator",
+      "generator": "ValidatorGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/validator.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:no_params",
+      "generator": "NoParamsGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/no_params.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:policy",
+      "generator": "PolicyCoreGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/core/policy.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:widget",
+      "generator": "WidgetTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/widget_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:unit",
+      "generator": "UnitTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/unit_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:flow",
+      "generator": "FlowTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/flow_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:golden",
+      "generator": "GoldenTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/golden_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:viewport_squeeze",
+      "generator": "ViewportSqueezeTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/viewport_squeeze_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:QuestionListScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/question_list_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:AchievementListScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/achievement_list_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:QuizRunListScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/quiz_run_list_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:a11y:QuizRunWizardScreen",
+      "generator": "A11yTestGenerator",
+      "schema": "test",
+      "layer": "test/a11y",
+      "file": "test/a11y/quiz_run_wizard_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:focus",
+      "generator": "FocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:wizardFocus",
+      "generator": "WizardFocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/wizard_focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:searchFocus",
+      "generator": "SearchFocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/search_focus_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:scroll",
+      "generator": "ScrollTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/scroll_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:policy",
+      "generator": "PolicyTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/policy_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:l10n",
+      "generator": "L10nTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/l10n_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "oracle:Question1Correct",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/question1_correct_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:Question1Correct"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:Question2Correct",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/question2_correct_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:Question2Correct"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:Question3Correct",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/question3_correct_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:Question3Correct"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:PerfectRun",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/perfect_run_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:PerfectRun"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "oracle:RunCompleted",
+      "generator": "RuleOracleTestGenerator",
+      "schema": "rule",
+      "layer": "test/rules",
+      "file": "test/rules/run_completed_oracle_test.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "rule:RunCompleted"
+      ],
+      "mode": "semantic",
+      "class": "semantic"
+    },
+    {
+      "artifact": "core:barrel",
+      "generator": "BarrelGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/generated.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "core:main",
+      "generator": "MainGenerator",
+      "schema": "core",
+      "layer": "core",
+      "file": "lib/main.dart",
+      "strategy": "default",
+      "dependsOn": [
+        "core:barrel"
+      ],
+      "mode": "deterministic",
+      "class": "structural"
+    }
+  ],
+  "scoring": {
+    "stateManagement": "bloc",
+    "di": "get_it",
+    "routing": "go_router",
+    "persistence": "none",
+    "coupledPair": "bloc × get_it",
+    "complexity": 16
+  },
+  "patterns": {
+    "search": {
+      "/question": {
+        "enabled": true,
+        "field": "title",
+        "mode": "contains"
+      },
+      "/achievement": {
+        "enabled": true,
+        "field": "title",
+        "mode": "contains"
+      },
+      "/quiz-run": {
+        "enabled": true,
+        "field": "playerName",
+        "mode": "contains"
+      }
+    },
+    "scroll": {
+      "/achievement": {
+        "enabled": true
+      },
+      "/quiz-run": {
+        "enabled": true
+      }
+    },
+    "states": {
+      "/question": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": false,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": false
+      },
+      "/achievement": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": false,
+        "retry": true,
+        "refresh": true
+      },
+      "/quiz-run": {
+        "flowField": "status",
+        "loading": true,
+        "error": true,
+        "empty": true,
+        "emptyCta": true,
+        "retry": true,
+        "refresh": true
+      }
+    },
+    "visual": {
+      "/question": {
+        "radiusScale": {
+          "control": "AppRadius.roundedControl",
+          "surface": "AppRadius.roundedSurface",
+          "container": "AppRadius.roundedContainer",
+          "search": "AppRadius.roundedSearch",
+          "fab": "AppRadius.roundedFab"
+        },
+        "spacing": {
+          "screen": "AppSpacing.lg",
+          "section": "AppSpacing.lg",
+          "itemGap": "AppSpacing.lg",
+          "cardInset": "AppSpacing.lg",
+          "fabInset": "AppSpacing.lg"
+        },
+        "heroScale": 2,
+        "surfaceBias": "plain",
+        "titleWeight": "AppType.titleWeightStrong"
+      }
+    },
+    "sections": {
+      "/question": {
+        "sections": [
+          {
+            "id": "header",
+            "type": "header"
+          },
+          {
+            "id": "search",
+            "type": "search"
+          },
+          {
+            "id": "primaryHero",
+            "type": "hero",
+            "title": "Let's Play & Learn!"
+          },
+          {
+            "id": "discover",
+            "type": "horizontalCards",
+            "title": "Fresh Questions"
+          },
+          {
+            "id": "allQuestions",
+            "type": "section",
+            "title": "All Questions",
+            "children": [
+              {
+                "id": "allQuestionsHeader",
+                "type": "sectionHeader",
+                "title": "All Questions"
+              },
+              {
+                "id": "allQuestionsGrid",
+                "type": "productGrid"
+              }
+            ]
+          },
+          {
+            "id": "allQuestionsDivider",
+            "type": "divider"
+          }
+        ]
+      }
+    },
+    "assets": {
+      "/question": [
+        {
+          "role": "hero",
+          "kind": "gradient",
+          "tokenRef": "AppColors.primary"
+        },
+        {
+          "role": "productGrid",
+          "kind": "omitted"
+        }
+      ]
+    }
+  }
+}
