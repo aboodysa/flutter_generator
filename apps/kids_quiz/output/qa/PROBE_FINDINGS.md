@@ -42,3 +42,13 @@ Screenshots: `01_home.png`, `wizard_step1_intro.png`, `run_step2_q1.png`, `run_s
 Broaden `fieldRole()` chip eligibility (IR-level `role:"choice"` hint or value-shape heuristic) —
 one fix covering findings 2+3 in this probe and findings #1–#3 in `input/brief.md` — and wire a
 real "Play" entry from home to `/quiz-run/wizard` (owner-facing UX ask).
+## v1.1 re-probe (2026-08-19, orchestrator-independent) — both gaps FIXED
+
+Independent CDP re-probe after v1.1 (`27f6fb2` + `98f65a9`):
+- Home now exposes **"Play Quiz" FAB** (`button:Play Quiz`) → clicking it lands in the wizard intro. ✓ finding #1 fixed.
+- Quiz answers render as **ChoiceChips** (`checkbox:a/b/c/d` with real chip semantics), not the dropdown. Chip selection registers (click `b` → Next enables → Q2 shows) and the full run completes via chips only: intro → Q1(b) → Q2(a) → Q3(b) → **bonus step "Perfect score! Bonus round unlocked!"** → **Your Results @100%**. Zero runtime errors. ✓ finding #2 fixed.
+- Generated surface of all 5 existing apps (keemart/tasks/work_auth/hr_service/ledgerly) remains **byte-identical** (lib/ + pubspec + shared tests). ✓ regression contract.
+- kids_quiz: 37/37 gates, 52/52 flutter tests, **0 analyze errors** (warnings only).
+
+### New finding (v1.1 probe, low, pre-existing latent)
+- `unused_import` of `app_strings.dart` on `question_list_screen.dart` — `screen.ts`'s `appStringsUsed` flag doesn't account for the FAB-nav path dropping AppStrings usage on a sections home. 0 errors held; fix location = `screen.ts` `appStringsUsed`. Documented by implementer in `input/brief.md` v1.1 addendum (out of scope for this slice).
