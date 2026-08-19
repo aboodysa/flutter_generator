@@ -448,6 +448,43 @@ Workflow (mmdc installed globally; needs a puppeteer chrome):
 - Deliver both **MD + PDF** to the owner on Telegram as `sendDocument` attachments, never text
   chunks (rule 10). Send MD and PDF as separate documents.
 
+## Guiding principles — probed-app / generated-app verification (2026-08-19, round lessons)
+
+Hard-won rules from the benchmark + kids_quiz round. Full writeup: `research/LESSONS_LEARNED_ROUND_2026-08-19.md`.
+
+1. **A new app must deliberately re-drive every declared-but-under-exercised generator path.** Latent
+   defects (nosql hive-adapter broken import; `fieldRole()` chip-only-for-status/priority/decision) were
+   found ONLY because kids_quiz hit code paths none of the 6 benchmarked apps exercised. Benchmark-before-
+   build; pick the reference app's archetype from the benchmark report, then probe the corners.
+2. **Flutter web deep-links don't route on fresh-tab boot** — go_router rewrites to `initialLocation`
+   (`#/question`). To drive a specific screen via CDP, use `window.location.hash = '#/route'` in the
+   running app (Runtime.evaluate), then re-settle.
+3. **Route-only reachability is a UX gap, not just a routing fact.** A wizard/quiz behind a route with no
+   in-app entry point (sections home's floating "Add to cart" FAB is decorative) is unreachable from the
+   phone UI. When a flow is the product's core action (a quiz run), wire a real entry from home — don't rely
+   on deep links.
+4. **Plain enum fields render as DropdownButton, and the AX view shows raw enum VALUE keys
+   (`menuitem:a/b/c/d`)**, not human labels — hostile to a11y and to tests. The generated a11y test only
+   checks the wizard's first step, so step 2+ is blind. Prefer choice-chips for multiple-choice UX (IR-level
+   `role:"choice"` hint or value-shape heuristic is the recommended v1.1 fix); make a11y tests walk every
+   step.
+5. **CDP probe mechanics** (pin from the round): `ax()` returns `list[dict]` (no `.to_csv`); `/json/new`
+   needs **PUT**; `/json/close` 404s on already-closed tabs (wrap in try/except); after dropdown pick + Next
+   the AX tree can go empty during a step transition — poll until non-empty before declaring a route dead;
+   verify routes with GET, never HEAD.
+6. **Orchestrator re-verifies every implementer claim**: `npm run typecheck:builder`, `validate.ts` (all
+   gates), `flutter analyze` (0 errors), `flutter test`, PLUS an independent double-regen determinism check
+   (`diff -r` two fresh regens). Report exact output; only then report done.
+7. **Regen drops `web/` (G5) — recreate + rebuild after every generate** (`flutter create . --platforms web
+   --project-name rasheed_replica_<app>`, `flutter build web --base-href=/<app>/`), serve `build/web` on a
+   loopback port with SPA fallback, mount additively with `tailscale serve --set-path=/<app>` (never
+   clobber `/`, `/api`, `/tasks`, `/keemart`, `/hr_service`), verify GET 200.
+8. **L4-style additive slices stay byte-identical for existing apps**: extend the closed enum with a new
+   value (`locale: "enArFr"`), never touch existing branches; the determinism gate + regen diff guard it.
+9. **Claude-lane**: usage dialog re-prompt mid-task → `Escape` returns the lane to its local `❯` prompt with
+   state intact (verify with `git log`, not the pane); after `send-keys` a dispatch, press **`Enter`** to
+   actually submit it — plain `send-keys` leaves it sitting un-submitted in the input box.
+
 ## References
 
 - Architecture/design: `design/flutter-app-builder/DESIGN.md`
