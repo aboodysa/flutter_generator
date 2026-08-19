@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import Ajv from "ajv";
 import { RuleModel, RuleCondition, FeatureModel, EntityModel } from "./types";
 import { stampAgentProvenance } from "./provenance";
+import { normalizeExpression, fieldsInExpression } from "./expression";
 
 /**
  * BusinessRuleAgent (Phase 3a) — natural-language business rules → validated RuleModel[].
@@ -81,6 +82,18 @@ export function parseAgentOutput(text: string, entityContext: FeatureModel): Par
   for (const candidate of parsed.businessRules ?? []) {
     const label = candidate?.name ?? "<unnamed>";
 
+    // BREL additive slice: normalize any expression tree the agent produced (flat or already
+    // nested) to the canonical Comparison(left,op,right) shape before schema validation — see
+    // expression.ts's normalizeExpression doc.
+    if (candidate && candidate.expression !== undefined) {
+      try {
+        candidate.expression = normalizeExpression(candidate.expression);
+      } catch (e) {
+        errors.push(`[expression] ${label}: ${(e as Error).message}`);
+        continue;
+      }
+    }
+
     if (!validateRule(candidate)) {
       errors.push(`[schema] ${label}: ${ajv.errorsText(validateRule.errors)}`);
       continue;
@@ -96,6 +109,8 @@ export function parseAgentOutput(text: string, entityContext: FeatureModel): Par
     const bad = [
       ...unknownFields(candidate.conditions, fields),
       ...((candidate.rows ?? []) as { conditions?: RuleCondition[] }[]).flatMap((r) => unknownFields(r.conditions, fields)),
+      // BREL additive slice: the trust boundary (§9.2) applies equally to expression-tree field refs.
+      ...(candidate.expression ? fieldsInExpression(candidate.expression).filter((f) => !fields.has(f)) : []),
     ];
     if (bad.length) {
       errors.push(`[trust] ${label}: unknown field(s) on ${candidate.entity}: ${[...new Set(bad)].join(", ")}`);
@@ -121,11 +136,12 @@ function systemPrompt(entityContext: FeatureModel): string {
 Output ONLY valid JSON (no markdown, no commentary):
 { "businessRules": [ RuleModel, ... ], "extensionQueue": [ { "rule": "name", "reason": "..." }, ... ] }
 
-RuleModel — two forms:
+RuleModel — three forms:
 - Flat: { "name": "camelCase", "entity": "EntityName", "conditions": [ {"field","operator","value"} ], "result": "outcome" } — all conditions AND'd.
 - Decision table: { "name": ..., "entity": ..., "conditions": [], "result": "defaultOutcome", "rows": [ { "outcome": "...", "conditions": [ {"field","operator","value"} ] }, ... ] } — first matching row (top to bottom) wins; "result" is the fallback when no row matches. "conditions": [] is still required even when using "rows".
+- Expression tree (use ONLY when you need "or"/"not" — logic the flat AND-only form can't express): { "name": ..., "entity": ..., "conditions": [], "result": "outcome", "expression": { "or": [ {"field":"q1Answer","operator":"==","value":"a"}, {"field":"q1Answer","operator":"==","value":"b"} ] } }. "conditions": [] is still required even when using "expression". Combinators: {"and":[expr,...]}, {"or":[expr,...]}, {"not":expr}; leaves are {"field","operator","value"} (same as flat conditions) or a function call {"fn":"daysSince","args":[{"field":"endDate"}],"op":">","value":0} for temporal checks (fn registry: daysSince, daysUntil, isBefore, isAfter, isBetween).
 
-Operators: >= <= > < == != contains daysSince> daysSince< . daysSince* compares a DateTime field against "value" = a day count, e.g. {"field":"endDate","operator":"daysSince>","value":"0"} means endDate is more than 0 days in the past.
+Operators: >= <= > < == != contains daysSince> daysSince< . daysSince* compares a DateTime field against "value" = a day count, e.g. {"field":"endDate","operator":"daysSince>","value":"0"} means endDate is more than 0 days in the past. Inside "expression" only, additional operators are available: startsWith endsWith matches in notIn isNull isNotNull isEmpty isNotEmpty.
 
 Entities available — "field" MUST be a real field of the named entity, verbatim:
 ${entityDescriptions}

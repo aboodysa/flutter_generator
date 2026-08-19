@@ -1,6 +1,7 @@
 import { EntityModel, Field, RuleModel } from "../types";
 import { GenContext, nullable, hasDefault, defaultValue, sampleArgFor, fieldLabel, kebab, collectionField, capitalize, camelize, importsFromTypes, newIdExpr } from "../dart";
 import { CrudFormTarget, isMoneyField, crudEditableFields, fieldRole, FieldRoleContext, textInputBypassFields, policyRulesForEntity, splitGroupFor, SplitGroup, hasTenantScoping, exportLockedEntity, hasLocale } from "../operations";
+import { fieldsInExpression } from "../expression";
 
 /**
  * CrudFormGenerator — structural, deterministic, 0% LLM (§5.2-F1).
@@ -484,7 +485,11 @@ export function generateCrudFormScreen(target: CrudFormTarget, entity: EntityMod
   // L2: fields a policy rule's condition actually reads need a live setState on change (see
   // fieldWidget's own doc comment) so verdicts recompute as the user types, before Save.
   const policyRules = ctx?.ir ? policyRulesForEntity(ctx.ir, target.entity) : [];
-  const policyTriggerFieldNames = new Set(policyRules.flatMap((r) => r.conditions.map((c) => c.field)));
+  const policyTriggerFieldNames = new Set(policyRules.flatMap((r) => [
+    ...r.conditions.map((c) => c.field),
+    // BREL additive slice: an expression-form policy rule's fields need the same live setState.
+    ...(r.expression ? fieldsInExpression(r.expression) : []),
+  ]));
 
   const fieldWidgets = editable.map((f) => fieldWidget(f, roleCtx, focusFieldNames.has(f.name), policyTriggerFieldNames.has(f.name))).join("\n");
 

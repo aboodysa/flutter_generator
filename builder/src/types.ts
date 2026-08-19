@@ -408,9 +408,64 @@ export interface FormModel {
 }
 
 // Business rule (formal, closed language — DESIGN §19). Deterministic rule representation.
+// BREL additive slice (design/flutter-app-builder/research/BREL_DECISION.md §5 "ADOPT"): the
+// 9 string/null/collection operators below are additive to the union. They are schema-permitted
+// only inside the new `expression` grammar's ComparisonExpression.op (builder/schemas/rule.schema.json) —
+// the legacy flat `RuleCondition.operator` enum in that same schema intentionally stays the
+// original 8, so no existing generator branch (generators/rule.ts's conditionExpr) needs to change
+// to stay byte-identical. builder/src/expression.ts's compileExpression is the only place that
+// compiles the new 9 to Dart.
 export type RuleOperator =
   | ">=" | "<=" | ">" | "<" | "==" | "!=" | "contains"
-  | "daysSince>" | "daysSince<"; // temporal, scoped to decision-table rows only (§25 Phase 0 slice 3)
+  | "daysSince>" | "daysSince<" // temporal, scoped to decision-table rows only (§25 Phase 0 slice 3)
+  | "startsWith" | "endsWith" | "matches" | "in" | "notIn"
+  | "isNull" | "isNotNull" | "isEmpty" | "isNotEmpty";
+
+// BREL additive slice — optional expression-tree alternative to `conditions[]` for logical
+// combinators (`and`/`or`/`not`) and the fn registry (`daysSince`/`daysUntil`/`isBefore`/`isAfter`/
+// `isBetween`). Canonical AST shape adopted from BREL_CHATGPT_ADDENDUM.md: nested
+// Comparison(left, op, right) over ValueExpression, not the flat `{fn,args,op,value}` form —
+// scales to `sum`/`length` later without special-casing (those stay REJECTED — §19:633 — this
+// union deliberately has no quantifier/aggregate node). Flat input shapes (a plain
+// `{field,operator,value}` RuleCondition, or `{fn,args,op,value}`) are accepted on input and
+// normalized to this canonical nested shape by expression.ts's normalizeExpression before they
+// ever reach a generator.
+export type ValueExpression =
+  | { field: string }
+  | { value: string | number | boolean | (string | number)[] }
+  | { fn: string; args: ValueExpression[] };
+
+export interface ComparisonExpression {
+  left: ValueExpression;
+  op: RuleOperator;
+  right: ValueExpression;
+}
+
+export interface LogicalAndExpression {
+  and: RuleExpression[];
+}
+
+export interface LogicalOrExpression {
+  or: RuleExpression[];
+}
+
+export interface LogicalNotExpression {
+  not: RuleExpression;
+}
+
+// A bare fn call used directly as a boolean predicate (isBefore/isAfter/isBetween) rather than
+// nested inside a Comparison's left/right (which is for VALUE-producing fns like daysSince/daysUntil).
+export interface PredicateCallExpression {
+  fn: string;
+  args: ValueExpression[];
+}
+
+export type RuleExpression =
+  | ComparisonExpression
+  | LogicalAndExpression
+  | LogicalOrExpression
+  | LogicalNotExpression
+  | PredicateCallExpression;
 
 // L2: severity a rule's firing is scored at — presence enrolls a FLAT rule (no `rows`) in the
 // generated policy engine (see generators/policy.ts). A rule with no `severity` keeps today's
@@ -421,9 +476,15 @@ export type PolicySeverity = "autoApprove" | "warn" | "requireJustification" | "
 export interface RuleModel {
   name: string; // e.g. promotionEligibility
   entity: string; // entity the rule acts on
-  conditions: RuleCondition[]; // all must hold (AND) — flat form
+  conditions: RuleCondition[]; // all must hold (AND) — flat form. Empty array when `expression`
+  // is used instead (same additive-required-array precedent as `rows` — see business_rule_agent.ts's
+  // systemPrompt: "conditions": [] is still required even when using "rows").
   result: string; // flat outcome, or the default outcome when no decision-table row matches
   rows?: DecisionTableRow[]; // decision-table form (additive, optional — §19)
+  // BREL additive slice: an optional expression-tree alternative to `conditions[]`, for or/not/fn
+  // (see RuleExpression doc above). Mutually exclusive with a non-empty `conditions` — a rule uses
+  // ONE of the two condition forms. Ignored by the decision-table (`rows`) path.
+  expression?: RuleExpression;
   severity?: PolicySeverity; // L2, flat-form rules only — see PolicySeverity doc above
   message?: string; // L2 — plain-language verdict message shown to the user; required when severity is set ([verdict] gate)
   // V1.2: points this rule contributes when it fires — additive, absent = 0 (today's behavior for

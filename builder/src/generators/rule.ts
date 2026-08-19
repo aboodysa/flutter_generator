@@ -1,6 +1,7 @@
 import { RuleModel, RuleCondition, Field } from "../types";
 import { GenContext, importsFromTypes } from "../dart";
 import { isMoneyField } from "../operations";
+import { compileExpression, fieldsInExpression } from "../expression";
 
 /**
  * BusinessRuleGenerator — structural, deterministic, 0% LLM (Phase 3 deterministic core).
@@ -39,6 +40,7 @@ export function generateRule(rule: RuleModel, ctx?: GenContext): string {
   // warnings for enums never compared).
   const condFieldNames = new Set((rule.rows ?? []).flatMap((r: any) => (r.conditions ?? []).map((c: any) => c.field)));
   (rule.conditions ?? []).forEach((c) => condFieldNames.add(c.field));
+  if (rule.expression) fieldsInExpression(rule.expression).forEach((f) => condFieldNames.add(f));
   const enumTypes = entityFields
     .filter((f: any) => f.type === "enum" && condFieldNames.has(f.name))
     .map((f: any) => f.of || f.name.charAt(0).toUpperCase() + f.name.slice(1));
@@ -66,6 +68,19 @@ class ${rule.name} {
   String? evaluate(${rule.entity} e) {
 ${rowCode}
     return ${rule.result ? `'${rule.result}'` : "null"};
+  }
+}
+`;
+  }
+
+  // BREL additive slice: expression-tree form (or/not/fn) — independent path, only reached when
+  // `rule.expression` is set; never touches the flat-form branch below (byte-identical guarantee
+  // for every existing `conditions[]` rule).
+  if (rule.expression) {
+    return `${header}
+class ${rule.name} {
+  bool evaluate(${rule.entity} e) {
+    return ${compileExpression(rule.expression, entityFields)};
   }
 }
 `;

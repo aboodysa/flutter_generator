@@ -189,7 +189,87 @@
     "points": {
       "type": "number",
       "description": "V1.2: points this rule contributes when it fires — only consumed by a wizard final step's gamified score summary (a rule reachable from a wizard's own step-collected fields). Additive; absent = 0."
+    },
+    "expression": {
+      "$ref": "#/definitions/ruleExpression",
+      "description": "BREL additive slice (see BREL_DECISION.md): optional expression-tree alternative to `conditions[]`, for or/not/fn. Mutually exclusive with a non-empty `conditions` — `conditions: []` stays required (same precedent as `rows`)."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "definitions": {
+    "valueExpression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["field"],
+          "properties": { "field": { "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["value"],
+          "properties": { "value": {} },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["fn", "args"],
+          "properties": {
+            "fn": { "type": "string" },
+            "args": { "type": "array", "items": { "$ref": "#/definitions/valueExpression" } }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "comparisonExpression": {
+      "type": "object",
+      "required": ["left", "op", "right"],
+      "properties": {
+        "left": { "$ref": "#/definitions/valueExpression" },
+        "op": {
+          "enum": [
+            ">=", "<=", ">", "<", "==", "!=", "contains",
+            "daysSince>", "daysSince<",
+            "startsWith", "endsWith", "matches", "in", "notIn",
+            "isNull", "isNotNull", "isEmpty", "isNotEmpty"
+          ]
+        },
+        "right": { "$ref": "#/definitions/valueExpression" }
+      },
+      "additionalProperties": false
+    },
+    "ruleExpression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["and"],
+          "properties": { "and": { "type": "array", "items": { "$ref": "#/definitions/ruleExpression" } } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["or"],
+          "properties": { "or": { "type": "array", "items": { "$ref": "#/definitions/ruleExpression" } } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["not"],
+          "properties": { "not": { "$ref": "#/definitions/ruleExpression" } },
+          "additionalProperties": false
+        },
+        { "$ref": "#/definitions/comparisonExpression" },
+        {
+          "type": "object",
+          "required": ["fn", "args"],
+          "properties": {
+            "fn": { "type": "string" },
+            "args": { "type": "array", "items": { "$ref": "#/definitions/valueExpression" } }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
 }
