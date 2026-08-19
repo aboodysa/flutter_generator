@@ -20,11 +20,13 @@ class MealBudgetListScreen extends StatefulWidget {
 
 class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
   bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -54,6 +56,8 @@ class _MealBudgetListScreenState extends State<MealBudgetListScreen> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
                   child: SearchBar(
                     controller: _searchController,
+                    focusNode: _searchFocus,
+                    onTap: () => _searchFocus.requestFocus(),
                     hintText: 'Search Meal Budgets',
                     leading: const Icon(Icons.search),
                     onChanged: (v) => setState(() => _query = v),

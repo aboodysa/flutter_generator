@@ -18,10 +18,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -38,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-              Padding(key: ValueKey('section-search'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, hintText: 'Search Products', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))))),
+              Padding(key: ValueKey('section-search'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: SearchBar(controller: _searchController, focusNode: _searchFocus, onTap: () => _searchFocus.requestFocus(), hintText: 'Search Products', leading: const Icon(Icons.search), onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.roundedSearch))))),
               const SizedBox(height: AppSpacing.md),
               Padding(key: ValueKey('section-primaryHero'), padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md), child: AppHeroBanner(headline: 'Ready For School', compact: false, radius: AppRadius.roundedSurface)),
               const SizedBox(height: AppSpacing.md),

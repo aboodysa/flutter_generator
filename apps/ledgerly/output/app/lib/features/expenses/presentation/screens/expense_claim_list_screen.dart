@@ -22,11 +22,13 @@ class ExpenseClaimListScreen extends StatefulWidget {
 
 class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
   bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -74,6 +76,8 @@ class _ExpenseClaimListScreenState extends State<ExpenseClaimListScreen> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
                   child: SearchBar(
                     controller: _searchController,
+                    focusNode: _searchFocus,
+                    onTap: () => _searchFocus.requestFocus(),
                     hintText: 'Search Expense Claims',
                     leading: const Icon(Icons.search),
                     onChanged: (v) => setState(() => _query = v), shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.softSearch))),

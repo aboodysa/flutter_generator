@@ -20,11 +20,13 @@ class ApprovalListScreen extends StatefulWidget {
 
 class _ApprovalListScreenState extends State<ApprovalListScreen> {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
   bool _scrolled = false;
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -57,6 +59,8 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
                   child: SearchBar(
                     controller: _searchController,
+                    focusNode: _searchFocus,
+                    onTap: () => _searchFocus.requestFocus(),
                     hintText: 'Search Approvals',
                     leading: const Icon(Icons.search),
                     onChanged: (v) => setState(() => _query = v),

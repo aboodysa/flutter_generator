@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "generatorVersion": "1.0.0",
-  "artifactCount": 27,
+  "artifactCount": 28,
   "entries": [
     {
       "artifact": "enum:InStockStatus",
@@ -284,6 +284,17 @@
       "schema": "test",
       "layer": "test/a11y",
       "file": "test/a11y/home_screen_a11y_test.dart",
+      "strategy": "default",
+      "dependsOn": [],
+      "mode": "deterministic",
+      "class": "structural"
+    },
+    {
+      "artifact": "test:searchFocus",
+      "generator": "SearchFocusTestGenerator",
+      "schema": "test",
+      "layer": "test",
+      "file": "test/search_focus_test.dart",
       "strategy": "default",
       "dependsOn": [],
       "mode": "deterministic",
